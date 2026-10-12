@@ -1,0 +1,36 @@
+runConfig:
+  minInstances: 0
+
+scripts:
+  buildCommand: npm run build
+  runCommand: node server.js
+
+env:
+  - variable: VITE_FIREBASE_API_KEY
+    value: AIzaSyDk_PmLfTo7g8xIdVv1b-p9pGmALYwHUOA
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_AUTH_DOMAIN
+    value: bio-cart.firebaseapp.com
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_PROJECT_ID
+    value: bio-cart
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_STORAGE_BUCKET
+    value: bio-cart.firebasestorage.app
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_MESSAGING_SENDER_ID
+    value: "941267141960"
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_APP_ID
+    value: 1:941267141960:web:1a4da53ee13d8f54d61f7d
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_FIRESTORE_DATABASE_ID
+    value: (default)
+    availability:
+      - BUILD
