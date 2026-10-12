@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateAndCacheProfile(profile);
       } else {
         // Safe profile fallback creation
-        const isOwner = firebaseUser.emailVerified && firebaseUser.email === 'tagoresubhash2001@gmail.com';
+        const isOwner = firebaseUser.emailVerified && firebaseUser.email === 'sinfoxmedia@gmail.com';
         const fallbackProfile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
@@ -117,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const profile = await UserService.getUserProfile(user.uid);
           if (profile) {
-            const verifiedOwner = user.emailVerified && user.email === 'tagoresubhash2001@gmail.com';
+            const verifiedOwner = user.emailVerified && user.email === 'sinfoxmedia@gmail.com';
             const resolvedProfile = verifiedOwner && profile.role === 'customer'
               ? { ...profile, role: 'super_admin' as UserRole, updatedAt: new Date().toISOString() }
               : profile;
@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (resolvedProfile !== profile) await UserService.saveProfile(resolvedProfile);
           } else {
             // Provision if missing
-            const isOwner = user.emailVerified && user.email === 'tagoresubhash2001@gmail.com';
+            const isOwner = user.emailVerified && user.email === 'sinfoxmedia@gmail.com';
             const role: UserRole = isOwner ? 'super_admin' : 'customer';
             const newProfile: UserProfile = {
               uid: user.uid,
