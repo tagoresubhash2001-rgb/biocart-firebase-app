@@ -1,0 +1,25 @@
+﻿{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "vendor_orders",
+      "fieldPath": "vendorId",
+      "indexes": [
+        {
+          "order": "ASC",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "vendor_orders",
+      "fieldPath": "createdAt",
+      "indexes": [
+        {
+          "order": "DESC",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    }
+  ]
+}

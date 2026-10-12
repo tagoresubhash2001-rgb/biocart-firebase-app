@@ -1,0 +1,12 @@
+{
+  "projectId": "bio-cart",
+  "appId": "1:219828939093:web:9d88c118df493244b1e7dc",
+  "apiKey": "AIzaSyCHdy2O22KajcHOitqGADHgxcJyIr_2cFI",
+  "authDomain": "bio-cart.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "bio-cart.firebasestorage.app",
+
+  "messagingSenderId": "219828939093",
+  "measurementId": "",
+  "oAuthClientId": "219828939093-1ikt3bkl0v8ak1rkm7apncr81u6r6bf6.apps.googleusercontent.com"
+}
