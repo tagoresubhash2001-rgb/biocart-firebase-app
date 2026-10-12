@@ -748,6 +748,15 @@ export class AdminService {
             updatedAt: new Date().toISOString()
           };
           batch.set(docRef, payload, { merge: true });
+          batch.set(doc(db, 'inventory', prod.id), {
+            productId: prod.id,
+            vendorId: 'biocart',
+            sku: prod.sku,
+            quantity: 150,
+            availableQuantity: 150,
+            lowStockThreshold: 10,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
         });
 
         await batch.commit();
@@ -808,87 +817,21 @@ export class AdminService {
         await bannerBatch.commit();
       }
 
-      // 4. Seed Initial Vendor Foundation
-      const vendorSnapshot = await getDocs(collection(db, 'vendors'));
-      if (vendorSnapshot.empty) {
-        const defaultVendors: VendorItem[] = [
-          {
-            id: 'biocart',
-            ownerUid: 'system',
-            storeName: 'BioCart Direct Official',
-            ownerName: 'Tagore Subhash',
-            email: 'official@biocart.com',
-            phone: '+91 9876543210',
-            logo: '/assets/logo.png',
-            status: 'active',
-            commission: { baseRateBps: 0 },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: 'vendor-vamsi-farms',
-            ownerUid: 'system',
-            storeName: 'Vamsi Organic Farms',
-            ownerName: 'Vamsi Krishna',
-            email: 'vamsi@vamsiorganics.com',
-            phone: '+91 9123456789',
-            logo: '',
-            status: 'active',
-            commission: { baseRateBps: 1000 },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        ];
-
-        const vBatch = writeBatch(db);
-        defaultVendors.forEach((v) => {
-          const docRef = doc(db, 'vendors', v.id);
-          vBatch.set(docRef, v, { merge: true });
+      // Do not publish fabricated vendors, reviews, or testimonials as real data.
+      // Keep the official first-party vendor record needed by checkout accounting.
+      const vendorRef = doc(db, 'vendors', 'biocart');
+      const vendorDoc = await getDoc(vendorRef);
+      if (!vendorDoc.exists()) {
+        await setDoc(vendorRef, {
+          id: 'biocart',
+          ownerUid: 'system',
+          storeName: 'BioCart Direct Official',
+          status: 'active',
+          approvalStatus: 'approved',
+          commissionRate: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         });
-        await vBatch.commit();
-      }
-
-      // 5. Seed Initial Reviews if empty
-      const reviewSnapshot = await getDocs(collection(db, 'reviews'));
-      if (reviewSnapshot.empty) {
-        const reviewsBatch = writeBatch(db);
-        let revCount = 0;
-        SEED_PRODUCTS.forEach((p) => {
-          if (p.reviews && p.reviews.length > 0) {
-            p.reviews.forEach((r) => {
-              const docRef = doc(db, 'reviews', r.id);
-              reviewsBatch.set(docRef, {
-                ...r,
-                productId: p.id,
-                productName: p.name,
-                userEmail: 'customer@biocart.com',
-                status: 'active'
-              }, { merge: true });
-              revCount++;
-            });
-          }
-        });
-        if (revCount > 0) {
-          await reviewsBatch.commit();
-        }
-      }
-
-      // 6. Seed Testimonials if empty
-      const testimonialSnapshot = await getDocs(collection(db, 'testimonials'));
-      if (testimonialSnapshot.empty) {
-        // We dynamically import SEED_TESTIMONIALS to avoid circular dependencies if any, or just use it since we already imported SEED_PRODUCTS. Wait, let's import it at the top!
-        const { SEED_TESTIMONIALS } = await import('../data/seedData');
-        const testBatch = writeBatch(db);
-        SEED_TESTIMONIALS.forEach((t) => {
-          const docRef = doc(db, 'testimonials', t.id);
-          testBatch.set(docRef, {
-            ...t,
-            active: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-        });
-        await testBatch.commit();
       }
 
       // 7. Seed Default Store Settings if empty
@@ -896,6 +839,11 @@ export class AdminService {
       const settingsSnap = await getDoc(settingsRef);
       if (!settingsSnap.exists()) {
         await setDoc(settingsRef, DEFAULT_STORE_SETTINGS);
+      }
+      const orderSettingsRef = doc(db, 'settings', 'main');
+      const orderSettingsSnap = await getDoc(orderSettingsRef);
+      if (!orderSettingsSnap.exists()) {
+        await setDoc(orderSettingsRef, { shippingFee: 99, freeShippingThreshold: 1999, taxRate: 5 });
       }
 
     } catch (err) {

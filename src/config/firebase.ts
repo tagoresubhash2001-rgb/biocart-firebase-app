@@ -49,4 +49,4 @@ googleProvider.setCustomParameters({
 export default app;
 
 
-export const functions = getFunctions(app);
+export const functions = getFunctions(app, 'asia-southeast1');

@@ -47,7 +47,7 @@ export class AuthService {
       const profile = await UserService.getUserProfile(user.uid);
       if (!profile) {
         // Automatically provision a new Customer (or Admin if matching the administrative email)
-        const isOwner = user.email === 'tagoresubhash2001@gmail.com';
+        const isOwner = user.emailVerified && user.email === 'tagoresubhash2001@gmail.com';
         const role: UserRole = isOwner ? 'super_admin' : 'customer';
 
         const newProfile: UserProfile = {
@@ -86,7 +86,7 @@ export class AuthService {
       const user = result.user;
 
       // Provision new user profile document
-      const isOwner = email === 'tagoresubhash2001@gmail.com';
+      const isOwner = user.emailVerified && email === 'tagoresubhash2001@gmail.com';
       const role: UserRole = isOwner ? 'super_admin' : 'customer';
 
       const newProfile: UserProfile = {

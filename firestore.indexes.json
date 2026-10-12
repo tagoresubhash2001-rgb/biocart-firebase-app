@@ -6,7 +6,7 @@
       "fieldPath": "vendorId",
       "indexes": [
         {
-          "order": "ASC",
+          "order": "ASCENDING",
           "queryScope": "COLLECTION_GROUP"
         }
       ]
@@ -16,7 +16,7 @@
       "fieldPath": "createdAt",
       "indexes": [
         {
-          "order": "DESC",
+          "order": "DESCENDING",
           "queryScope": "COLLECTION_GROUP"
         }
       ]

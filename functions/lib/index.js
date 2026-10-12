@@ -56,14 +56,26 @@ function generateRandomId(length) {
 // createOrder — restored original transaction, PLUS
 // multi-vendor order splitting + wallet crediting.
 // ==========================================================
-exports.createOrder = (0, https_1.onCall)(async (request) => {
+exports.createOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be logged in.');
     }
+    if (request.auth.token.email_verified !== true) {
+        throw new https_1.HttpsError('permission-denied', 'Verify your email before placing an order.');
+    }
     const data = request.data;
     const { items, shippingAddress, billingAddress, couponCode } = data;
-    if (!items || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0 || items.length > 50 ||
+        items.some(item => !item || typeof item.productId !== 'string' ||
+            !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99)) {
         throw new https_1.HttpsError('invalid-argument', 'Cart is empty.');
+    }
+    if (!shippingAddress || typeof shippingAddress !== 'object' || Array.isArray(shippingAddress) ||
+        !billingAddress || typeof billingAddress !== 'object' || Array.isArray(billingAddress)) {
+        throw new https_1.HttpsError('invalid-argument', 'Valid shipping and billing addresses are required.');
+    }
+    if (new Set(items.map(item => item.productId)).size !== items.length) {
+        throw new https_1.HttpsError('invalid-argument', 'Cart contains duplicate products.');
     }
     const userId = request.auth.uid;
     const year = new Date().getFullYear();
@@ -100,6 +112,9 @@ exports.createOrder = (0, https_1.onCall)(async (request) => {
                 throw new https_1.HttpsError('not-found', `Product ${items[index].productId} not found`);
             }
             const productData = doc.data();
+            if (productData.active === false || typeof productData.price !== 'number' || !Number.isFinite(productData.price) || productData.price < 0) {
+                throw new https_1.HttpsError('failed-precondition', `Product ${doc.id} is unavailable.`);
+            }
             const vendorId = productData.vendorId || 'biocart';
             vendorIdsInCart.add(vendorId);
         });
@@ -252,7 +267,7 @@ exports.createOrder = (0, https_1.onCall)(async (request) => {
     });
     return { success: true, orderId: orderNumber, invoiceId: invoiceNumber };
 });
-exports.createVendorAccount = (0, https_1.onCall)(async (request) => {
+exports.createVendorAccount = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in.');
     }
@@ -320,7 +335,7 @@ exports.createVendorAccount = (0, https_1.onCall)(async (request) => {
 // ==========================================================
 // generateInvoicePDF — restored, unchanged.
 // ==========================================================
-exports.generateInvoicePDF = (0, firestore_1.onDocumentCreated)('orders/{orderId}', async (event) => {
+exports.generateInvoicePDF = (0, firestore_1.onDocumentCreated)({ document: 'orders/{orderId}', region: 'asia-southeast1' }, async (event) => {
     const snap = event.data;
     if (!snap)
         return;

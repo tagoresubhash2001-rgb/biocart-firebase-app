@@ -36,15 +36,27 @@ function generateRandomId(length: number): string {
 // createOrder — restored original transaction, PLUS
 // multi-vendor order splitting + wallet crediting.
 // ==========================================================
-export const createOrder = onCall(async (request) => {
+export const createOrder = onCall({ region: 'asia-southeast1' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be logged in.');
+  }
+  if (request.auth.token.email_verified !== true) {
+    throw new HttpsError('permission-denied', 'Verify your email before placing an order.');
   }
 
   const data = request.data as CreateOrderPayload;
   const { items, shippingAddress, billingAddress, couponCode } = data;
-  if (!items || items.length === 0) {
+  if (!Array.isArray(items) || items.length === 0 || items.length > 50 ||
+      items.some(item => !item || typeof item.productId !== 'string' ||
+        !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99)) {
     throw new HttpsError('invalid-argument', 'Cart is empty.');
+  }
+  if (!shippingAddress || typeof shippingAddress !== 'object' || Array.isArray(shippingAddress) ||
+      !billingAddress || typeof billingAddress !== 'object' || Array.isArray(billingAddress)) {
+    throw new HttpsError('invalid-argument', 'Valid shipping and billing addresses are required.');
+  }
+  if (new Set(items.map(item => item.productId)).size !== items.length) {
+    throw new HttpsError('invalid-argument', 'Cart contains duplicate products.');
   }
 
   const userId = request.auth.uid;
@@ -89,6 +101,9 @@ export const createOrder = onCall(async (request) => {
         throw new HttpsError('not-found', `Product ${items[index].productId} not found`);
       }
       const productData = doc.data()!;
+      if (productData.active === false || typeof productData.price !== 'number' || !Number.isFinite(productData.price) || productData.price < 0) {
+        throw new HttpsError('failed-precondition', `Product ${doc.id} is unavailable.`);
+      }
       const vendorId = productData.vendorId || 'biocart';
       vendorIdsInCart.add(vendorId);
     });
@@ -269,7 +284,7 @@ interface CreateVendorAccountPayload {
   commissionRate: number;
 }
 
-export const createVendorAccount = onCall(async (request) => {
+export const createVendorAccount = onCall({ region: 'asia-southeast1' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Must be logged in.');
   }
@@ -348,7 +363,7 @@ export const createVendorAccount = onCall(async (request) => {
 // ==========================================================
 // generateInvoicePDF — restored, unchanged.
 // ==========================================================
-export const generateInvoicePDF = onDocumentCreated('orders/{orderId}', async (event: any) => {
+export const generateInvoicePDF = onDocumentCreated({ document: 'orders/{orderId}', region: 'asia-southeast1' }, async (event: any) => {
   const snap = event.data;
   if (!snap) return;
 

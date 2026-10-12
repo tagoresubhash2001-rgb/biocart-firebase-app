@@ -19,7 +19,7 @@ import {
   Copy
 } from 'lucide-react';
 
-const functions = getFunctions(app);
+const functions = getFunctions(app, 'asia-southeast1');
 const createVendorAccountCF = httpsCallable(functions, 'createVendorAccount');
 
 export const AdminVendors: React.FC = () => {

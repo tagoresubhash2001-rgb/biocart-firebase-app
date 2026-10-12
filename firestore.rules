@@ -131,9 +131,11 @@ service cloud.firestore {
       allow get: if isSignedIn();
       allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
-                    (incoming().role == 'customer' || (incoming().role in ['admin', 'super_admin'] && request.auth.token.email == 'tagoresubhash2001@gmail.com'));
+                    (incoming().role in ['customer', 'guest'] ||
+                     (isEmailVerified() && incoming().role == 'super_admin' && request.auth.token.email == 'tagoresubhash2001@gmail.com'));
       allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
-                    (incoming().role == existing().role || isAdmin()); // Prevent unauthorized self role-escalation
+                    (incoming().role == existing().role || isAdmin() ||
+                     (isEmailVerified() && request.auth.token.email == 'tagoresubhash2001@gmail.com' && incoming().role == 'super_admin'));
       allow delete: if isAdmin();
     }
 
