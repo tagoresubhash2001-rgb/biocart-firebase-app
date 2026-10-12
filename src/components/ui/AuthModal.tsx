@@ -11,12 +11,13 @@ export const AuthModal: React.FC = () => {
     authModalMode,
     setAuthModalMode,
     login,
+    loginWithGoogleProvider,
     addToast
   } = useApp();
 
-  const [email, setEmail] = useState('tagoresubhash2001@gmail.com');
-  const [password, setPassword] = useState('Tagore@2001');
-  const [name, setName] = useState('Tagore Subhash');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
 
   if (!isAuthModalOpen) return null;
 
@@ -169,6 +170,25 @@ export const AuthModal: React.FC = () => {
               <ArrowRight className="w-4 h-4 text-white" />
             </button>
           </form>
+
+          {authModalMode === 'login' && (
+            <>
+              <div className="flex items-center gap-3 my-5 text-xs text-charcoal-400">
+                <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+                <span>or sign in with</span>
+                <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+              </div>
+              <button
+                type="button"
+                onClick={() => loginWithGoogleProvider()}
+                className="w-full flex items-center justify-center gap-3 py-3 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-semibold text-charcoal-800 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                id="google-sign-in-btn"
+              >
+                <span aria-hidden="true" className="font-bold text-base">G</span>
+                Continue with Google
+              </button>
+            </>
+          )}
 
           <div className="h-[1px] bg-slate-100 dark:bg-white/5 my-6" />
 

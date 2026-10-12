@@ -188,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startLoading('Creating secure account...');
     try {
       await AuthService.register(email, password, name, phoneNumber, location);
-      showNotification('Registration successful! Welcome to BioCart.', 'success');
+      showNotification('Account created. Check your email and verify it before signing in.', 'success');
     } catch (err: any) {
       const norm = normalizeError(err);
       showNotification(norm.message, 'error');

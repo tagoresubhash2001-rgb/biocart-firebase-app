@@ -42,6 +42,7 @@ export class AuthService {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+      await sendEmailVerification(user);
       
       // Check if user profile already exists
       const profile = await UserService.getUserProfile(user.uid);
