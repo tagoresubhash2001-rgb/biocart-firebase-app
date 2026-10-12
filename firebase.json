@@ -7,6 +7,15 @@
     "source": "functions",
     "runtime": "nodejs22"
   },
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "BioCart",
+        "supportEmail": "tagoresubhash2001@gmail.com"
+      }
+    }
+  },
   "storage": {
     "rules": "storage.rules"
   },
