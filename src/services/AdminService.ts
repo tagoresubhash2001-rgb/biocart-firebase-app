@@ -319,6 +319,11 @@ export class AdminService {
       snapshot.forEach((docSnap) => {
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
+      list.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
       callback(list);
     }, (err) => { console.error('Orders subscription error:', err); callback([]); });
   }

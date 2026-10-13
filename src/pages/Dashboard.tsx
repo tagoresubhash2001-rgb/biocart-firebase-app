@@ -59,19 +59,46 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     setLoadingOrders(true);
+
+    const parseAndSortOrders = (docs: any[]) => {
+      const list = docs.map(d => ({ id: d.id, ...d.data() }));
+      list.sort((a: any, b: any) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+      return list;
+    };
+
+    let fallbackUnsub: (() => void) | null = null;
     const q = query(
       collection(db, 'orders'),
       where('userId', '==', user.uid),
       orderBy('createdAt', 'desc')
     );
+
     const unsub = onSnapshot(q, (snap) => {
-      setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setOrders(parseAndSortOrders(snap.docs));
       setLoadingOrders(false);
     }, (err) => {
-      console.error(err);
-      setLoadingOrders(false);
+      console.warn('Orders composite query failed, attempting unindexed query with client-side sort:', err);
+      const fallbackQ = query(
+        collection(db, 'orders'),
+        where('userId', '==', user.uid)
+      );
+      fallbackUnsub = onSnapshot(fallbackQ, (fallbackSnap) => {
+        setOrders(parseAndSortOrders(fallbackSnap.docs));
+        setLoadingOrders(false);
+      }, (fallbackErr) => {
+        console.error('Customer orders subscription error:', fallbackErr);
+        setLoadingOrders(false);
+      });
     });
-    return () => unsub();
+
+    return () => {
+      unsub();
+      if (fallbackUnsub) fallbackUnsub();
+    };
   }, [user]);
 
   if (!user) {

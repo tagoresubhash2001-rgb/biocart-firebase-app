@@ -31,22 +31,46 @@ export const VendorOrders: React.FC = () => {
 
   useEffect(() => {
     if (!vendorId) return;
-    // FIXED: this previously subscribed to the entire `orders` collection
-    // (every vendor's, every customer's orders) with no filter at all.
-    // It now only ever reads this vendor's own order slices.
+
+    const parseAndSortVendorOrders = (snap: any) => {
+      const list: VendorOrderSlice[] = [];
+      snap.forEach((docSnap: any) => {
+        list.push({ id: docSnap.id, ref: docSnap.ref, ...(docSnap.data() as any) });
+      });
+      list.sort((a: any, b: any) => {
+        const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+        const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+      return list;
+    };
+
+    let fallbackUnsub: (() => void) | null = null;
     const q = query(
       collectionGroup(db, 'vendor_orders'),
       where('vendorId', '==', vendorId),
       orderBy('createdAt', 'desc')
     );
+
     const unsub = onSnapshot(q, (snap) => {
-      const list: VendorOrderSlice[] = [];
-      snap.forEach((docSnap) => {
-        list.push({ id: docSnap.id, ref: docSnap.ref, ...(docSnap.data() as any) });
+      setOrders(parseAndSortVendorOrders(snap));
+    }, (err) => {
+      console.warn('Vendor orders composite query failed, attempting unindexed query with client-side sort:', err);
+      const fallbackQ = query(
+        collectionGroup(db, 'vendor_orders'),
+        where('vendorId', '==', vendorId)
+      );
+      fallbackUnsub = onSnapshot(fallbackQ, (fallbackSnap) => {
+        setOrders(parseAndSortVendorOrders(fallbackSnap));
+      }, (fallbackErr) => {
+        console.error('Vendor orders subscription error:', fallbackErr);
       });
-      setOrders(list);
-    }, (err) => console.error('Vendor orders subscription error:', err));
-    return () => unsub();
+    });
+
+    return () => {
+      unsub();
+      if (fallbackUnsub) fallbackUnsub();
+    };
   }, [vendorId]);
 
   const handleUpdateShipment = async (order: VendorOrderSlice, status: VendorOrderSlice['shipmentStatus']) => {

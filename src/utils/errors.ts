@@ -24,8 +24,8 @@ export function normalizeError(error: any): AppError {
   const message = error?.message || 'An unexpected error occurred';
   const code = error?.code || 'unknown';
 
-  // Check for offline/network status
-  if (!navigator.onLine) {
+  // Check for offline/network status (browser only)
+  if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.onLine === false) {
     return new AppError('No internet connection. Please check your network and try again.', 'network', 'offline');
   }
 

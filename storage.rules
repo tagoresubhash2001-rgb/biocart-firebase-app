@@ -31,19 +31,22 @@ service firebase.storage {
     match /products/{allPaths=**} {
       allow write: if isAdmin() && isValidImage();
     }
-    match /vendor_products/{vendorId}/{imageId} {
+    match /vendor_products/{vendorId}/{allPaths=**} {
       allow write: if (isAdmin() || isVendorOwner(vendorId)) && isValidImage();
     }
-    match /media/{imageId} {
+    match /cms/{allPaths=**} {
       allow write: if isAdmin() && isValidImage();
     }
-    match /categories/{imageId} {
+    match /media/{allPaths=**} {
       allow write: if isAdmin() && isValidImage();
     }
-    match /banners/{imageId} {
+    match /categories/{allPaths=**} {
       allow write: if isAdmin() && isValidImage();
     }
-    match /vendors/{vendorId}/{imageId} {
+    match /banners/{allPaths=**} {
+      allow write: if isAdmin() && isValidImage();
+    }
+    match /vendors/{vendorId}/{allPaths=**} {
       allow write: if (isAdmin() || isVendorOwner(vendorId)) && isValidImage();
     }
     
