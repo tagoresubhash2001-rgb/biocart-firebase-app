@@ -1,12 +1,12 @@
 {
   "projectName": "BioCart",
   "version": "1.0.0-production-release",
-  "commitSha": "0adb2c6",
+  "commitSha": "d56eb7e",
   "branch": "main",
   "repository": "https://github.com/tagoresubhash2001-rgb/biocart-firebase-app.git",
   "firebaseProject": "bio-cart",
   "region": "asia-southeast1",
-  "verifiedTimestamp": "2026-10-13T13:55:00+05:30",
+  "verifiedTimestamp": "2026-10-13T14:32:00+05:30",
   "status": "VERIFIED_PRODUCTION_READY",
   "authorizedAdmin": {
     "email": "sinfoxmedia@gmail.com",
