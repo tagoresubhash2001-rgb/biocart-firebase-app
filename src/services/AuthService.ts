@@ -6,27 +6,37 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   sendPasswordResetEmail,
   sendEmailVerification,
-  RecaptchaVerifier,
-  ConfirmationResult,
-  signInWithPhoneNumber,
   User as FirebaseUser,
-  onAuthStateChanged
+  onAuthStateChanged,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult
 } from 'firebase/auth';
 import { UserProfile, UserRole } from '../types/backend';
 import { UserService } from './UserService';
 import { normalizeError } from '../utils/errors';
 
+export type { ConfirmationResult };
+
+/**
+ * Detect mobile devices to prefer redirect over popup
+ */
+export const isMobileDevice = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+  const isTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const isSmallScreen = window.innerWidth <= 768;
+  return mobileRegex.test(userAgent) || (isTouchScreen && isSmallScreen);
+};
+
 export class AuthService {
-  static async sendPhoneCode(phoneNumber: string, verifier: RecaptchaVerifier): Promise<ConfirmationResult> {
-    try {
-      return await signInWithPhoneNumber(auth, phoneNumber, verifier);
-    } catch (err) {
-      throw normalizeError(err);
-    }
-  }
+  private static recaptchaVerifier: RecaptchaVerifier | null = null;
 
   /**
    * Safe login with email or username and password
@@ -47,13 +57,148 @@ export class AuthService {
     }
   }
 
+  /**
+   * Google OAuth Authentication
+   * Uses redirect on mobile devices and popup on desktop with redirect fallback.
+   */
+  static async loginWithGoogle(): Promise<FirebaseUser | null> {
+    try {
+      if (isMobileDevice()) {
+        await signInWithRedirect(auth, googleProvider);
+        return null;
+      }
+
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        if (result.user) {
+          const profile = await UserService.getUserProfile(result.user.uid);
+          if (profile) await UserService.updateLastLogin(result.user.uid);
+        }
+        return result.user;
+      } catch (popupErr: any) {
+        if (popupErr?.code === 'auth/popup-blocked') {
+          console.warn('Popup blocked by browser, falling back to signInWithRedirect...');
+          await signInWithRedirect(auth, googleProvider);
+          return null;
+        }
+        throw popupErr;
+      }
+    } catch (err) {
+      throw normalizeError(err);
+    }
+  }
 
   /**
-   * Google OAuth Pop-up Authentication
+   * Check and resolve redirect-based Google authentication results
    */
-  static async loginWithGoogle(): Promise<FirebaseUser> {
+  static async checkRedirectResult(): Promise<FirebaseUser | null> {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await getRedirectResult(auth);
+      if (result?.user) {
+        const profile = await UserService.getUserProfile(result.user.uid);
+        if (profile) await UserService.updateLastLogin(result.user.uid);
+        return result.user;
+      }
+      return null;
+    } catch (err) {
+      throw normalizeError(err);
+    }
+  }
+
+  /**
+   * Initialize or return an active RecaptchaVerifier
+   */
+  static getRecaptchaVerifier(containerId: string = 'recaptcha-container'): RecaptchaVerifier {
+    if (typeof window === 'undefined') {
+      throw new Error('reCAPTCHA can only be initialized in the browser.');
+    }
+
+    if (AuthService.recaptchaVerifier) {
+      try {
+        AuthService.recaptchaVerifier.clear();
+      } catch (e) {
+        console.warn('Error clearing previous RecaptchaVerifier:', e);
+      }
+      AuthService.recaptchaVerifier = null;
+    }
+
+    const container = document.getElementById(containerId);
+    if (!container) {
+      throw new Error(`reCAPTCHA container '#${containerId}' was not found in the DOM.`);
+    }
+
+    AuthService.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved automatically
+      },
+      'expired-callback': () => {
+        console.warn('reCAPTCHA expired. Clearing verifier.');
+        AuthService.clearRecaptcha();
+      }
+    });
+
+    return AuthService.recaptchaVerifier;
+  }
+
+  /**
+   * Clear active RecaptchaVerifier instance
+   */
+  static clearRecaptcha(): void {
+    if (AuthService.recaptchaVerifier) {
+      try {
+        AuthService.recaptchaVerifier.clear();
+      } catch (e) {
+        console.warn('Error clearing RecaptchaVerifier:', e);
+      }
+      AuthService.recaptchaVerifier = null;
+    }
+  }
+
+  /**
+   * Send Phone OTP verification code via SMS
+   */
+  static async sendPhoneOtp(
+    phoneNumber: string, 
+    containerId: string = 'recaptcha-container'
+  ): Promise<ConfirmationResult> {
+    try {
+      const formatted = phoneNumber.trim().replace(/\s+/g, '');
+      if (!/^\+[1-9]\d{7,14}$/.test(formatted)) {
+        throw new Error('Please enter a valid phone number with country code (e.g. +91 9876543210).');
+      }
+
+      const verifier = AuthService.getRecaptchaVerifier(containerId);
+      const confirmationResult = await signInWithPhoneNumber(auth, formatted, verifier);
+      return confirmationResult;
+    } catch (err) {
+      AuthService.clearRecaptcha();
+      throw normalizeError(err);
+    }
+  }
+
+  /**
+   * Verify Phone OTP code
+   */
+  static async verifyPhoneOtp(
+    confirmationResult: ConfirmationResult, 
+    otpCode: string
+  ): Promise<FirebaseUser> {
+    try {
+      const trimmedOtp = otpCode.trim();
+      if (!trimmedOtp || trimmedOtp.length < 6) {
+        throw new Error('Please enter the complete 6-digit verification code.');
+      }
+
+      const result = await confirmationResult.confirm(trimmedOtp);
+      AuthService.clearRecaptcha();
+
+      if (result.user) {
+        const profile = await UserService.getUserProfile(result.user.uid);
+        if (profile) {
+          await UserService.updateLastLogin(result.user.uid);
+        }
+      }
       return result.user;
     } catch (err) {
       throw normalizeError(err);
@@ -142,6 +287,7 @@ export class AuthService {
    */
   static async logout(): Promise<void> {
     try {
+      AuthService.clearRecaptcha();
       await signOut(auth);
     } catch (err) {
       throw normalizeError(err);

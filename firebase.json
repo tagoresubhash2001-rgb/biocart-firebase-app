@@ -10,6 +10,7 @@
   "auth": {
     "providers": {
       "emailPassword": true,
+      "phone": true,
       "googleSignIn": {
         "oAuthBrandDisplayName": "BioCart",
         "supportEmail": "sinfoxmedia@gmail.com"

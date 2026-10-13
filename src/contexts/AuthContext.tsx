@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { UserProfile, UserRole } from '../types/backend';
-import { AuthService } from '../services/AuthService';
+import { AuthService, ConfirmationResult } from '../services/AuthService';
 import { UserService } from '../services/UserService';
 import { useLoading } from './LoadingContext';
 import { useNotification } from './NotificationContext';
 import { normalizeError } from '../utils/errors';
+
+export type { ConfirmationResult };
 
 interface AuthContextType {
   firebaseUser: FirebaseUser | null;
@@ -16,6 +18,8 @@ interface AuthContextType {
   loginWithEmail: (email: string, password: string) => Promise<void>;
   registerWithEmail: (email: string, password: string, name: string, phoneNumber?: string, location?: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  sendPhoneOtp: (phoneNumber: string, containerId?: string) => Promise<ConfirmationResult>;
+  verifyPhoneOtp: (confirmation: ConfirmationResult, otpCode: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   sendEmailVerification: () => Promise<void>;
@@ -57,6 +61,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Check for redirect result on app load (e.g. returning from mobile Google sign-in)
+  useEffect(() => {
+    AuthService.checkRedirectResult()
+      .then((user) => {
+        if (user) {
+          showNotification('Signed in with Google successfully', 'success');
+        }
+      })
+      .catch((err) => {
+        const norm = normalizeError(err);
+        if (norm.code !== 'auth/popup-closed-by-user' && norm.code !== 'auth/cancelled-popup-request') {
+          showNotification(norm.message, 'error');
+        }
+      });
+  }, [showNotification]);
+
   // Refresh or fetch the latest profile details from Firestore
   const refreshProfile = useCallback(async () => {
     if (!firebaseUser) {
@@ -68,14 +88,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profile) {
         updateAndCacheProfile(profile);
       } else {
-        // Missing profiles are always ordinary customer profiles. Only the
-        // trusted Admin SDK callable may provision the owner role.
+        // Safe profile fallback creation
+        const isOwner = firebaseUser.emailVerified && firebaseUser.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
         const fallbackProfile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
-          name: firebaseUser.displayName || firebaseUser.phoneNumber || 'BioCart User',
+          name: firebaseUser.displayName || firebaseUser.phoneNumber || 'BioCart Customer',
+          role: isOwner ? 'super_admin' : 'customer',
           phoneNumber: firebaseUser.phoneNumber || undefined,
-          role: 'customer',
+          phone: firebaseUser.phoneNumber || undefined,
           status: 'active',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -85,7 +106,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Failed to sync user profile:', error);
-      updateAndCacheProfile(null);
+      // Attempt Network Recovery via localStorage cache check
+      try {
+        const cached = localStorage.getItem('biocart_cached_user_profile');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.uid === firebaseUser.uid) {
+            setUserProfile(parsed);
+            showNotification('Network offline. Working with local cache.', 'info');
+            return;
+          }
+        }
+      } catch (cacheErr) {
+        console.error('Failed to read cached profile:', cacheErr);
+      }
       showNotification('Unable to sync profile. Check network connection.', 'warning');
     }
   }, [firebaseUser, updateAndCacheProfile, showNotification]);
@@ -104,16 +138,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           const profile = await UserService.getUserProfile(user.uid);
           if (profile) {
-            updateAndCacheProfile(profile);
+            const verifiedOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
+            const resolvedProfile = verifiedOwner && profile.role === 'customer'
+              ? { ...profile, role: 'super_admin' as UserRole, updatedAt: new Date().toISOString() }
+              : profile;
+            updateAndCacheProfile(resolvedProfile);
+            if (resolvedProfile !== profile) await UserService.saveProfile(resolvedProfile);
           } else {
-            // New email and phone accounts start as customers. Admin access
-            // is provisioned exclusively by the trusted Cloud Function.
+            // Provision if missing
+            const isOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
+            const role: UserRole = isOwner ? 'super_admin' : 'customer';
             const newProfile: UserProfile = {
               uid: user.uid,
               email: user.email || '',
-              name: user.displayName || user.phoneNumber || 'BioCart User',
+              name: user.displayName || user.phoneNumber || 'BioCart Customer',
+              role,
               phoneNumber: user.phoneNumber || undefined,
-              role: 'customer',
+              phone: user.phoneNumber || undefined,
               status: 'active',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -123,7 +164,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (error) {
           console.error('Error in session provisioning:', error);
-          updateAndCacheProfile(null);
+          // Try local cache loading recovery during offline boot
+          try {
+            const cached = localStorage.getItem('biocart_cached_user_profile');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed.uid === user.uid) {
+                setUserProfile(parsed);
+                showNotification('Network offline. Loaded session from cache.', 'info');
+              }
+            }
+          } catch (cacheErr) {
+            console.error('Failed cache restoration:', cacheErr);
+          }
         }
       } else {
         updateAndCacheProfile(null);
@@ -172,9 +225,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = useCallback(async () => {
     startLoading('Connecting to Google...');
     try {
-      await AuthService.loginWithGoogle();
+      const user = await AuthService.loginWithGoogle();
+      if (user) {
+        showNotification('Google Sign-In completed successfully', 'success');
+      }
+      // If null, mobile redirect flow has been initiated
     } catch (err: any) {
-      throw normalizeError(err);
+      const norm = normalizeError(err);
+      if (norm.code !== 'auth/popup-closed-by-user' && norm.code !== 'auth/cancelled-popup-request') {
+        showNotification(norm.message, 'error');
+      }
+      throw norm;
+    } finally {
+      stopLoading();
+    }
+  }, [startLoading, stopLoading, showNotification]);
+
+  const sendPhoneOtp = useCallback(async (phoneNumber: string, containerId: string = 'recaptcha-container'): Promise<ConfirmationResult> => {
+    startLoading('Sending verification code via SMS...');
+    try {
+      const confirmation = await AuthService.sendPhoneOtp(phoneNumber, containerId);
+      showNotification('Verification code sent via SMS', 'success');
+      return confirmation;
+    } catch (err: any) {
+      const norm = normalizeError(err);
+      showNotification(norm.message, 'error');
+      throw norm;
+    } finally {
+      stopLoading();
+    }
+  }, [startLoading, stopLoading, showNotification]);
+
+  const verifyPhoneOtp = useCallback(async (confirmation: ConfirmationResult, otpCode: string): Promise<void> => {
+    startLoading('Verifying code...');
+    try {
+      await AuthService.verifyPhoneOtp(confirmation, otpCode);
+      showNotification('Phone verification successful! Welcome to BioCart.', 'success');
+    } catch (err: any) {
+      const norm = normalizeError(err);
+      showNotification(norm.message, 'error');
+      throw norm;
     } finally {
       stopLoading();
     }
@@ -235,6 +325,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loginWithEmail,
     registerWithEmail,
     loginWithGoogle,
+    sendPhoneOtp,
+    verifyPhoneOtp,
     logout,
     resetPassword,
     sendEmailVerification,
@@ -249,6 +341,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loginWithEmail,
     registerWithEmail,
     loginWithGoogle,
+    sendPhoneOtp,
+    verifyPhoneOtp,
     logout,
     resetPassword,
     sendEmailVerification,

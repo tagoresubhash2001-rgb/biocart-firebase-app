@@ -44,7 +44,7 @@ export const BaseEntitySchema = z.object({
 // ==========================================
 export interface UserProfile extends Partial<BaseEntity> {
   uid: string;
-  email: string;
+  email?: string;
   name: string;
   role: UserRole;
   phoneNumber?: string;
@@ -59,8 +59,7 @@ export interface UserProfile extends Partial<BaseEntity> {
 
 export const UserProfileSchema = z.object({
   uid: z.string().min(1, 'UID is required'),
-  // Phone-only Firebase accounts have no email address.
-  email: z.string().email('Invalid email address').or(z.literal('')).default(''),
+  email: z.string().email('Invalid email address').or(z.literal('')).optional(),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   role: z.enum(['super_admin', 'admin', 'manager', 'customer', 'guest', 'vendor'] as const),
   phoneNumber: z.string().optional(),

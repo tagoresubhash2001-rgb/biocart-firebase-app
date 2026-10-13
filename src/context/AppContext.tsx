@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { normalizeError } from '../utils/errors';
 
 export interface ToastMessage {
   id: string;
@@ -23,7 +22,7 @@ interface AppContextType {
   activeOrderTrackId: string | null;
   isCartOpen: boolean;
   isAuthModalOpen: boolean;
-  authModalMode: 'login' | 'register' | 'forgot';
+  authModalMode: 'login' | 'register' | 'forgot' | 'phone';
   
   setTab: (tab: string) => void;
   setSubView: (view: string | null) => void;
@@ -36,6 +35,8 @@ interface AppContextType {
   toggleWishlist: (productId: string) => void;
   login: (email: string, name?: string, password?: string) => void;
   loginWithGoogleProvider: () => void;
+  sendPhoneOtp: (phoneNumber: string, containerId?: string) => Promise<any>;
+  verifyPhoneOtp: (confirmation: any, otpCode: string) => Promise<void>;
   logout: () => void;
   addToast: (message: string, type?: 'success' | 'info' | 'warning') => void;
   removeToast: (id: string) => void;
@@ -45,7 +46,7 @@ interface AppContextType {
   setActiveOrderTrackId: (trackId: string | null) => void;
   setCartOpen: (open: boolean) => void;
   setAuthModalOpen: (open: boolean) => void;
-  setAuthModalMode: (mode: 'login' | 'register' | 'forgot') => void;
+  setAuthModalMode: (mode: 'login' | 'register' | 'forgot' | 'phone') => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -58,7 +59,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     registerWithEmail, 
     logout: firebaseLogout, 
     loginWithGoogle,
-    resetPassword
+    resetPassword,
+    sendPhoneOtp,
+    verifyPhoneOtp
   } = useAuth();
 
   const user = React.useMemo(() => {
@@ -137,7 +140,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeOrderTrackId, setActiveOrderTrackId] = useState<string | null>(null);
   const [isCartOpen, setCartOpen] = useState(false);
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'forgot' | 'phone'>('login');
 
 
   // Theme: BioCart is permanently Light Theme only.
@@ -287,10 +290,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await loginWithGoogle();
       setAuthModalOpen(false);
-      addToast('Signed in with Google.', 'success');
     } catch (err: any) {
       console.error('Firebase Google Auth failed:', err);
-      addToast(normalizeError(err).message, 'warning');
     }
   };
 
@@ -343,6 +344,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleWishlist,
         login,
         loginWithGoogleProvider,
+        sendPhoneOtp,
+        verifyPhoneOtp,
         logout,
         addToast,
         removeToast,
