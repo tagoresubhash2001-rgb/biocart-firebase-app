@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { functions } from '../../config/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
-import { X, ShoppingBag, Trash2, ArrowRight, ShieldCheck, CreditCard, Sparkles, CheckCircle2 } from 'lucide-react';
+import { X, ShoppingBag, Trash2, ArrowRight, ShieldCheck, CreditCard, Sparkles, CheckCircle2, MapPin } from 'lucide-react';
+import { AddressService } from '../../services/AddressService';
+import { AddressEntity } from '../../types/backend';
 
 export const CheckoutModal: React.FC = () => {
   const {
@@ -22,14 +24,56 @@ export const CheckoutModal: React.FC = () => {
 
   const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart');
   
+  // Saved addresses
+  const [savedAddresses, setSavedAddresses] = useState<AddressEntity[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('custom');
+
   // Checkout Form fields
   const [shippingName, setShippingName] = useState(user?.name || '');
   const [shippingPhone, setShippingPhone] = useState(user?.phone || '');
-  const [shippingAddress, setShippingAddress] = useState('Amaravati Road, Near Ring Road');
-  const [shippingCity, setShippingCity] = useState('Guntur');
-  const [shippingState, setShippingState] = useState('Andhra Pradesh');
-  const [shippingZip, setShippingZip] = useState('522001');
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [shippingCity, setShippingCity] = useState('');
+  const [shippingState, setShippingState] = useState('');
+  const [shippingZip, setShippingZip] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'cod'>('upi');
+
+  useEffect(() => {
+    if (user?.uid) {
+      AddressService.getUserAddresses(user.uid)
+        .then((addrs) => {
+          setSavedAddresses(addrs);
+          if (addrs.length > 0) {
+            const defaultAddr = addrs.find((a) => a.isDefault) || addrs[0];
+            setSelectedAddressId(defaultAddr.id);
+            setShippingName(defaultAddr.name || user.name || '');
+            setShippingPhone(defaultAddr.phone || user.phone || '');
+            setShippingAddress(defaultAddr.street || '');
+            setShippingCity(defaultAddr.city || '');
+            setShippingState(defaultAddr.state || '');
+            setShippingZip(defaultAddr.postalCode || '');
+          }
+        })
+        .catch((err) => {
+          console.warn('Failed to load saved addresses:', err);
+        });
+    }
+  }, [user?.uid]);
+
+  const handleSelectSavedAddress = (addrId: string) => {
+    setSelectedAddressId(addrId);
+    if (addrId === 'custom') {
+      return;
+    }
+    const found = savedAddresses.find((a) => a.id === addrId);
+    if (found) {
+      setShippingName(found.name || user?.name || '');
+      setShippingPhone(found.phone || user?.phone || '');
+      setShippingAddress(found.street || '');
+      setShippingCity(found.city || '');
+      setShippingState(found.state || '');
+      setShippingZip(found.postalCode || '');
+    }
+  };
   
   const [createdOrderId, setCreatedOrderId] = useState('');
 
@@ -293,9 +337,60 @@ export const CheckoutModal: React.FC = () => {
               <form onSubmit={handleCheckoutSubmit} className="p-6 space-y-6" id="step-checkout">
                 {/* Contact and shipping */}
                 <div className="space-y-4">
-                  <h4 className="font-display font-bold text-sm uppercase tracking-wider text-charcoal-500 border-b border-slate-100 dark:border-white/5 pb-2">
-                    Shipping Details
-                  </h4>
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2">
+                    <h4 className="font-display font-bold text-sm uppercase tracking-wider text-charcoal-500">
+                      Shipping Details
+                    </h4>
+                    {savedAddresses.length > 0 && (
+                      <span className="text-[11px] text-nature-700 dark:text-nature-400 font-semibold flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5" /> {savedAddresses.length} saved
+                      </span>
+                    )}
+                  </div>
+
+                  {savedAddresses.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-charcoal-600 dark:text-slate-300">Select Delivery Address</label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {savedAddresses.map((addr) => (
+                          <div
+                            key={addr.id}
+                            onClick={() => handleSelectSavedAddress(addr.id)}
+                            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                              selectedAddressId === addr.id
+                                ? 'border-nature-600 bg-nature-50/50 dark:bg-nature-950/20 text-charcoal-900 dark:text-white ring-1 ring-nature-600'
+                                : 'border-slate-200 dark:border-white/10 hover:border-slate-300 bg-white dark:bg-charcoal-800 text-charcoal-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold flex items-center gap-1.5">
+                                {addr.name}
+                                {addr.isDefault && (
+                                  <span className="px-1.5 py-0.2 bg-nature-100 dark:bg-nature-900/60 text-nature-800 dark:text-nature-300 text-[10px] rounded font-medium">Default</span>
+                                )}
+                              </span>
+                              <span className="text-[11px] text-charcoal-500">{addr.phone}</span>
+                            </div>
+                            <p className="text-[11px] text-charcoal-600 dark:text-slate-400 mt-1 truncate">
+                              {addr.street}, {addr.city}, {addr.state} - {addr.postalCode}
+                            </p>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectSavedAddress('custom')}
+                          className={`p-2 rounded-xl border text-xs text-left cursor-pointer transition-all ${
+                            selectedAddressId === 'custom'
+                              ? 'border-nature-600 bg-nature-50/30 text-nature-800 dark:text-nature-300 font-semibold'
+                              : 'border-dashed border-slate-300 text-charcoal-500 hover:border-slate-400'
+                          }`}
+                        >
+                          + Enter a different address
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-charcoal-600 dark:text-slate-300">Recipient Name</label>
