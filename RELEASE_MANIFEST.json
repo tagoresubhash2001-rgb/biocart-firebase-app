@@ -1,0 +1,60 @@
+{
+  "projectName": "BioCart",
+  "version": "1.0.0-production-release",
+  "commitSha": "0adb2c6",
+  "branch": "main",
+  "repository": "https://github.com/tagoresubhash2001-rgb/biocart-firebase-app.git",
+  "firebaseProject": "bio-cart",
+  "region": "asia-southeast1",
+  "verifiedTimestamp": "2026-10-13T13:55:00+05:30",
+  "status": "VERIFIED_PRODUCTION_READY",
+  "authorizedAdmin": {
+    "email": "sinfoxmedia@gmail.com",
+    "uid": "gJgNqV1pL7Yl1J09w3j2Z6U06B52",
+    "role": "super_admin"
+  },
+  "qualityGates": {
+    "automatedTests": {
+      "passed": 19,
+      "failed": 0,
+      "suites": 6,
+      "command": "npm test"
+    },
+    "typeCheck": {
+      "status": "passed",
+      "command": "npx tsc --noEmit"
+    },
+    "productionBuild": {
+      "status": "passed",
+      "command": "npm run build"
+    },
+    "functionsBuild": {
+      "status": "passed",
+      "command": "npm --prefix functions run build"
+    }
+  },
+  "deployedEndpoints": {
+    "customDomain": "https://biocart.in",
+    "webAppFallback": "https://bio-cart.web.app",
+    "appHostingBackend": "https://biocart--bio-cart.asia-southeast1.hosted.app"
+  },
+  "packageContents": {
+    "excludedDirectories": [".git", "node_modules", "dist", ".firebase"],
+    "excludedFiles": [".env*", "*.local", "service-account*.json"],
+    "includedArtifacts": [
+      "src/",
+      "functions/",
+      "public/",
+      "docs/",
+      "tests/",
+      "firestore.rules",
+      "firestore.indexes.json",
+      "storage.rules",
+      "apphosting.yaml",
+      "server.js",
+      "package.json",
+      ".env.example",
+      "RELEASE_MANIFEST.json"
+    ]
+  }
+}
