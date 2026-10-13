@@ -23,6 +23,7 @@ interface AuthContextType {
   verifyPhoneOtp: (confirmation: ConfirmationResult, otpCode: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   sendEmailVerification: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   hasRole: (allowedRoles: UserRole[]) => boolean;
@@ -277,6 +278,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [startLoading, stopLoading, showNotification]);
 
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    startLoading('Updating password securely...');
+    try {
+      await AuthService.changePassword(currentPassword, newPassword);
+      showNotification('Password updated successfully', 'success');
+    } catch (err: any) {
+      const norm = normalizeError(err);
+      showNotification(norm.message, 'error');
+      throw norm;
+    } finally {
+      stopLoading();
+    }
+  }, [startLoading, stopLoading, showNotification]);
+
   const sendEmailVerification = useCallback(async () => {
     startLoading('Sending verification email...');
     try {
@@ -308,6 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     verifyPhoneOtp,
     logout,
     resetPassword,
+    changePassword,
     sendEmailVerification,
     refreshProfile,
     hasRole
@@ -324,6 +340,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     verifyPhoneOtp,
     logout,
     resetPassword,
+    changePassword,
     sendEmailVerification,
     refreshProfile,
     hasRole

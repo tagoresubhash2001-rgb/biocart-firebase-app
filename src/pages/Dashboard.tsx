@@ -3,12 +3,45 @@ import { linkWithPopup } from 'firebase/auth';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useApp } from '../context/AppContext';
-import { User, Package, MapPin, Heart, LogOut, Search, CheckCircle2, ChevronRight, Truck, Link2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { 
+  User, 
+  Package, 
+  MapPin, 
+  Heart, 
+  LogOut, 
+  Search, 
+  CheckCircle2, 
+  ChevronRight, 
+  Truck, 
+  Link2, 
+  ShieldCheck, 
+  Plus, 
+  Trash2, 
+  Edit3, 
+  Lock, 
+  Check, 
+  X, 
+  Key, 
+  Mail, 
+  Phone, 
+  Calendar, 
+  ArrowRight,
+  ExternalLink,
+  ShoppingBag,
+  Clock,
+  AlertCircle
+} from 'lucide-react';
 import { AdminService } from '../services/AdminService';
+import { UserService } from '../services/UserService';
+import { AddressService } from '../services/AddressService';
 import { auth, googleProvider } from '../config/firebase';
 import { normalizeError } from '../utils/errors';
 import { Product } from '../types';
+import { AddressEntity } from '../types/backend';
 import { ProductCard } from '../components/ui/ProductCard';
+
+type DashboardTab = 'overview' | 'profile' | 'orders' | 'track' | 'wishlist' | 'addresses' | 'security';
 
 export const Dashboard: React.FC = () => {
   const {
@@ -27,28 +60,100 @@ export const Dashboard: React.FC = () => {
     setTab
   } = useApp();
 
-    const [orders, setOrders] = useState<any[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'track' | 'wishlist'>('profile');
-  const [trackInputId, setTrackInputId] = useState(activeOrderTrackId || '');
-  const [realtimeProducts, setRealtimeProducts] = useState<Product[]>([]);
-  const [googleLinked, setGoogleLinked] = useState(() => auth.currentUser?.providerData.some((provider) => provider.providerId === 'google.com') ?? false);
-  const [linkingGoogle, setLinkingGoogle] = useState(false);
+  const { changePassword, sendEmailVerification, refreshProfile, firebaseUser } = useAuth();
 
-  const handleLinkGoogle = async () => {
-    if (!auth.currentUser) return;
-    setLinkingGoogle(true);
+  // Tab state with hash parameter support (e.g. #dashboard?tab=wishlist)
+  const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
     try {
-      await linkWithPopup(auth.currentUser, googleProvider);
-      setGoogleLinked(true);
-      addToast('Google sign-in is now linked to this BioCart account.', 'success');
-    } catch (error) {
-      addToast(normalizeError(error).message, 'warning');
-    } finally {
-      setLinkingGoogle(false);
+      const hash = window.location.hash;
+      if (hash.includes('tab=')) {
+        const tabParam = hash.split('tab=')[1]?.split('&')[0];
+        if (['overview', 'profile', 'orders', 'track', 'wishlist', 'addresses', 'security'].includes(tabParam)) {
+          return tabParam as DashboardTab;
+        }
+      }
+    } catch (e) {
+      // Fallback
     }
+    return 'overview';
+  });
+
+  // Track hash changes for sub-tabs
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash;
+      if (hash.includes('tab=')) {
+        const tabParam = hash.split('tab=')[1]?.split('&')[0];
+        if (['overview', 'profile', 'orders', 'track', 'wishlist', 'addresses', 'security'].includes(tabParam)) {
+          setActiveTab(tabParam as DashboardTab);
+        }
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  const switchTab = (tab: DashboardTab) => {
+    setActiveTab(tab);
+    window.location.hash = `dashboard?tab=${tab}`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Orders State
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<any | null>(null);
+
+  // Tracking state
+  const [trackInputId, setTrackInputId] = useState(activeOrderTrackId || '');
+
+  // Products for wishlist resolution
+  const [realtimeProducts, setRealtimeProducts] = useState<Product[]>([]);
+
+  // Google link state
+  const [googleLinked, setGoogleLinked] = useState(() => 
+    auth.currentUser?.providerData.some((provider) => provider.providerId === 'google.com') ?? false
+  );
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
+
+  // Personal Info Form State
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileName, setProfileName] = useState(user?.name || '');
+  const [profilePhone, setProfilePhone] = useState(user?.phone || '');
+  const [profileLocation, setProfileLocation] = useState(user?.location || '');
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Keep profile inputs in sync with user changes
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.name || '');
+      setProfilePhone(user.phone || '');
+      setProfileLocation(user.location || '');
+    }
+  }, [user]);
+
+  // Saved Addresses State
+  const [addresses, setAddresses] = useState<AddressEntity[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<AddressEntity | null>(null);
+  const [addrFormName, setAddrFormName] = useState('');
+  const [addrFormPhone, setAddrFormPhone] = useState('');
+  const [addrFormStreet, setAddrFormStreet] = useState('');
+  const [addrFormCity, setAddrFormCity] = useState('');
+  const [addrFormState, setAddrFormState] = useState('Andhra Pradesh');
+  const [addrFormPostalCode, setAddrFormPostalCode] = useState('');
+  const [addrFormIsDefault, setAddrFormIsDefault] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+
+  // Security Form State
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
+
+  // Fetch Realtime Products for Wishlist
   useEffect(() => {
     const unsub = AdminService.subscribeToProducts((list) => {
       setRealtimeProducts(list);
@@ -56,8 +161,9 @@ export const Dashboard: React.FC = () => {
     return () => unsub();
   }, []);
 
+  // Fetch Orders
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     setLoadingOrders(true);
 
     const parseAndSortOrders = (docs: any[]) => {
@@ -99,296 +205,958 @@ export const Dashboard: React.FC = () => {
       unsub();
       if (fallbackUnsub) fallbackUnsub();
     };
-  }, [user]);
+  }, [user?.uid]);
+
+  // Load Saved Addresses
+  const loadAddresses = async () => {
+    if (!user?.uid) return;
+    setLoadingAddresses(true);
+    try {
+      const list = await AddressService.getUserAddresses(user.uid);
+      setAddresses(list);
+    } catch (e) {
+      console.warn('Error loading addresses:', e);
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.uid) {
+      loadAddresses();
+    }
+  }, [user?.uid]);
+
+  // Handle Google Linking
+  const handleLinkGoogle = async () => {
+    if (!auth.currentUser) return;
+    setLinkingGoogle(true);
+    try {
+      await linkWithPopup(auth.currentUser, googleProvider);
+      setGoogleLinked(true);
+      addToast('Google sign-in is now linked to this BioCart account.', 'success');
+    } catch (error) {
+      addToast(normalizeError(error).message, 'warning');
+    } finally {
+      setLinkingGoogle(false);
+    }
+  };
+
+  // Handle Personal Info Update
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.uid) return;
+    if (!profileName.trim() || profileName.trim().length < 2) {
+      addToast('Please enter a valid full name (at least 2 characters)', 'warning');
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      await UserService.updateProfile(user.uid, {
+        name: profileName.trim(),
+        phone: profilePhone.trim() || undefined,
+        phoneNumber: profilePhone.trim() || undefined,
+        location: profileLocation.trim() || undefined,
+      });
+      await refreshProfile();
+      setEditingProfile(false);
+      addToast('Profile updated successfully!', 'success');
+    } catch (error) {
+      addToast(normalizeError(error).message, 'error');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  // Handle Address Save
+  const handleOpenAddressModal = (address?: AddressEntity) => {
+    if (address) {
+      setEditingAddress(address);
+      setAddrFormName(address.name);
+      setAddrFormPhone(address.phone);
+      setAddrFormStreet(address.street);
+      setAddrFormCity(address.city);
+      setAddrFormState(address.state || 'Andhra Pradesh');
+      setAddrFormPostalCode(address.postalCode);
+      setAddrFormIsDefault(address.isDefault);
+    } else {
+      setEditingAddress(null);
+      setAddrFormName(user?.name || '');
+      setAddrFormPhone(user?.phone || '');
+      setAddrFormStreet('');
+      setAddrFormCity('Guntur');
+      setAddrFormState('Andhra Pradesh');
+      setAddrFormPostalCode('522001');
+      setAddrFormIsDefault(addresses.length === 0);
+    }
+    setShowAddressModal(true);
+  };
+
+  const handleSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.uid) return;
+
+    // PIN code validation: 6 digits Indian PIN code
+    const cleanPin = addrFormPostalCode.trim();
+    if (!/^\d{6}$/.test(cleanPin)) {
+      addToast('Please enter a valid 6-digit Indian Postal PIN code (e.g. 522001)', 'warning');
+      return;
+    }
+
+    if (!addrFormName.trim() || !addrFormPhone.trim() || !addrFormStreet.trim() || !addrFormCity.trim()) {
+      addToast('Please fill out all required address fields', 'warning');
+      return;
+    }
+
+    setSavingAddress(true);
+    try {
+      await AddressService.saveAddress({
+        id: editingAddress?.id,
+        userId: user.uid,
+        addressType: 'shipping',
+        name: addrFormName.trim(),
+        phone: addrFormPhone.trim(),
+        street: addrFormStreet.trim(),
+        city: addrFormCity.trim(),
+        state: addrFormState.trim(),
+        postalCode: cleanPin,
+        country: 'India',
+        isDefault: addrFormIsDefault
+      });
+      setShowAddressModal(false);
+      await loadAddresses();
+      addToast(editingAddress ? 'Address updated successfully!' : 'Address added successfully!', 'success');
+    } catch (error) {
+      addToast(normalizeError(error).message, 'error');
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const handleDeleteAddress = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this address?')) return;
+    try {
+      await AddressService.deleteAddress(id);
+      await loadAddresses();
+      addToast('Address deleted successfully', 'info');
+    } catch (error) {
+      addToast(normalizeError(error).message, 'error');
+    }
+  };
+
+  const handleSetDefaultAddress = async (id: string) => {
+    if (!user?.uid) return;
+    try {
+      await AddressService.setDefaultAddress(user.uid, id);
+      await loadAddresses();
+      addToast('Default address updated!', 'success');
+    } catch (error) {
+      addToast(normalizeError(error).message, 'error');
+    }
+  };
+
+  // Handle Password Change
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      addToast('New password must be at least 6 characters long', 'warning');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      addToast('New passwords do not match', 'warning');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error) {
+      // notification handled in context
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  // Handle Email Verification Resend
+  const handleResendEmailVerification = async () => {
+    setSendingVerification(true);
+    try {
+      await sendEmailVerification();
+    } catch (error) {
+      // notification handled in context
+    } finally {
+      setSendingVerification(false);
+    }
+  };
+
+  // Tracking Search Form
+  const handleTrackSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackInputId.trim()) {
+      addToast('Please enter an Order ID to search', 'warning');
+      return;
+    }
+    setActiveOrderTrackId(trackInputId.trim());
+  };
 
   if (!user) {
     return (
-      <div className="max-w-md mx-auto my-12 p-8 text-center bg-white dark:bg-charcoal-900 rounded-3xl border border-black/5 shadow-xl">
-        <User className="w-12 h-12 mx-auto text-charcoal-400 mb-4" />
-        <h3 className="font-display font-bold text-xl text-nature-900 dark:text-nature-400">Access Dashboard</h3>
-        <p className="text-sm text-charcoal-500 mb-6">Please log in to manage your premium orders and sustainable items.</p>
+      <div className="max-w-md mx-auto my-16 p-8 text-center bg-white rounded-3xl border border-slate-150 shadow-xl">
+        <div className="w-16 h-16 bg-emerald-50 text-emerald-700 rounded-full mx-auto flex items-center justify-center mb-4">
+          <User className="w-8 h-8" />
+        </div>
+        <h3 className="font-display font-bold text-xl text-slate-900">Sign in to BioCart Account</h3>
+        <p className="text-sm text-slate-500 my-4 leading-relaxed">
+          Please log in to manage your orders, saved addresses, wishlist, and profile settings.
+        </p>
+        <button
+          onClick={() => {
+            window.location.hash = 'home';
+          }}
+          className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-all shadow-md"
+        >
+          Return to Storefront
+        </button>
       </div>
     );
   }
 
-  // Pre-seeded mock orders
-  
-
-  // If there's an active order tracked, add it dynamically
-  
-
+  // Calculate Metrics from REAL Customer Data
+  const totalOrdersCount = orders.length;
+  const activeOrdersCount = orders.filter(o => ['pending', 'processing', 'shipped', 'placed'].includes(o.status?.toLowerCase())).length;
+  const completedOrdersCount = orders.filter(o => ['delivered', 'completed'].includes(o.status?.toLowerCase())).length;
   const wishlistProducts = realtimeProducts.filter((p) => wishlist.includes(p.id));
-
-  // Determine current tracked order status
   const currentTrackId = trackInputId || activeOrderTrackId || '';
-  const isFoundOrder = orders.find(o => o.id === currentTrackId) || (orders.some(o => o.id === currentTrackId));
-
-  const handleTrackSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trackInputId) {
-      addToast('Please enter an Order ID to search', 'warning');
-      return;
-    }
-    setActiveOrderTrackId(trackInputId);
-  };
+  const isFoundOrder = orders.find(o => o.id === currentTrackId || o.orderNumber === currentTrackId);
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-12" id="customer-dashboard">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Sidebar Navigation */}
-        <div className="md:col-span-1 space-y-6" id="dashboard-sidebar">
-          {/* User profile card */}
-          <div className="p-6 bg-slate-50 dark:bg-charcoal-800/40 border border-slate-150 dark:border-white/5 rounded-3xl text-center space-y-3">
-            <div className="w-16 h-16 bg-nature-700 text-white rounded-full mx-auto flex items-center justify-center font-display font-bold text-2xl shadow-md">
-              {user.name.split(' ').map(n => n[0]).join('')}
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10" id="customer-dashboard">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        {/* Left Sidebar Navigation */}
+        <div className="lg:col-span-1 space-y-6" id="dashboard-sidebar">
+          
+          {/* User Profile Summary Card */}
+          <div className="p-6 bg-slate-50 border border-slate-200/80 rounded-3xl text-center space-y-3 shadow-sm">
+            <div className="relative w-20 h-20 mx-auto">
+              {user.photoURL ? (
+                <img 
+                  src={user.photoURL} 
+                  alt={user.name} 
+                  className="w-20 h-20 rounded-full object-cover border-2 border-emerald-600 shadow-md" 
+                />
+              ) : (
+                <div className="w-20 h-20 bg-emerald-700 text-white rounded-full mx-auto flex items-center justify-center font-display font-bold text-2xl shadow-md border-2 border-emerald-600/30">
+                  {user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              {firebaseUser?.emailVerified && (
+                <div className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center border-2 border-white shadow-sm" title="Verified Account">
+                  <Check className="w-3.5 h-3.5" />
+                </div>
+              )}
             </div>
+
             <div>
-              <h4 className="font-display font-bold text-lg text-charcoal-900 dark:text-white leading-tight">
+              <h4 className="font-display font-bold text-lg text-slate-900 leading-tight">
                 {user.name}
               </h4>
-              <span className="inline-block bg-nature-50 dark:bg-nature-950/40 text-nature-800 dark:text-nature-400 text-[10px] font-bold px-2.5 py-0.5 rounded-full mt-1 uppercase border border-nature-100 dark:border-nature-900">
-                {user.status || 'Eco Member'}
-              </span>
+              <p className="text-xs text-slate-500 font-mono mt-0.5 truncate max-w-[200px] mx-auto">
+                ID: {user.uid ? `${user.uid.slice(0, 8)}...` : 'BC-USER'}
+              </p>
+              <div className="mt-2 flex items-center justify-center gap-1.5">
+                <span className="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase border border-emerald-200">
+                  {user.status || 'Eco Member'}
+                </span>
+                {googleLinked && (
+                  <span className="inline-block bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200" title="Google Account Connected">
+                    Google
+                  </span>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-charcoal-500 leading-relaxed truncate">{user.email}</p>
+
+            <p className="text-xs text-slate-600 truncate px-2">{user.email || user.phone}</p>
           </div>
 
-          {/* Nav links */}
-          <div className="flex flex-col gap-1 bg-slate-50 dark:bg-charcoal-800/40 p-2 border border-slate-150 dark:border-white/5 rounded-3xl">
+          {/* Navigation Links */}
+          <div className="flex flex-col gap-1 bg-slate-50 p-2.5 border border-slate-200/80 rounded-3xl shadow-sm">
             <button
-              onClick={() => setActiveTab('profile')}
-              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center gap-2.5 transition-colors cursor-pointer ${
+              onClick={() => switchTab('overview')}
+              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                activeTab === 'overview'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-slate-200/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <User className="w-4.5 h-4.5" />
+                <span>Overview</span>
+              </div>
+              <ChevronRight className={`w-4 h-4 ${activeTab === 'overview' ? 'text-white' : 'text-slate-400'}`} />
+            </button>
+
+            <button
+              onClick={() => switchTab('profile')}
+              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                 activeTab === 'profile'
-                  ? 'bg-nature-700 text-white'
-                  : 'text-charcoal-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-slate-200/60'
               }`}
             >
-              <User className="w-4.5 h-4.5" />
-              <span>My Profile</span>
+              <div className="flex items-center gap-2.5">
+                <Edit3 className="w-4.5 h-4.5" />
+                <span>Personal Info</span>
+              </div>
+              <ChevronRight className={`w-4 h-4 ${activeTab === 'profile' ? 'text-white' : 'text-slate-400'}`} />
             </button>
+
             <button
-              onClick={() => setActiveTab('orders')}
-              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center gap-2.5 transition-colors cursor-pointer ${
+              onClick={() => switchTab('orders')}
+              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                 activeTab === 'orders'
-                  ? 'bg-nature-700 text-white'
-                  : 'text-charcoal-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-slate-200/60'
               }`}
             >
-              <Package className="w-4.5 h-4.5" />
-              <span>Purchase History</span>
+              <div className="flex items-center gap-2.5">
+                <Package className="w-4.5 h-4.5" />
+                <span>My Orders</span>
+              </div>
+              {orders.length > 0 && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                  activeTab === 'orders' ? 'bg-emerald-800 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {orders.length}
+                </span>
+              )}
             </button>
+
             <button
               onClick={() => {
-                setActiveTab('track');
+                switchTab('track');
                 if (activeOrderTrackId) setTrackInputId(activeOrderTrackId);
               }}
-              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center gap-2.5 transition-colors cursor-pointer ${
+              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                 activeTab === 'track'
-                  ? 'bg-nature-700 text-white'
-                  : 'text-charcoal-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-slate-200/60'
               }`}
             >
-              <Truck className="w-4.5 h-4.5" />
-              <span>Track Orders</span>
+              <div className="flex items-center gap-2.5">
+                <Truck className="w-4.5 h-4.5" />
+                <span>Track Orders</span>
+              </div>
+              <ChevronRight className={`w-4 h-4 ${activeTab === 'track' ? 'text-white' : 'text-slate-400'}`} />
             </button>
+
             <button
-              onClick={() => setActiveTab('wishlist')}
-              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center gap-2.5 transition-colors cursor-pointer ${
+              onClick={() => switchTab('wishlist')}
+              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                 activeTab === 'wishlist'
-                  ? 'bg-nature-700 text-white'
-                  : 'text-charcoal-700 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-slate-200/60'
               }`}
             >
-              <Heart className={`w-4.5 h-4.5 ${activeTab === 'wishlist' ? 'fill-current text-white' : 'text-rose-500 fill-current'}`} />
-              <span>My Favorites ({wishlist.length})</span>
+              <div className="flex items-center gap-2.5">
+                <Heart className={`w-4.5 h-4.5 ${activeTab === 'wishlist' ? 'fill-current text-white' : 'text-rose-500 fill-current'}`} />
+                <span>Wishlist</span>
+              </div>
+              {wishlist.length > 0 && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                  activeTab === 'wishlist' ? 'bg-emerald-800 text-white' : 'bg-rose-100 text-rose-700'
+                }`}>
+                  {wishlist.length}
+                </span>
+              )}
             </button>
-            <div className="h-[1px] bg-slate-200 dark:bg-white/10 my-1" />
-            
-            {/* {(user.role === 'admin' || user.role === 'super_admin') && (
-                <a
-                  href="#admin"
-                  className="w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center gap-2.5 bg-emerald-600 text-white shadow-md hover:bg-emerald-500 transition-colors"
-                >
-                  <Search className="w-4.5 h-4.5" />
-                  <span>Admin Console</span>
-                </a>
-              )} */}
+
+            <button
+              onClick={() => switchTab('addresses')}
+              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                activeTab === 'addresses'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-slate-200/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <MapPin className="w-4.5 h-4.5" />
+                <span>Saved Addresses</span>
+              </div>
+              {addresses.length > 0 && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                  activeTab === 'addresses' ? 'bg-emerald-800 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {addresses.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => switchTab('security')}
+              className={`w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center justify-between transition-colors cursor-pointer ${
+                activeTab === 'security'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-slate-200/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Lock className="w-4.5 h-4.5" />
+                <span>Security & Settings</span>
+              </div>
+              <ChevronRight className={`w-4 h-4 ${activeTab === 'security' ? 'text-white' : 'text-slate-400'}`} />
+            </button>
+
+            <div className="h-[1px] bg-slate-200 my-1" />
 
             <button
               onClick={logout}
-              className="w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center gap-2.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer"
+              className="w-full text-left py-3 px-4 rounded-2xl text-sm font-semibold flex items-center gap-2.5 text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
             >
               <LogOut className="w-4.5 h-4.5" />
               <span>Sign Out</span>
             </button>
           </div>
+
+          {/* Quick Helpful Links */}
+          <div className="p-5 bg-slate-50 border border-slate-200/80 rounded-3xl space-y-3 text-xs text-slate-600">
+            <h5 className="font-bold text-slate-900 uppercase tracking-wider text-[11px]">Help & Policies</h5>
+            <ul className="space-y-2">
+              <li>
+                <button onClick={() => setTab('contact-us')} className="hover:text-emerald-700 flex items-center gap-1.5 cursor-pointer">
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Contact Agri-Expert</span>
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setTab('shipping-and-customs')} className="hover:text-emerald-700 flex items-center gap-1.5 cursor-pointer">
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Shipping & Delivery Policy</span>
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setTab('returns-and-refunds')} className="hover:text-emerald-700 flex items-center gap-1.5 cursor-pointer">
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Returns & Refunds</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
         </div>
 
-        {/* Dashboard Panels */}
-        <div className="md:col-span-3 bg-white dark:bg-charcoal-900 border border-slate-150 dark:border-white/5 p-8 rounded-3xl hover:-translate-y-1.5 hover:shadow-xl hover:shadow-nature-900/10 transition-all duration-300 ease-[cubic-bezier(0.215,0.61,0.355,1)] shadow-sm" id="dashboard-main-content">
+        {/* Right Main Content Area */}
+        <div className="lg:col-span-3 bg-white border border-slate-200/80 p-6 sm:p-8 rounded-3xl shadow-sm min-h-[500px]" id="dashboard-main-content">
+          
+          {/* SECTION A: OVERVIEW */}
+          {activeTab === 'overview' && (
+            <div className="space-y-8" id="panel-overview">
+              <div>
+                <h3 className="font-display font-bold text-2xl text-slate-900">Welcome, {user.name}</h3>
+                <p className="text-sm text-slate-500 mt-1">Here is a quick snapshot of your BioCart green shopping account.</p>
+              </div>
+
+              {/* Real Metrics Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div 
+                  onClick={() => switchTab('orders')}
+                  className="p-5 bg-emerald-50/60 border border-emerald-100 rounded-2xl hover:border-emerald-300 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center justify-between text-emerald-800">
+                    <span className="text-xs font-bold uppercase tracking-wider">Total Orders</span>
+                    <Package className="w-4.5 h-4.5" />
+                  </div>
+                  <p className="text-2xl font-display font-bold text-emerald-950 mt-2">{totalOrdersCount}</p>
+                </div>
+
+                <div 
+                  onClick={() => switchTab('orders')}
+                  className="p-5 bg-amber-50/60 border border-amber-100 rounded-2xl hover:border-amber-300 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center justify-between text-amber-800">
+                    <span className="text-xs font-bold uppercase tracking-wider">Active</span>
+                    <Clock className="w-4.5 h-4.5" />
+                  </div>
+                  <p className="text-2xl font-display font-bold text-amber-950 mt-2">{activeOrdersCount}</p>
+                </div>
+
+                <div 
+                  onClick={() => switchTab('wishlist')}
+                  className="p-5 bg-rose-50/60 border border-rose-100 rounded-2xl hover:border-rose-300 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center justify-between text-rose-800">
+                    <span className="text-xs font-bold uppercase tracking-wider">Wishlist</span>
+                    <Heart className="w-4.5 h-4.5 fill-current" />
+                  </div>
+                  <p className="text-2xl font-display font-bold text-rose-950 mt-2">{wishlist.length}</p>
+                </div>
+
+                <div 
+                  onClick={() => switchTab('addresses')}
+                  className="p-5 bg-blue-50/60 border border-blue-100 rounded-2xl hover:border-blue-300 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center justify-between text-blue-800">
+                    <span className="text-xs font-bold uppercase tracking-wider">Addresses</span>
+                    <MapPin className="w-4.5 h-4.5" />
+                  </div>
+                  <p className="text-2xl font-display font-bold text-blue-950 mt-2">{addresses.length}</p>
+                </div>
+              </div>
+
+              {/* Account Quick Status Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-emerald-700" />
+                      <span>Email Authentication</span>
+                    </h4>
+                    {firebaseUser?.emailVerified ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Verified
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                        Pending Verification
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-600 truncate">{user.email || 'No email attached'}</p>
+                  {!firebaseUser?.emailVerified && user.email && (
+                    <button
+                      onClick={handleResendEmailVerification}
+                      disabled={sendingVerification}
+                      className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+                    >
+                      {sendingVerification ? 'Sending link…' : 'Send verification email'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-emerald-700" />
+                      <span>Registered Contact</span>
+                    </h4>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Primary
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600">{user.phone || 'No phone number provided'}</p>
+                  <button
+                    onClick={() => switchTab('profile')}
+                    className="text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
+                  >
+                    Update contact details
+                  </button>
+                </div>
+              </div>
+
+              {/* Recent Orders Preview */}
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-base text-slate-900">Recent Purchases</h4>
+                  {orders.length > 0 && (
+                    <button
+                      onClick={() => switchTab('orders')}
+                      className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
+                    >
+                      View All Orders ({orders.length})
+                    </button>
+                  )}
+                </div>
+
+                {loadingOrders ? (
+                  <div className="py-8 text-center text-slate-400">Loading order records...</div>
+                ) : orders.length === 0 ? (
+                  <div className="p-8 text-center border border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-3">
+                    <ShoppingBag className="w-8 h-8 text-slate-400 mx-auto" />
+                    <p className="text-sm font-semibold text-slate-700">No purchases yet</p>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Explore our organic fertilizers, potting mixes, and eco-friendly gardening gear.
+                    </p>
+                    <button
+                      onClick={() => setTab('shop')}
+                      className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                    >
+                      Explore BioCart Shop
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {orders.slice(0, 3).map((ord) => (
+                      <div 
+                        key={ord.id} 
+                        className="p-4 border border-slate-200 rounded-2xl bg-white hover:border-emerald-300 transition-all flex flex-wrap items-center justify-between gap-3 shadow-xs"
+                      >
+                        <div>
+                          <span className="font-mono text-xs font-bold text-emerald-800">{ord.id}</span>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Placed on {ord.createdAt ? new Date(ord.createdAt?.seconds ? ord.createdAt.seconds * 1000 : ord.createdAt).toLocaleDateString('en-IN') : 'Recent'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                            ord.status?.toLowerCase() === 'delivered'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}>
+                            {ord.status || 'Processing'}
+                          </span>
+                          <span className="text-sm font-bold text-slate-900">₹{ord.totalAmount || ord.total || 0}</span>
+                          <button
+                            onClick={() => {
+                              setSelectedOrderDetails(ord);
+                              switchTab('orders');
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-emerald-700 cursor-pointer"
+                            title="View Details"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+
+          {/* SECTION B: PERSONAL INFORMATION */}
           {activeTab === 'profile' && (
             <div className="space-y-6" id="panel-profile">
-              <div className="border-b border-slate-100 dark:border-white/5 pb-4">
-                <h3 className="font-display font-bold text-xl text-nature-900 dark:text-nature-400">Profile Preferences</h3>
-                <p className="text-xs text-charcoal-500">Manage your credentials, default shipping nodes, and communication preferences.</p>
+              <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-display font-bold text-2xl text-slate-900">Personal Information</h3>
+                  <p className="text-xs text-slate-500 mt-1">Manage your identity details, contact numbers, and default shipping hub.</p>
+                </div>
+                {!editingProfile && (
+                  <button
+                    onClick={() => setEditingProfile(true)}
+                    className="px-4 py-2 border border-slate-300 hover:border-emerald-600 hover:text-emerald-700 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Info</span>
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-charcoal-700 dark:text-slate-300">Registered Name</label>
-                  <input
-                    type="text"
-                    disabled
-                    value={user.name}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-charcoal-800 text-charcoal-500 rounded-xl border border-slate-200 dark:border-white/5 text-sm cursor-not-allowed"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-charcoal-700 dark:text-slate-300">Secure Email</label>
-                  <input
-                    type="email"
-                    disabled
-                    value={user.email}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-charcoal-800 text-charcoal-500 rounded-xl border border-slate-200 dark:border-white/5 text-sm cursor-not-allowed"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-charcoal-700 dark:text-slate-300">Contact Number</label>
-                  <input
-                    type="text"
-                    defaultValue={user.phone || '+91 94949 94949'}
-                    className="w-full px-4 py-3 bg-white dark:bg-charcoal-850 text-charcoal-900 dark:text-white rounded-xl border border-slate-200 dark:border-white/10 text-sm focus:border-nature-600 focus:outline-none"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-charcoal-700 dark:text-slate-300">Default Shipping Hub</label>
-                  <input
-                    type="text"
-                    defaultValue={user.location || 'Guntur, Andhra Pradesh'}
-                    className="w-full px-4 py-3 bg-white dark:bg-charcoal-850 text-charcoal-900 dark:text-white rounded-xl border border-slate-200 dark:border-white/10 text-sm focus:border-nature-600 focus:outline-none"
-                  />
-                </div>
-              </div>
+              <form onSubmit={handleSaveProfile} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  
+                  {/* Full Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Full Name *</label>
+                    <input
+                      type="text"
+                      disabled={!editingProfile || savingProfile}
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      required
+                      className={`w-full px-4 py-3 rounded-xl border text-sm transition-all ${
+                        editingProfile 
+                          ? 'bg-white border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-slate-900' 
+                          : 'bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed'
+                      }`}
+                    />
+                  </div>
 
-              <div className="p-4 bg-nature-50/50 dark:bg-nature-950/25 border border-nature-100/40 dark:border-nature-900/40 rounded-2xl flex gap-3 text-xs text-nature-800 dark:text-nature-400">
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-nature-700" />
+                  {/* Registered Email (Protected Identity Field) */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                      <span>Email Address</span>
+                      <span className="text-[10px] text-slate-400 font-normal">Primary Login ID</span>
+                    </label>
+                    <input
+                      type="email"
+                      disabled
+                      value={user.email}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 text-slate-500 rounded-xl text-sm cursor-not-allowed"
+                    />
+                  </div>
+
+                  {/* Contact Number */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Mobile Number</label>
+                    <input
+                      type="text"
+                      disabled={!editingProfile || savingProfile}
+                      value={profilePhone}
+                      onChange={(e) => setProfilePhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className={`w-full px-4 py-3 rounded-xl border text-sm transition-all ${
+                        editingProfile 
+                          ? 'bg-white border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-slate-900' 
+                          : 'bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Default Shipping Hub */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Preferred Shipping Region</label>
+                    <input
+                      type="text"
+                      disabled={!editingProfile || savingProfile}
+                      value={profileLocation}
+                      onChange={(e) => setProfileLocation(e.target.value)}
+                      placeholder="e.g. Guntur, Andhra Pradesh"
+                      className={`w-full px-4 py-3 rounded-xl border text-sm transition-all ${
+                        editingProfile 
+                          ? 'bg-white border-slate-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-slate-900' 
+                          : 'bg-slate-50 border-slate-200 text-slate-600 cursor-not-allowed'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {editingProfile && (
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={savingProfile}
+                      className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
+                    >
+                      {savingProfile ? 'Saving Changes...' : 'Save Profile Changes'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingProfile}
+                      onClick={() => {
+                        setEditingProfile(false);
+                        setProfileName(user.name);
+                        setProfilePhone(user.phone || '');
+                        setProfileLocation(user.location || '');
+                      }}
+                      className="px-5 py-2.5 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </form>
+
+              {/* BioCart Membership Note */}
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex gap-3 text-xs text-emerald-800">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-700" />
                 <p className="leading-relaxed">
-                  Your BioCart Green Membership is currently active. Enjoy free carbon-neutral shipping on any purchase above ₹499.
+                  Your BioCart Eco Membership is currently active. Enjoy free carbon-neutral shipping on any purchase above ₹499 and priority dispatch from our Guntur processing units.
                 </p>
               </div>
 
-              {!googleLinked && (
-                <button type="button" onClick={handleLinkGoogle} disabled={linkingGoogle} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-semibold text-charcoal-800 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-60">
-                  <Link2 className="w-4 h-4" />
-                  {linkingGoogle ? 'Connecting Google…' : 'Link Google sign-in to this account'}
-                </button>
-              )}
-
-              {/* Appearance & Theme Settings Section */}
-              <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-3">
-                <h4 className="font-display font-bold text-sm text-charcoal-900 dark:text-white uppercase tracking-wider">
-                  Appearance & Theme
-                </h4>
-                <p className="text-xs text-charcoal-500">Choose your preferred BioCart interface theme mode.</p>
-                <div className="grid grid-cols-2 gap-4 max-w-sm">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (theme !== 'light') toggleTheme();
-                    }}
-                    className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${
-                      theme === 'light'
-                        ? 'border-emerald-600 bg-emerald-50/80 text-emerald-900 shadow-sm'
-                        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-charcoal-800 text-charcoal-700 dark:text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-emerald-600 flex items-center justify-center">
-                        {theme === 'light' && <div className="w-1.5 h-1.5 bg-emerald-600 rounded-full" />}
-                      </div>
-                      <span>Light Theme (Default)</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (theme !== 'dark') toggleTheme();
-                    }}
-                    className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs font-bold transition-all cursor-pointer ${
-                      theme === 'dark'
-                        ? 'border-emerald-500 bg-emerald-950/60 text-emerald-400 shadow-sm'
-                        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-charcoal-800 text-charcoal-700 dark:text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-emerald-500 flex items-center justify-center">
-                        {theme === 'dark' && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />}
-                      </div>
-                      <span>Dark Theme</span>
-                    </div>
-                  </button>
+              {/* Google Link Status */}
+              <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h4 className="font-bold text-sm text-slate-900">Google Single Sign-On</h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {googleLinked 
+                      ? 'Your BioCart account is linked to Google sign-in.' 
+                      : 'Connect your Google account for one-click authentication.'}
+                  </p>
                 </div>
+                {!googleLinked ? (
+                  <button 
+                    type="button" 
+                    onClick={handleLinkGoogle} 
+                    disabled={linkingGoogle} 
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-60 cursor-pointer"
+                  >
+                    <Link2 className="w-4 h-4 text-emerald-700" />
+                    <span>{linkingGoogle ? 'Connecting Google…' : 'Link Google Account'}</span>
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Linked</span>
+                  </span>
+                )}
               </div>
             </div>
           )}
 
-
+          {/* SECTION C: MY ORDERS */}
           {activeTab === 'orders' && (
             <div className="space-y-6" id="panel-orders">
-              <div className="border-b border-slate-100 dark:border-white/5 pb-4">
-                <h3 className="font-display font-bold text-xl text-nature-900 dark:text-nature-400">Purchase Log</h3>
-                <p className="text-xs text-charcoal-500">Track and view invoices for all of your sustainable purchases.</p>
+              <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-display font-bold text-2xl text-slate-900">Order History</h3>
+                  <p className="text-xs text-slate-500 mt-1">Review invoices, order snapshots, and delivery timelines.</p>
+                </div>
+                {selectedOrderDetails && (
+                  <button
+                    onClick={() => setSelectedOrderDetails(null)}
+                    className="px-3.5 py-1.5 border border-slate-300 text-xs font-bold text-slate-700 rounded-xl hover:bg-slate-100 cursor-pointer"
+                  >
+                    Back to All Orders
+                  </button>
+                )}
               </div>
 
-              {orders.length === 0 ? (
-                <div className="text-center py-12 text-charcoal-500">No purchases found. Let's make your first green transaction!</div>
+              {loadingOrders ? (
+                <div className="py-16 text-center text-slate-400">Loading purchase records...</div>
+              ) : selectedOrderDetails ? (
+                /* Order Details View */
+                <div className="space-y-6" id="order-details-view">
+                  <div className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <span className="font-mono text-sm font-bold text-emerald-800">{selectedOrderDetails.id}</span>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Order Date: {selectedOrderDetails.createdAt ? new Date(selectedOrderDetails.createdAt?.seconds ? selectedOrderDetails.createdAt.seconds * 1000 : selectedOrderDetails.createdAt).toLocaleString('en-IN') : 'Recent'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase">
+                          {selectedOrderDetails.status || 'Confirmed'}
+                        </span>
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-200 uppercase">
+                          Payment: {selectedOrderDetails.paymentMethod || 'COD'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="h-[1px] bg-slate-200" />
+
+                    {/* Order Items */}
+                    <div>
+                      <h5 className="font-bold text-xs text-slate-700 uppercase tracking-wider mb-3">Purchased Items</h5>
+                      <div className="space-y-2">
+                        {(selectedOrderDetails.items || []).map((item: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between py-2 border-b border-slate-100 text-sm">
+                            <div>
+                              <p className="font-semibold text-slate-900">{item.name}</p>
+                              <p className="text-xs text-slate-500">Qty: {item.qty || item.quantity || 1} × ₹{item.price || 0}</p>
+                            </div>
+                            <span className="font-bold text-slate-900">
+                              ₹{(item.price || 0) * (item.qty || item.quantity || 1)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Price Breakdown */}
+                    <div className="pt-3 border-t border-slate-200 space-y-1.5 text-xs text-slate-600">
+                      <div className="flex justify-between">
+                        <span>Subtotal</span>
+                        <span>₹{selectedOrderDetails.subtotal || selectedOrderDetails.total || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Shipping Charges</span>
+                        <span>₹{selectedOrderDetails.shippingAmount || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>GST / Taxes</span>
+                        <span>₹{selectedOrderDetails.taxAmount || 0}</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-slate-200 text-sm font-bold text-slate-900">
+                        <span>Total Paid</span>
+                        <span className="text-emerald-700">₹{selectedOrderDetails.totalAmount || selectedOrderDetails.total || 0}</span>
+                      </div>
+                    </div>
+
+                    {/* Shipping Address Snapshot */}
+                    {selectedOrderDetails.shippingAddress && (
+                      <div className="pt-3 border-t border-slate-200">
+                        <h5 className="font-bold text-xs text-slate-700 uppercase tracking-wider mb-2">Shipping Destination Snapshot</h5>
+                        <p className="text-xs text-slate-800 font-semibold">{selectedOrderDetails.shippingAddress.name} ({selectedOrderDetails.shippingAddress.phone})</p>
+                        <p className="text-xs text-slate-600">{selectedOrderDetails.shippingAddress.address || selectedOrderDetails.shippingAddress.street}</p>
+                        <p className="text-xs text-slate-600">
+                          {selectedOrderDetails.shippingAddress.city}, {selectedOrderDetails.shippingAddress.state} - {selectedOrderDetails.shippingAddress.zip || selectedOrderDetails.shippingAddress.postalCode}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={() => {
+                          setActiveOrderTrackId(selectedOrderDetails.id);
+                          setTrackInputId(selectedOrderDetails.id);
+                          switchTab('track');
+                        }}
+                        className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Truck className="w-4 h-4" />
+                        <span>Track Live Status</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : orders.length === 0 ? (
+                <div className="text-center py-16 text-slate-500 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 p-8 space-y-3">
+                  <Package className="w-10 h-10 text-slate-400 mx-auto" />
+                  <h4 className="font-bold text-base text-slate-900">No Orders Placed Yet</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    When you purchase organic agricultural products on BioCart, your confirmed invoices and order history will appear here.
+                  </p>
+                  <button
+                    onClick={() => setTab('shop')}
+                    className="mt-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  >
+                    Start Shopping
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-4" id="orders-list">
                   {orders.map((order) => (
                     <div
                       key={order.id}
-                      className="p-5 border border-slate-150 dark:border-white/5 rounded-2xl bg-slate-50/40 dark:bg-charcoal-800/20 space-y-3"
+                      className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-emerald-300 transition-all shadow-xs space-y-3"
                     >
                       <div className="flex flex-wrap justify-between items-center gap-2">
                         <div>
-                          <span className="font-mono text-xs font-bold text-nature-700 dark:text-nature-400">{order.id}</span>
-                          <p className="text-xs text-charcoal-400 mt-0.5">Purchased on {order.date}</p>
+                          <span className="font-mono text-xs font-bold text-emerald-800">{order.id}</span>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Purchased on {order.createdAt ? new Date(order.createdAt?.seconds ? order.createdAt.seconds * 1000 : order.createdAt).toLocaleDateString('en-IN') : 'Recent'}
+                          </p>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
-                            order.status === 'Delivered'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-400'
+                            order.status?.toLowerCase() === 'delivered'
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
                           }`}>
-                            {order.status}
+                            {order.status || 'Processing'}
                           </span>
-                          <span className="text-sm font-bold text-charcoal-900 dark:text-white">₹{order.total}</span>
+                          <span className="text-sm font-bold text-slate-900">₹{order.totalAmount || order.total || 0}</span>
                         </div>
                       </div>
 
-                      <div className="h-[1px] bg-slate-100 dark:bg-white/5" />
+                      <div className="h-[1px] bg-slate-100" />
 
                       <ul className="space-y-1.5">
-                        {order.items.map((item, idx) => (
-                          <li key={idx} className="flex justify-between text-xs text-charcoal-600 dark:text-slate-300">
-                            <span>{item.name} <strong className="text-charcoal-400">x{item.qty}</strong></span>
-                            <span>₹{item.price * item.qty}</span>
+                        {(order.items || []).map((item: any, idx: number) => (
+                          <li key={idx} className="flex justify-between text-xs text-slate-700">
+                            <span>{item.name} <strong className="text-slate-400">x{item.qty || item.quantity || 1}</strong></span>
+                            <span>₹{(item.price || 0) * (item.qty || item.quantity || 1)}</span>
                           </li>
                         ))}
                       </ul>
 
-                      <div className="flex justify-end pt-1">
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                        <button
+                          onClick={() => setSelectedOrderDetails(order)}
+                          className="text-xs font-bold text-slate-600 hover:text-emerald-700 cursor-pointer"
+                        >
+                          View Full Invoice & Snapshot
+                        </button>
+
                         <button
                           onClick={() => {
                             setActiveOrderTrackId(order.id);
                             setTrackInputId(order.id);
-                            setActiveTab('track');
+                            switchTab('track');
                           }}
-                          className="text-xs font-bold text-nature-700 dark:text-nature-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                          className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
                         >
-                          <span>Track Live Shipment</span>
-                          <ChevronRight className="w-3 h-3" />
+                          <span>Track Shipment</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -398,29 +1166,32 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
 
+          {/* SECTION D: TRACK ACTIVE ORDER */}
           {activeTab === 'track' && (
             <div className="space-y-6" id="panel-track">
-              <div className="border-b border-slate-100 dark:border-white/5 pb-4">
-                <h3 className="font-display font-bold text-xl text-nature-900 dark:text-nature-400">Live Shipments Tracker</h3>
-                <p className="text-xs text-charcoal-500">Provide any active tracking ID starting with "BC-" to retrieve transport parameters from Guntur.</p>
+              <div className="border-b border-slate-200 pb-4">
+                <h3 className="font-display font-bold text-2xl text-slate-900">Shipment Status Tracker</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Enter your BioCart Order ID to retrieve real-time fulfillment status from our distribution center.
+                </p>
               </div>
 
               {/* ID Input Search */}
               <form onSubmit={handleTrackSubmit} className="flex gap-2" id="track-search-form">
                 <div className="relative flex-grow">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-charcoal-400" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
                   <input
                     type="text"
                     required
-                    placeholder="Enter Tracking ID (e.g. BC-548123-IN)"
+                    placeholder="Enter Order ID (e.g. BC-548123 or Firestore Document ID)"
                     value={trackInputId}
                     onChange={(e) => setTrackInputId(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-charcoal-800 text-charcoal-950 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl focus:border-nature-600 focus:outline-none text-sm"
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-emerald-600 focus:bg-white focus:outline-none text-sm text-slate-900 transition-all"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="px-6 bg-nature-700 hover:bg-nature-800 text-white rounded-xl text-sm font-semibold transition-colors cursor-pointer flex-shrink-0 hover:scale-105 active:scale-95 transition-all duration-300 ease-out shadow-md hover:shadow-nature-700/30"
+                  className="px-6 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-all cursor-pointer flex-shrink-0 shadow-md"
                 >
                   Locate
                 </button>
@@ -429,139 +1200,128 @@ export const Dashboard: React.FC = () => {
               {/* Tracking Visualization */}
               {currentTrackId && isFoundOrder ? (
                 <div className="space-y-8 pt-4" id="tracking-visualization">
-                  <div className="p-4 bg-nature-50/50 dark:bg-charcoal-800/40 rounded-2xl border border-nature-100/40 dark:border-white/5 flex items-center justify-between text-xs font-semibold">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-wrap items-center justify-between text-xs font-semibold gap-2">
                     <div>
-                      <span className="text-charcoal-400">Order ID:</span>
-                      <strong className="font-mono text-nature-800 dark:text-nature-400 ml-1.5">{currentTrackId}</strong>
+                      <span className="text-slate-500">Tracking Reference:</span>
+                      <strong className="font-mono text-emerald-900 ml-1.5">{currentTrackId}</strong>
                     </div>
                     <div>
-                      <span className="text-charcoal-400">Source Factory:</span>
-                      <strong className="text-nature-800 dark:text-nature-400 ml-1.5">Guntur (Sindulis Agro Units)</strong>
+                      <span className="text-slate-500">Dispatch Node:</span>
+                      <strong className="text-emerald-900 ml-1.5">Guntur (Sindulis Agro Units)</strong>
                     </div>
                   </div>
 
-                  {/* Step list vertical line */}
-                  <div className="relative pl-8 space-y-8 before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100 dark:before:bg-white/5" id="tracking-steps">
+                  {/* Step List Timeline */}
+                  <div className="relative pl-8 space-y-8 before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-200" id="tracking-steps">
                     {/* Step 1 */}
                     <div className="relative flex items-start gap-4">
-                      <div className="absolute -left-8 w-7 h-7 rounded-full bg-nature-100 border border-nature-300 flex items-center justify-center text-nature-700">
+                      <div className="absolute -left-8 w-7 h-7 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-700">
                         <CheckCircle2 className="w-4 h-4 fill-current" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-sm text-charcoal-900 dark:text-white">Order Registered & Approved</h4>
-                        <p className="text-xs text-charcoal-400 mt-0.5">Approved via central BioCart checkout ledger.</p>
+                        <h4 className="font-semibold text-sm text-slate-900">Order Registered & Approved</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">Payment confirmed via BioCart secure checkout ledger.</p>
                       </div>
                     </div>
 
                     {/* Step 2 */}
                     <div className="relative flex items-start gap-4">
-                      <div className="absolute -left-8 w-7 h-7 rounded-full bg-nature-100 border border-nature-300 flex items-center justify-center text-nature-700">
+                      <div className="absolute -left-8 w-7 h-7 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-700">
                         <CheckCircle2 className="w-4 h-4 fill-current" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-sm text-charcoal-900 dark:text-white">Processed at Guntur Factory</h4>
-                        <p className="text-xs text-charcoal-400 mt-0.5">Packaged utilizing 100% plastic-free starches at Sindulis Agro industrial nodes.</p>
+                        <h4 className="font-semibold text-sm text-slate-900">Packaging at Guntur Hub</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">Packaged utilizing 100% plastic-free biodegradable materials.</p>
                       </div>
                     </div>
 
                     {/* Step 3 */}
                     <div className="relative flex items-start gap-4">
                       <div className={`absolute -left-8 w-7 h-7 rounded-full flex items-center justify-center border ${
-                        currentTrackId === activeOrderTrackId // newly placed order is only processed, not yet shipped
-                          ? 'bg-slate-50 border-slate-200 text-slate-400'
-                          : 'bg-nature-100 border-nature-300 text-nature-700'
+                        ['shipped', 'delivered'].includes(isFoundOrder.status?.toLowerCase())
+                          ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
+                          : 'bg-slate-100 border-slate-300 text-slate-400'
                       }`}>
-                        {currentTrackId === activeOrderTrackId ? (
-                          <span className="w-2 h-2 bg-charcoal-400 rounded-full animate-ping" />
-                        ) : (
+                        {['shipped', 'delivered'].includes(isFoundOrder.status?.toLowerCase()) ? (
                           <CheckCircle2 className="w-4 h-4 fill-current" />
+                        ) : (
+                          <span className="w-2 h-2 bg-slate-400 rounded-full animate-ping" />
                         )}
                       </div>
-                      <div className={currentTrackId === activeOrderTrackId ? 'opacity-60' : ''}>
-                        <h4 className="font-semibold text-sm text-charcoal-900 dark:text-white">Dispatched from Guntur Depot</h4>
-                        <p className="text-xs text-charcoal-400 mt-0.5">Assigned to carbon-neutral transport fleets.</p>
+                      <div className={!['shipped', 'delivered'].includes(isFoundOrder.status?.toLowerCase()) ? 'opacity-60' : ''}>
+                        <h4 className="font-semibold text-sm text-slate-900">Dispatched from Guntur Depot</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">Enroute via partner agricultural transport logistics.</p>
                       </div>
                     </div>
 
                     {/* Step 4 */}
                     <div className="relative flex items-start gap-4">
                       <div className={`absolute -left-8 w-7 h-7 rounded-full flex items-center justify-center border ${
-                        false // preseeded in transit
-                          ? 'bg-nature-100 border-nature-300 text-nature-700'
-                          : orders.some(o => o.id === currentTrackId && o.status === 'delivered') // delivered
-                          ? 'bg-nature-100 border-nature-300 text-nature-700'
-                          : 'bg-slate-50 border-slate-200 text-slate-400'
+                        isFoundOrder.status?.toLowerCase() === 'delivered'
+                          ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
+                          : 'bg-slate-100 border-slate-300 text-slate-400'
                       }`}>
-                        {false ? (
-                          <Truck className="w-3.5 h-3.5" />
-                        ) : orders.some(o => o.id === currentTrackId && o.status === 'delivered') ? (
+                        {isFoundOrder.status?.toLowerCase() === 'delivered' ? (
                           <CheckCircle2 className="w-4 h-4 fill-current" />
                         ) : (
                           <span className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
                         )}
                       </div>
-                      <div className={orders.some(o => o.id === currentTrackId && ['shipped', 'delivered'].includes(o.status)) ? '' : 'opacity-45'}>
-                        <h4 className="font-semibold text-sm text-charcoal-900 dark:text-white">In Transit (Regional Hub)</h4>
-                        <p className="text-xs text-charcoal-400 mt-0.5">Enroute via green express freight lines.</p>
-                      </div>
-                    </div>
-
-                    {/* Step 5 */}
-                    <div className="relative flex items-start gap-4">
-                      <div className={`absolute -left-8 w-7 h-7 rounded-full flex items-center justify-center border ${
-                        orders.some(o => o.id === currentTrackId && o.status === 'delivered')
-                          ? 'bg-nature-100 border-nature-300 text-nature-700'
-                          : 'bg-slate-50 border-slate-200 text-slate-400'
-                      }`}>
-                        {orders.some(o => o.id === currentTrackId && o.status === 'delivered') ? (
-                          <CheckCircle2 className="w-4 h-4 fill-current" />
-                        ) : (
-                          <span className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
-                        )}
-                      </div>
-                      <div className={orders.some(o => o.id === currentTrackId && o.status === 'delivered') ? '' : 'opacity-45'}>
-                        <h4 className="font-semibold text-sm text-charcoal-900 dark:text-white">Delivered Successfully</h4>
-                        <p className="text-xs text-charcoal-400 mt-0.5">Signature verified. Zero plastic packaging discarded.</p>
+                      <div className={isFoundOrder.status?.toLowerCase() !== 'delivered' ? 'opacity-50' : ''}>
+                        <h4 className="font-semibold text-sm text-slate-900">Delivered Successfully</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">Order verified and handed over at destination address.</p>
                       </div>
                     </div>
                   </div>
                 </div>
               ) : currentTrackId ? (
-                <div className="text-center py-8 text-charcoal-500 bg-slate-50/50 dark:bg-charcoal-800/10 rounded-2xl border border-dashed border-slate-200">
-                  No active shipment logs registered with ID "{currentTrackId}". Please verify syntax.
+                <div className="text-center py-10 text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                  <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+                  <p className="font-semibold text-slate-800">Order ID "{currentTrackId}" not found in your purchase history.</p>
+                  <p className="text-xs text-slate-500">Please double check your Order ID from the My Orders tab.</p>
                 </div>
               ) : (
-                <div className="text-center py-8 text-charcoal-500 bg-slate-50/50 dark:bg-charcoal-800/10 rounded-2xl border border-dashed border-slate-200">
-                  Type any active tracking ID (e.g. BC-548123-IN) above to initiate satellite location feed.
+                <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <Truck className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-slate-700">Enter an Order ID above to view shipment progress.</p>
                 </div>
               )}
             </div>
           )}
 
+          {/* SECTION E: WISHLIST */}
           {activeTab === 'wishlist' && (
             <div className="space-y-6" id="panel-wishlist">
-              <div className="border-b border-slate-100 dark:border-white/5 pb-4 flex items-center justify-between">
+              <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
                 <div>
-                  <h3 className="font-display font-bold text-xl text-nature-900 dark:text-nature-400 flex items-center gap-2">
-                    <Heart className="w-5 h-5 fill-rose-500 text-rose-500" />
-                    <span>My Favorites</span>
+                  <h3 className="font-display font-bold text-2xl text-slate-900 flex items-center gap-2">
+                    <Heart className="w-6 h-6 fill-rose-500 text-rose-500" />
+                    <span>My Wishlist</span>
                   </h3>
-                  <p className="text-xs text-charcoal-500">Your curated selection of organic products saved for your sustainable garden.</p>
+                  <p className="text-xs text-slate-500 mt-1">Saved products for your sustainable farm and garden.</p>
                 </div>
-                <span className="bg-nature-50 dark:bg-nature-950/40 text-nature-800 dark:text-nature-400 text-xs font-bold px-3 py-1 rounded-full border border-nature-100 dark:border-nature-900">
+                <span className="bg-emerald-50 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">
                   {wishlistProducts.length} {wishlistProducts.length === 1 ? 'Item' : 'Items'}
                 </span>
               </div>
 
               {wishlistProducts.length === 0 ? (
-                <div className="text-center py-12 text-charcoal-500 flex flex-col items-center justify-center space-y-4 bg-slate-50/50 dark:bg-charcoal-800/10 rounded-2xl p-8 border border-dashed border-slate-200 dark:border-white/5">
-                  <div className="w-16 h-16 rounded-full bg-rose-50 dark:bg-rose-950/20 flex items-center justify-center">
+                <div className="text-center py-16 text-slate-500 flex flex-col items-center justify-center space-y-4 bg-slate-50 rounded-2xl p-8 border border-dashed border-slate-200">
+                  <div className="w-16 h-16 rounded-full bg-rose-50 flex items-center justify-center">
                     <Heart className="w-8 h-8 text-rose-500" />
                   </div>
                   <div>
-                    <p className="font-display font-bold text-base text-charcoal-900 dark:text-white">Your favorites list is empty</p>
-                    <p className="text-xs text-charcoal-400 max-w-sm mx-auto mt-1">Explore the BioCart shop and click the heart icon on any product to save it here for later.</p>
+                    <p className="font-display font-bold text-base text-slate-900">Your wishlist is currently empty</p>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                      Explore the BioCart catalog and tap the heart icon on any product to save it here for later.
+                    </p>
                   </div>
+                  <button
+                    onClick={() => setTab('shop')}
+                    className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  >
+                    Browse Organic Catalog
+                  </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="wishlist-grid">
@@ -589,8 +1349,354 @@ export const Dashboard: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* SECTION F: SAVED ADDRESSES */}
+          {activeTab === 'addresses' && (
+            <div className="space-y-6" id="panel-addresses">
+              <div className="border-b border-slate-200 pb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-display font-bold text-2xl text-slate-900">Saved Addresses</h3>
+                  <p className="text-xs text-slate-500 mt-1">Manage delivery locations and set your primary shipping node.</p>
+                </div>
+                <button
+                  onClick={() => handleOpenAddressModal()}
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add New Address</span>
+                </button>
+              </div>
+
+              {loadingAddresses ? (
+                <div className="py-16 text-center text-slate-400">Loading saved addresses...</div>
+              ) : addresses.length === 0 ? (
+                <div className="text-center py-16 text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-8 space-y-3">
+                  <MapPin className="w-10 h-10 text-slate-400 mx-auto" />
+                  <h4 className="font-bold text-base text-slate-900">No Addresses Saved</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Add your farm or home delivery address for faster one-click checkout.
+                  </p>
+                  <button
+                    onClick={() => handleOpenAddressModal()}
+                    className="mt-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  >
+                    Add Your First Address
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4" id="address-grid">
+                  {addresses.map((addr) => (
+                    <div 
+                      key={addr.id} 
+                      className={`p-5 rounded-2xl border transition-all space-y-3 relative ${
+                        addr.isDefault 
+                          ? 'border-emerald-600 bg-emerald-50/30 shadow-xs' 
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-slate-900">{addr.name}</span>
+                          {addr.isDefault && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenAddressModal(addr)}
+                            className="p-1.5 text-slate-400 hover:text-emerald-700 rounded-lg hover:bg-slate-100 cursor-pointer"
+                            title="Edit Address"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAddress(addr.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 cursor-pointer"
+                            title="Delete Address"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {addr.street}<br />
+                        {addr.city}, {addr.state} - <strong className="font-mono text-slate-900">{addr.postalCode}</strong><br />
+                        {addr.country}
+                      </p>
+
+                      <p className="text-xs text-slate-700 font-semibold flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{addr.phone}</span>
+                      </p>
+
+                      {!addr.isDefault && (
+                        <div className="pt-2 border-t border-slate-100">
+                          <button
+                            onClick={() => handleSetDefaultAddress(addr.id)}
+                            className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
+                          >
+                            Set as Default Shipping Address
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Address Edit/Add Modal */}
+              {showAddressModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+                  <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <h4 className="font-display font-bold text-lg text-slate-900">
+                        {editingAddress ? 'Edit Address' : 'Add New Delivery Address'}
+                      </h4>
+                      <button
+                        onClick={() => setShowAddressModal(false)}
+                        className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleSaveAddress} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Recipient Name *</label>
+                          <input
+                            type="text"
+                            required
+                            value={addrFormName}
+                            onChange={(e) => setAddrFormName(e.target.value)}
+                            placeholder="Full Name"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-emerald-600 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Mobile Number *</label>
+                          <input
+                            type="text"
+                            required
+                            value={addrFormPhone}
+                            onChange={(e) => setAddrFormPhone(e.target.value)}
+                            placeholder="+91 98765 43210"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-emerald-600 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-slate-700">Street Address / House / Landmark *</label>
+                        <input
+                          type="text"
+                          required
+                          value={addrFormStreet}
+                          onChange={(e) => setAddrFormStreet(e.target.value)}
+                          placeholder="Plot No., Street, Landmark"
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-emerald-600 focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">City / District *</label>
+                          <input
+                            type="text"
+                            required
+                            value={addrFormCity}
+                            onChange={(e) => setAddrFormCity(e.target.value)}
+                            placeholder="Guntur"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-emerald-600 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">State *</label>
+                          <input
+                            type="text"
+                            required
+                            value={addrFormState}
+                            onChange={(e) => setAddrFormState(e.target.value)}
+                            placeholder="Andhra Pradesh"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-emerald-600 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Postal PIN Code *</label>
+                          <input
+                            type="text"
+                            required
+                            maxLength={6}
+                            value={addrFormPostalCode}
+                            onChange={(e) => setAddrFormPostalCode(e.target.value)}
+                            placeholder="522001"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono focus:border-emerald-600 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2">
+                        <input
+                          type="checkbox"
+                          id="is-default-checkbox"
+                          checked={addrFormIsDefault}
+                          onChange={(e) => setAddrFormIsDefault(e.target.checked)}
+                          className="w-4 h-4 text-emerald-600 rounded-sm border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <label htmlFor="is-default-checkbox" className="text-xs text-slate-700 font-semibold cursor-pointer">
+                          Make this my default shipping address
+                        </label>
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => setShowAddressModal(false)}
+                          className="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingAddress}
+                          className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
+                        >
+                          {savingAddress ? 'Saving...' : 'Save Address'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECTION G: ACCOUNT SECURITY & SETTINGS */}
+          {activeTab === 'security' && (
+            <div className="space-y-8" id="panel-security">
+              <div className="border-b border-slate-200 pb-4">
+                <h3 className="font-display font-bold text-2xl text-slate-900">Security & Account Settings</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage your credentials, email verification status, and interface preferences.
+                </p>
+              </div>
+
+              {/* Password Change Section */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                    <Key className="w-4.5 h-4.5 text-emerald-700" />
+                    <span>Change Account Password</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Update your password using Firebase authentication protocols. Passwords must be at least 6 characters.
+                  </p>
+                </div>
+
+                <form onSubmit={handleChangePassword} className="space-y-4 max-w-md bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Current Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700">New Password</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Confirm New Password</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={changingPassword}
+                    className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50 mt-2"
+                  >
+                    {changingPassword ? 'Updating Password...' : 'Update Password'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Email Verification Section */}
+              <div className="pt-6 border-t border-slate-200 space-y-3">
+                <h4 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                  <Mail className="w-4.5 h-4.5 text-emerald-700" />
+                  <span>Email Verification</span>
+                </h4>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-slate-800 font-semibold">{user.email || 'No email attached'}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {firebaseUser?.emailVerified 
+                        ? 'Your email is officially verified with Firebase Authentication.' 
+                        : 'Unverified. Verify to ensure access recovery and administrative roles.'}
+                    </p>
+                  </div>
+                  {!firebaseUser?.emailVerified && user.email && (
+                    <button
+                      onClick={handleResendEmailVerification}
+                      disabled={sendingVerification}
+                      className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {sendingVerification ? 'Sending...' : 'Send Verification Link'}
+                    </button>
+                  )}
+                  {firebaseUser?.emailVerified && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Verified</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Theme Settings (Default Light Theme Preserved) */}
+              <div className="pt-6 border-t border-slate-200 space-y-3">
+                <h4 className="font-bold text-base text-slate-900">Theme & Display Mode</h4>
+                <p className="text-xs text-slate-500">BioCart operates with crisp light theme as our canonical sustainable brand design.</p>
+                <div className="max-w-xs p-3.5 rounded-2xl border-2 border-emerald-600 bg-emerald-50 text-emerald-950 font-bold text-xs flex items-center justify-between shadow-xs">
+                  <span>Light Theme (BioCart Eco Default)</span>
+                  <Check className="w-4 h-4 text-emerald-700" />
+                </div>
+              </div>
+
+            </div>
+          )}
+
         </div>
       </div>
     </div>
   );
 };
+export default Dashboard;

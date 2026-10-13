@@ -1,7 +1,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeError, AppError } from '../src/utils/errors.js';
-import { UserProfileSchema, USER_ROLES } from '../src/types/backend.js';
+import { 
+  UserProfileSchema, 
+  USER_ROLES, 
+  AddressEntitySchema, 
+  WishlistEntitySchema 
+} from '../src/types/backend.js';
 import { resolveUserRole } from '../src/utils/authz.js';
 
 describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => {
@@ -207,6 +212,94 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
 
       const maxBpsCommission = Math.round((amountPaise * 10000) / 10000);
       assert.equal(maxBpsCommission, amountPaise);
+    });
+  });
+
+  describe('6. Customer Address Book Validation (Indian PIN & E.164)', () => {
+    it('validates a complete Indian shipping address', () => {
+      const validAddress = {
+        id: 'addr_101',
+        userId: 'usr_abc123',
+        addressType: 'shipping',
+        name: 'Srinivas Rao',
+        street: 'Main Road, Brodipet',
+        city: 'Guntur',
+        state: 'Andhra Pradesh',
+        postalCode: '522002',
+        country: 'India',
+        phone: '+919494994949',
+        isDefault: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'usr_abc123',
+        updatedBy: 'usr_abc123',
+        status: 'active',
+        isDeleted: false,
+        version: 1
+      };
+      const result = AddressEntitySchema.safeParse(validAddress);
+      assert.equal(result.success, true);
+    });
+
+    it('rejects an address missing required street or postalCode', () => {
+      const invalidAddress = {
+        id: 'addr_102',
+        userId: 'usr_abc123',
+        addressType: 'shipping',
+        name: 'Srinivas Rao',
+        street: '', // Empty
+        city: 'Guntur',
+        state: 'Andhra Pradesh',
+        postalCode: '',
+        country: 'India',
+        phone: '+919494994949',
+        isDefault: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'usr_abc123',
+        updatedBy: 'usr_abc123',
+        status: 'active',
+        isDeleted: false,
+        version: 1
+      };
+      const result = AddressEntitySchema.safeParse(invalidAddress);
+      assert.equal(result.success, false);
+    });
+  });
+
+  describe('7. Customer Wishlist Data Isolation & Integrity', () => {
+    it('validates a customer wishlist entity with unique product IDs', () => {
+      const validWishlist = {
+        id: 'usr_abc123',
+        userId: 'usr_abc123',
+        productIds: ['prod-fertilizer-01', 'prod-seeds-02'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'usr_abc123',
+        updatedBy: 'usr_abc123',
+        status: 'active',
+        isDeleted: false,
+        version: 1
+      };
+      const result = WishlistEntitySchema.safeParse(validWishlist);
+      assert.equal(result.success, true);
+    });
+
+    it('validates an empty wishlist', () => {
+      const emptyWishlist = {
+        id: 'usr_abc123',
+        userId: 'usr_abc123',
+        productIds: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'usr_abc123',
+        updatedBy: 'usr_abc123',
+        status: 'active',
+        isDeleted: false,
+        version: 1
+      };
+      const result = WishlistEntitySchema.safeParse(emptyWishlist);
+      assert.equal(result.success, true);
     });
   });
 });

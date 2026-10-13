@@ -78,6 +78,7 @@ export const DynamicIslandNav: React.FC = () => {
   const handleWishlistClick = useCallback(() => {
     if (user) {
       setSubView('dashboard');
+      window.location.hash = 'dashboard?tab=wishlist';
     } else {
       setAuthModalOpen(true);
     }

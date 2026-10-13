@@ -15,7 +15,10 @@ import {
   onAuthStateChanged,
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  ConfirmationResult
+  ConfirmationResult,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from 'firebase/auth';
 import { UserProfile, UserRole } from '../types/backend';
 import { UserService } from './UserService';
@@ -237,6 +240,29 @@ export class AuthService {
         await UserService.saveProfile(newProfile);
       } catch (e) { console.warn("Failed saving normal registration profile", e); }
       return user;
+    } catch (err) {
+      throw normalizeError(err);
+    }
+  }
+
+  /**
+   * Securely change password for current user with reauthentication support
+   */
+  static async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('No user is currently authenticated.');
+    }
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters long.');
+    }
+
+    try {
+      if (user.email && currentPassword) {
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(user, credential);
+      }
+      await updatePassword(user, newPassword);
     } catch (err) {
       throw normalizeError(err);
     }

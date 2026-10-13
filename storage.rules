@@ -49,6 +49,9 @@ service firebase.storage {
     match /vendors/{vendorId}/{allPaths=**} {
       allow write: if (isAdmin() || isVendorOwner(vendorId)) && isValidImage();
     }
+    match /avatars/{userId}/{allPaths=**} {
+      allow write: if isSignedIn() && request.auth.uid == userId && isValidImage();
+    }
     
     match /{allPaths=**} {
       allow write: if false; // Deny all other writes

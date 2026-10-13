@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { WishlistService } from '../services/WishlistService';
 
 export interface ToastMessage {
   id: string;
@@ -14,7 +15,17 @@ interface AppContextType {
   theme: 'light' | 'dark';
   cart: Product[];
   wishlist: string[];
-  user: { uid?: string; name: string; email: string; phone?: string; location?: string; status?: string } | null;
+  user: { 
+    uid?: string; 
+    name: string; 
+    email: string; 
+    phone?: string; 
+    location?: string; 
+    photoURL?: string; 
+    role?: string; 
+    createdAt?: string; 
+    status?: string 
+  } | null;
   toasts: ToastMessage[];
   activeProductDetails: Product | null;
   searchQuery: string;
@@ -69,10 +80,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return {
       uid: userProfile.uid,
       name: userProfile.name,
-      email: userProfile.email,
+      email: userProfile.email || '',
       phone: userProfile.phone || userProfile.phoneNumber || '',
       location: userProfile.location || '',
-      status: userProfile.role === 'super_admin' ? 'Super Admin' : (userProfile.role === 'admin' ? 'Admin' : 'Premium Green Member')
+      photoURL: userProfile.photoURL || '',
+      role: userProfile.role || 'customer',
+      createdAt: userProfile.createdAt || '',
+      status: userProfile.role === 'super_admin' ? 'Super Admin' : (userProfile.role === 'admin' ? 'Admin' : (userProfile.role === 'vendor' ? 'Vendor' : 'Premium Green Member'))
     };
   }, [userProfile, isAuthenticated]);
 
@@ -96,6 +110,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  // Real-time synchronization of Wishlist with Firestore for authenticated users
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    // Subscribe to Firestore wishlist
+    const unsub = WishlistService.subscribeToUserWishlist(user.uid, (firestoreIds) => {
+      if (firestoreIds && firestoreIds.length > 0) {
+        setWishlist((local) => {
+          // Merge local and firestore uniquely
+          const merged = Array.from(new Set([...firestoreIds, ...local]));
+          return merged;
+        });
+      } else {
+        // If firestore is empty but we have local items, backfill firestore
+        setWishlist((local) => {
+          if (local.length > 0) {
+            WishlistService.saveWishlist(user.uid!, local).catch(err => {
+              console.warn('Failed to sync initial local wishlist to Firestore:', err);
+            });
+          }
+          return local;
+        });
+      }
+    });
+
+    return () => unsub();
+  }, [user?.uid]);
+
   // Save cart and wishlist to localStorage on updates
   useEffect(() => {
     try {
@@ -108,10 +150,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     try {
       localStorage.setItem('biocart-wishlist', JSON.stringify(wishlist));
+      if (user?.uid) {
+        WishlistService.saveWishlist(user.uid, wishlist).catch(err => {
+          console.warn('Failed to persist wishlist update to Firestore:', err);
+        });
+      }
     } catch (e) {
       console.error('Failed to save wishlist to localStorage', e);
     }
-  }, [wishlist]);
+  }, [wishlist, user?.uid]);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [activeProductDetails, setActiveProductDetails] = useState<Product | null>(() => {
@@ -169,7 +216,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     
     const handleHash = () => {
-      const newHash = window.location.hash.replace('#', '') || 'home';
+      const fullHash = window.location.hash.replace('#', '') || 'home';
+      const [newHash] = fullHash.split('?');
       if (['dashboard', 'dealer-portal', 'distributor-portal', 'admin', 'vendor'].includes(newHash)) {
         setSubViewState(newHash);
       } else if (newHash.startsWith('admin/')) {
