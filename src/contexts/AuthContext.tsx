@@ -6,6 +6,7 @@ import { UserService } from '../services/UserService';
 import { useLoading } from './LoadingContext';
 import { useNotification } from './NotificationContext';
 import { normalizeError } from '../utils/errors';
+import { resolveUserRole } from '../utils/authz';
 
 export type { ConfirmationResult };
 
@@ -40,9 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { showNotification } = useNotification();
 
   const userRole = useMemo<UserRole>(() => {
-    if (userProfile?.status !== 'active') return 'guest';
-    if ((userProfile.role === 'admin' || userProfile.role === 'super_admin') && !firebaseUser?.emailVerified) return 'guest';
-    return userProfile.role;
+    return resolveUserRole(userProfile, firebaseUser?.emailVerified === true);
   }, [userProfile, firebaseUser]);
 
   const isAuthenticated = useMemo<boolean>(() => {

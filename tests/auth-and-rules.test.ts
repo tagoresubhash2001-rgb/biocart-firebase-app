@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeError, AppError } from '../src/utils/errors.js';
 import { UserProfileSchema, USER_ROLES } from '../src/types/backend.js';
+import { resolveUserRole } from '../src/utils/authz.js';
 
 describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => {
 
@@ -161,6 +162,13 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
   });
 
   describe('4. Zero-Trust Role & Permission Enforcement', () => {
+    it('requires a verified email for active admin profiles and ignores missing profiles', () => {
+      assert.equal(resolveUserRole({ role: 'super_admin', status: 'active' }, false), 'guest');
+      assert.equal(resolveUserRole({ role: 'super_admin', status: 'active' }, true), 'super_admin');
+      assert.equal(resolveUserRole({ role: 'admin', status: 'suspended' }, true), 'guest');
+      assert.equal(resolveUserRole(null, true), 'guest');
+    });
+
     it('guarantees standard customer roles cannot grant administrative privilege', () => {
       const selfRegisteredRole = USER_ROLES.CUSTOMER;
       const isAdmin = (role: string) => role === 'admin' || role === 'super_admin';
