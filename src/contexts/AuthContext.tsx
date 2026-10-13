@@ -68,13 +68,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profile) {
         updateAndCacheProfile(profile);
       } else {
-        // Safe profile fallback creation
-        const isOwner = firebaseUser.emailVerified && firebaseUser.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
+        // Missing profiles are always ordinary customer profiles. Only the
+        // trusted Admin SDK callable may provision the owner role.
         const fallbackProfile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
-          name: firebaseUser.displayName || 'BioCart User',
-          role: isOwner ? 'super_admin' : 'customer',
+          name: firebaseUser.displayName || firebaseUser.phoneNumber || 'BioCart User',
+          phoneNumber: firebaseUser.phoneNumber || undefined,
+          role: 'customer',
           status: 'active',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -84,20 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Failed to sync user profile:', error);
-      // Attempt Network Recovery via localStorage cache check
-      try {
-        const cached = localStorage.getItem('biocart_cached_user_profile');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed.uid === firebaseUser.uid) {
-            setUserProfile(parsed);
-            showNotification('Network offline. Working with local cache.', 'info');
-            return;
-          }
-        }
-      } catch (cacheErr) {
-        console.error('Failed to read cached profile:', cacheErr);
-      }
+      updateAndCacheProfile(null);
       showNotification('Unable to sync profile. Check network connection.', 'warning');
     }
   }, [firebaseUser, updateAndCacheProfile, showNotification]);
@@ -116,21 +104,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           const profile = await UserService.getUserProfile(user.uid);
           if (profile) {
-            const verifiedOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
-            const resolvedProfile = verifiedOwner && profile.role === 'customer'
-              ? { ...profile, role: 'super_admin' as UserRole, updatedAt: new Date().toISOString() }
-              : profile;
-            updateAndCacheProfile(resolvedProfile);
-            if (resolvedProfile !== profile) await UserService.saveProfile(resolvedProfile);
+            updateAndCacheProfile(profile);
           } else {
-            // Provision if missing
-            const isOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
-            const role: UserRole = isOwner ? 'super_admin' : 'customer';
+            // New email and phone accounts start as customers. Admin access
+            // is provisioned exclusively by the trusted Cloud Function.
             const newProfile: UserProfile = {
               uid: user.uid,
               email: user.email || '',
-              name: user.displayName || 'BioCart User',
-              role,
+              name: user.displayName || user.phoneNumber || 'BioCart User',
+              phoneNumber: user.phoneNumber || undefined,
+              role: 'customer',
               status: 'active',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -140,19 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         } catch (error) {
           console.error('Error in session provisioning:', error);
-          // Try local cache loading recovery during offline boot
-          try {
-            const cached = localStorage.getItem('biocart_cached_user_profile');
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              if (parsed.uid === user.uid) {
-                setUserProfile(parsed);
-                showNotification('Network offline. Loaded session from cache.', 'info');
-              }
-            }
-          } catch (cacheErr) {
-            console.error('Failed cache restoration:', cacheErr);
-          }
+          updateAndCacheProfile(null);
         }
       } else {
         updateAndCacheProfile(null);
@@ -202,11 +173,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startLoading('Connecting to Google...');
     try {
       await AuthService.loginWithGoogle();
-      showNotification('Google Sign-In completed successfully', 'success');
     } catch (err: any) {
-      const norm = normalizeError(err);
-      showNotification(norm.message, 'error');
-      throw norm;
+      throw normalizeError(err);
     } finally {
       stopLoading();
     }

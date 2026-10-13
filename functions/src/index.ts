@@ -36,8 +36,8 @@ export const createOrder = onCall({ region: 'asia-southeast1' }, async (request)
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'User must be logged in.');
   }
-  if (request.auth.token.email_verified !== true) {
-    throw new HttpsError('permission-denied', 'Verify your email before placing an order.');
+  if (request.auth.token.email_verified !== true && typeof request.auth.token.phone_number !== 'string') {
+    throw new HttpsError('permission-denied', 'Verify your email or phone before placing an order.');
   }
 
   const data = request.data as CreateOrderPayload;

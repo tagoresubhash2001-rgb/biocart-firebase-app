@@ -9,6 +9,9 @@ import {
   signOut,
   sendPasswordResetEmail,
   sendEmailVerification,
+  RecaptchaVerifier,
+  ConfirmationResult,
+  signInWithPhoneNumber,
   User as FirebaseUser,
   onAuthStateChanged
 } from 'firebase/auth';
@@ -17,6 +20,14 @@ import { UserService } from './UserService';
 import { normalizeError } from '../utils/errors';
 
 export class AuthService {
+  static async sendPhoneCode(phoneNumber: string, verifier: RecaptchaVerifier): Promise<ConfirmationResult> {
+    try {
+      return await signInWithPhoneNumber(auth, phoneNumber, verifier);
+    } catch (err) {
+      throw normalizeError(err);
+    }
+  }
+
   /**
    * Safe login with email or username and password
    */

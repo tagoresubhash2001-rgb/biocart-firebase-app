@@ -20,6 +20,12 @@ service cloud.firestore {
       return request.auth.token.email_verified == true;
     }
 
+    // Phone OTP accounts prove phone ownership by completing Firebase's SMS
+    // challenge; Firebase places the verified phone on the signed ID token.
+    function isVerifiedAccount() {
+      return isSignedIn() && (isEmailVerified() || request.auth.token.get('phone_number', null) != null);
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -172,7 +178,7 @@ service cloud.firestore {
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       // Orders are calculated and written by createOrder with the Admin SDK.
       allow create: if false;
-      allow update: if isEmailVerified() && (
+      allow update: if isVerifiedAccount() && (
         isAdmin() ||
         (isOwner(existing().userId) &&
          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes']) &&
@@ -203,27 +209,27 @@ service cloud.firestore {
     // 8. Customer Shopping Carts
     match /shopping_carts/{cartId} {
       allow read: if isSignedIn() && (isOwner(cartId) || isAdmin());
-      allow write: if isEmailVerified() && isOwner(cartId) && isValidCart(incoming());
+      allow write: if isVerifiedAccount() && isOwner(cartId) && isValidCart(incoming());
     }
 
     // 9. Customer Wishlists
     match /wishlists/{wishlistId} {
       allow read: if isSignedIn() && (isOwner(wishlistId) || isAdmin());
-      allow write: if isEmailVerified() && isOwner(wishlistId) && isValidWishlist(incoming());
+      allow write: if isVerifiedAccount() && isOwner(wishlistId) && isValidWishlist(incoming());
     }
 
     // 10. Saved Addresses
     match /addresses/{addressId} {
       allow read: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
-      allow create: if isEmailVerified() && isOwner(incoming().userId) && isValidAddress(incoming());
-      allow update: if isEmailVerified() && isOwner(existing().userId) && isValidAddress(incoming());
+      allow create: if isVerifiedAccount() && isOwner(incoming().userId) && isValidAddress(incoming());
+      allow update: if isVerifiedAccount() && isOwner(existing().userId) && isValidAddress(incoming());
       allow delete: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
     }
 
     // 11. Product Reviews
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isEmailVerified() && isOwner(incoming().userId) && isValidReview(incoming()) && incoming().isApproved == false;
+      allow create: if isVerifiedAccount() && isOwner(incoming().userId) && isValidReview(incoming()) && incoming().isApproved == false;
       allow update, delete: if isAdmin();
     }
 
@@ -248,14 +254,14 @@ service cloud.firestore {
     // 15. Merchant Dealer Applications
     match /dealer_applications/{appId} {
       allow get: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
-      allow create: if isEmailVerified() && isOwner(incoming().userId);
+      allow create: if isVerifiedAccount() && isOwner(incoming().userId);
       allow update, delete, list: if isAdmin();
     }
 
     // 16. Merchant Distributor Applications
     match /distributor_applications/{appId} {
       allow get: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
-      allow create: if isEmailVerified() && isOwner(incoming().userId);
+      allow create: if isVerifiedAccount() && isOwner(incoming().userId);
       allow update, delete, list: if isAdmin();
     }
 

@@ -51,7 +51,28 @@ export function normalizeError(error: any): AppError {
     case 'auth/invalid-email':
       return new AppError('The email address format is invalid.', 'auth', code);
     case 'auth/account-exists-with-different-credential':
-      return new AppError('This email already has a password account. Sign in with email and password, or use Forgot? to reset it.', 'auth', code);
+      return new AppError('This Google email already has an account using a different sign-in method. Sign in with that original method, or use Forgot? to reset its password.', 'auth', code);
+    case 'auth/credential-already-in-use':
+      return new AppError('This Google account is already linked to another BioCart login. Sign in to the account already linked to Google.', 'auth', code);
+    case 'auth/unauthorized-domain':
+      return new AppError('This website domain is not authorized for Firebase sign-in. Add biocart.in under Firebase Authentication → Settings → Authorized domains.', 'auth', code);
+    case 'auth/popup-blocked':
+      return new AppError('Your browser blocked the Google sign-in popup. Allow popups for biocart.in and try again.', 'auth', code);
+    case 'auth/popup-closed-by-user':
+      return new AppError('Google sign-in was closed before it finished. Try again and complete the Google prompt.', 'auth', code);
+    case 'auth/invalid-phone-number':
+      return new AppError('Enter a valid phone number with its country code, such as +91 9876543210.', 'auth', code);
+    case 'auth/invalid-verification-code':
+      return new AppError('That OTP is incorrect or expired. Request a new code and try again.', 'auth', code);
+    case 'auth/missing-phone-number':
+      return new AppError('Enter your phone number with country code before requesting an OTP.', 'auth', code);
+    case 'auth/operation-not-allowed':
+      return new AppError('Phone sign-in is not enabled for this Firebase project. Enable Phone in Authentication → Sign-in method.', 'auth', code);
+    case 'auth/captcha-check-failed':
+    case 'auth/invalid-app-credential':
+      return new AppError('Phone verification could not verify this website. Check Firebase Authorized domains and production phone verification setup.', 'auth', code);
+    case 'auth/quota-exceeded':
+      return new AppError('Firebase SMS quota has been reached. Try later or check the project billing and SMS limits.', 'auth', code);
 
     // Firebase Firestore Codes
     case 'permission-denied':

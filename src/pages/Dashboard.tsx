@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { linkWithPopup } from 'firebase/auth';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useApp } from '../context/AppContext';
-import { User, Package, MapPin, Heart, LogOut, Search, CheckCircle2, ChevronRight, Truck } from 'lucide-react';
+import { User, Package, MapPin, Heart, LogOut, Search, CheckCircle2, ChevronRight, Truck, Link2 } from 'lucide-react';
 import { AdminService } from '../services/AdminService';
+import { auth, googleProvider } from '../config/firebase';
+import { normalizeError } from '../utils/errors';
 import { Product } from '../types';
 import { ProductCard } from '../components/ui/ProductCard';
 
@@ -29,6 +32,22 @@ export const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'track' | 'wishlist'>('profile');
   const [trackInputId, setTrackInputId] = useState(activeOrderTrackId || '');
   const [realtimeProducts, setRealtimeProducts] = useState<Product[]>([]);
+  const [googleLinked, setGoogleLinked] = useState(() => auth.currentUser?.providerData.some((provider) => provider.providerId === 'google.com') ?? false);
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
+
+  const handleLinkGoogle = async () => {
+    if (!auth.currentUser) return;
+    setLinkingGoogle(true);
+    try {
+      await linkWithPopup(auth.currentUser, googleProvider);
+      setGoogleLinked(true);
+      addToast('Google sign-in is now linked to this BioCart account.', 'success');
+    } catch (error) {
+      addToast(normalizeError(error).message, 'warning');
+    } finally {
+      setLinkingGoogle(false);
+    }
+  };
 
   useEffect(() => {
     const unsub = AdminService.subscribeToProducts((list) => {
@@ -230,6 +249,13 @@ export const Dashboard: React.FC = () => {
                   Your BioCart Green Membership is currently active. Enjoy free carbon-neutral shipping on any purchase above ₹499.
                 </p>
               </div>
+
+              {!googleLinked && (
+                <button type="button" onClick={handleLinkGoogle} disabled={linkingGoogle} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-semibold text-charcoal-800 dark:text-white hover:bg-slate-50 dark:hover:bg-white/5 disabled:opacity-60">
+                  <Link2 className="w-4 h-4" />
+                  {linkingGoogle ? 'Connecting Google…' : 'Link Google sign-in to this account'}
+                </button>
+              )}
 
               {/* Appearance & Theme Settings Section */}
               <div className="pt-4 border-t border-slate-100 dark:border-white/5 space-y-3">

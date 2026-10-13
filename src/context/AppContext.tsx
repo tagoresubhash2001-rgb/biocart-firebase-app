@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { normalizeError } from '../utils/errors';
 
 export interface ToastMessage {
   id: string;
@@ -286,8 +287,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await loginWithGoogle();
       setAuthModalOpen(false);
+      addToast('Signed in with Google.', 'success');
     } catch (err: any) {
       console.error('Firebase Google Auth failed:', err);
+      addToast(normalizeError(err).message, 'warning');
     }
   };
 

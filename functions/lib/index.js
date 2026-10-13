@@ -56,8 +56,8 @@ exports.createOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be logged in.');
     }
-    if (request.auth.token.email_verified !== true) {
-        throw new https_1.HttpsError('permission-denied', 'Verify your email before placing an order.');
+    if (request.auth.token.email_verified !== true && typeof request.auth.token.phone_number !== 'string') {
+        throw new https_1.HttpsError('permission-denied', 'Verify your email or phone before placing an order.');
     }
     const data = request.data;
     const { items, shippingAddress, billingAddress, couponCode } = data;
