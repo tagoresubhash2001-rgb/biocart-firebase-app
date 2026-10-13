@@ -24,6 +24,9 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm ci
 
+      - name: Run Automated Test Suite
+        run: npm test
+
       - name: Verify TypeScript
         run: npx tsc --noEmit
 
