@@ -48,8 +48,6 @@ export class AuthService {
       const result = await signInWithEmailAndPassword(auth, targetEmail, password);
       if (result.user) {
         if (!result.user.emailVerified) await sendEmailVerification(result.user);
-        const profile = await UserService.getUserProfile(result.user.uid);
-        if (profile) await UserService.updateLastLogin(result.user.uid);
       }
       return result.user;
     } catch (err) {
@@ -70,10 +68,6 @@ export class AuthService {
 
       try {
         const result = await signInWithPopup(auth, googleProvider);
-        if (result.user) {
-          const profile = await UserService.getUserProfile(result.user.uid);
-          if (profile) await UserService.updateLastLogin(result.user.uid);
-        }
         return result.user;
       } catch (popupErr: any) {
         if (popupErr?.code === 'auth/popup-blocked') {
@@ -95,8 +89,6 @@ export class AuthService {
     try {
       const result = await getRedirectResult(auth);
       if (result?.user) {
-        const profile = await UserService.getUserProfile(result.user.uid);
-        if (profile) await UserService.updateLastLogin(result.user.uid);
         return result.user;
       }
       return null;
@@ -193,12 +185,6 @@ export class AuthService {
       const result = await confirmationResult.confirm(trimmedOtp);
       AuthService.clearRecaptcha();
 
-      if (result.user) {
-        const profile = await UserService.getUserProfile(result.user.uid);
-        if (profile) {
-          await UserService.updateLastLogin(result.user.uid);
-        }
-      }
       return result.user;
     } catch (err) {
       throw normalizeError(err);

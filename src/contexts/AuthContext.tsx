@@ -40,25 +40,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { showNotification } = useNotification();
 
   const userRole = useMemo<UserRole>(() => {
-    return userProfile?.status === 'active' ? userProfile.role : 'guest';
-  }, [userProfile]);
+    if (userProfile?.status !== 'active') return 'guest';
+    if ((userProfile.role === 'admin' || userProfile.role === 'super_admin') && !firebaseUser?.emailVerified) return 'guest';
+    return userProfile.role;
+  }, [userProfile, firebaseUser]);
 
   const isAuthenticated = useMemo<boolean>(() => {
     return !!firebaseUser;
   }, [firebaseUser]);
 
-  // Helper to securely update the react state and the localStorage backup
+  // Roles are authorization data and must always come from the current
+  // Firestore profile. Never restore them from browser storage.
   const updateAndCacheProfile = useCallback((profile: UserProfile | null) => {
     setUserProfile(profile);
     try {
-      if (profile) {
-        localStorage.setItem('biocart_cached_user_profile', JSON.stringify(profile));
-      } else {
-        localStorage.removeItem('biocart_cached_user_profile');
-      }
-    } catch (e) {
-      console.warn('Failed to cache user profile in localStorage:', e);
-    }
+      localStorage.removeItem('biocart_cached_user_profile');
+    } catch { /* Storage may be disabled; authorization remains server-backed. */ }
   }, []);
 
   // Check for redirect result on app load (e.g. returning from mobile Google sign-in)
@@ -88,38 +85,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profile) {
         updateAndCacheProfile(profile);
       } else {
-        // Safe profile fallback creation
-        const isOwner = firebaseUser.emailVerified && firebaseUser.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
+        // Missing profiles may only be provisioned as customers. The owner
+        // callable is the only path that can grant administrative roles.
+        if (firebaseUser.email?.toLowerCase() === 'sinfoxmedia@gmail.com' && firebaseUser.emailVerified) {
+          await AuthService.provisionVerifiedOwner();
+          const ownerProfile = await UserService.getUserProfile(firebaseUser.uid);
+          updateAndCacheProfile(ownerProfile);
+          return;
+        }
         const fallbackProfile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
           name: firebaseUser.displayName || firebaseUser.phoneNumber || 'BioCart Customer',
-          role: isOwner ? 'super_admin' : 'customer',
+          role: 'customer',
           phoneNumber: firebaseUser.phoneNumber || undefined,
           phone: firebaseUser.phoneNumber || undefined,
           status: 'active',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        updateAndCacheProfile(fallbackProfile);
         await UserService.saveProfile(fallbackProfile);
+        updateAndCacheProfile(fallbackProfile);
       }
     } catch (error) {
       console.error('Failed to sync user profile:', error);
-      // Attempt Network Recovery via localStorage cache check
-      try {
-        const cached = localStorage.getItem('biocart_cached_user_profile');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed.uid === firebaseUser.uid) {
-            setUserProfile(parsed);
-            showNotification('Network offline. Working with local cache.', 'info');
-            return;
-          }
-        }
-      } catch (cacheErr) {
-        console.error('Failed to read cached profile:', cacheErr);
-      }
+      updateAndCacheProfile(null);
       showNotification('Unable to sync profile. Check network connection.', 'warning');
     }
   }, [firebaseUser, updateAndCacheProfile, showNotification]);
@@ -131,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setFirebaseUser(user);
 
       if (user) {
+        updateAndCacheProfile(null);
         try {
           if (user.email?.toLowerCase() === 'sinfoxmedia@gmail.com') {
             await user.reload();
@@ -138,45 +129,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           const profile = await UserService.getUserProfile(user.uid);
           if (profile) {
-            const verifiedOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
-            const resolvedProfile = verifiedOwner && profile.role === 'customer'
-              ? { ...profile, role: 'super_admin' as UserRole, updatedAt: new Date().toISOString() }
-              : profile;
-            updateAndCacheProfile(resolvedProfile);
-            if (resolvedProfile !== profile) await UserService.saveProfile(resolvedProfile);
+            updateAndCacheProfile(profile);
           } else {
-            // Provision if missing
+            // A verified owner is provisioned only by the trusted callable.
             const isOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
-            const role: UserRole = isOwner ? 'super_admin' : 'customer';
-            const newProfile: UserProfile = {
-              uid: user.uid,
-              email: user.email || '',
-              name: user.displayName || user.phoneNumber || 'BioCart Customer',
-              role,
-              phoneNumber: user.phoneNumber || undefined,
-              phone: user.phoneNumber || undefined,
-              status: 'active',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-            updateAndCacheProfile(newProfile);
-            await UserService.saveProfile(newProfile);
+            if (isOwner) {
+              await AuthService.provisionVerifiedOwner();
+              const ownerProfile = await UserService.getUserProfile(user.uid);
+              updateAndCacheProfile(ownerProfile);
+            } else {
+              const newProfile: UserProfile = {
+                uid: user.uid,
+                email: user.email || '',
+                name: user.displayName || user.phoneNumber || 'BioCart Customer',
+                role: 'customer',
+                phoneNumber: user.phoneNumber || undefined,
+                phone: user.phoneNumber || undefined,
+                status: 'active',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+              await UserService.saveProfile(newProfile);
+              updateAndCacheProfile(newProfile);
+            }
           }
         } catch (error) {
           console.error('Error in session provisioning:', error);
-          // Try local cache loading recovery during offline boot
-          try {
-            const cached = localStorage.getItem('biocart_cached_user_profile');
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              if (parsed.uid === user.uid) {
-                setUserProfile(parsed);
-                showNotification('Network offline. Loaded session from cache.', 'info');
-              }
-            }
-          } catch (cacheErr) {
-            console.error('Failed cache restoration:', cacheErr);
-          }
+          updateAndCacheProfile(null);
+          showNotification('Unable to verify your account profile. Please retry.', 'warning');
         }
       } else {
         updateAndCacheProfile(null);
