@@ -50,6 +50,8 @@ export function normalizeError(error: any): AppError {
       return new AppError('This sensitive operation requires you to log in again.', 'auth', code);
     case 'auth/invalid-email':
       return new AppError('The email address format is invalid.', 'auth', code);
+    case 'auth/account-exists-with-different-credential':
+      return new AppError('This email already has a password account. Sign in with email and password, or use Forgot? to reset it.', 'auth', code);
 
     // Firebase Firestore Codes
     case 'permission-denied':

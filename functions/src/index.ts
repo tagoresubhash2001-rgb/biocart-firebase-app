@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
+import { randomBytes } from 'node:crypto';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
@@ -24,12 +25,7 @@ interface CreateOrderPayload {
 }
 
 function generateRandomId(length: number): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+  return randomBytes(Math.ceil(length / 2)).toString('hex').toUpperCase().slice(0, length);
 }
 
 // ==========================================================
@@ -272,6 +268,40 @@ export const createOrder = onCall({ region: 'asia-southeast1' }, async (request)
 });
 
 // ==========================================================
+// provisionBioCartOwner — grants admin access only to the verified owner.
+// ==========================================================
+export const provisionBioCartOwner = onCall({ region: 'asia-southeast1' }, async (request) => {
+  const ownerEmail = 'sinfoxmedia@gmail.com';
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  if (request.auth.token.email_verified !== true ||
+      typeof request.auth.token.email !== 'string' || request.auth.token.email.toLowerCase() !== ownerEmail) {
+    throw new HttpsError('permission-denied', 'Only the verified BioCart owner can run account setup.');
+  }
+
+  const ownerUser = await getAuth().getUser(request.auth.uid);
+  const ownerRef = db.collection('users').doc(request.auth.uid);
+  const currentOwner = await ownerRef.get();
+  const now = new Date().toISOString();
+  const displayName = typeof request.data?.displayName === 'string' && request.data.displayName.trim()
+    ? request.data.displayName.trim()
+    : ownerUser.displayName || 'BioCart Owner';
+
+  await ownerRef.set({
+    uid: request.auth.uid,
+    email: ownerEmail,
+    name: displayName,
+    role: 'super_admin',
+    status: 'active',
+    photoURL: ownerUser.photoURL || '',
+    createdAt: currentOwner.data()?.createdAt || ownerUser.metadata.creationTime || now,
+    updatedAt: now,
+    lastLoginAt: now,
+  }, { merge: true });
+
+  return { success: true, email: ownerEmail };
+});
+
+// ==========================================================
 // createVendorAccount — admin-only callable. Creates a real
 // Firebase Auth login for a vendor AND its vendors/{uid} +
 // users/{uid} docs in one step, so vendorId === ownerUid.
@@ -292,29 +322,40 @@ export const createVendorAccount = onCall({ region: 'asia-southeast1' }, async (
   // Authorize: caller must be admin/super_admin per their Firestore user doc.
   const callerDoc = await db.collection('users').doc(request.auth.uid).get();
   const callerRole = callerDoc.exists ? callerDoc.data()?.role : null;
-  if (callerRole !== 'admin' && callerRole !== 'super_admin') {
+  if ((callerRole !== 'admin' && callerRole !== 'super_admin') ||
+      callerDoc.data()?.status !== 'active' || request.auth.token.email_verified !== true) {
     throw new HttpsError('permission-denied', 'Only admins can create vendor accounts.');
   }
 
   const data = request.data as CreateVendorAccountPayload;
-  if (!data.businessName || !data.email) {
+  const businessName = typeof data.businessName === 'string' ? data.businessName.trim() : '';
+  const email = typeof data.email === 'string' ? data.email.trim().toLowerCase() : '';
+  const ownerName = typeof data.ownerName === 'string' ? data.ownerName.trim() : '';
+  const phone = typeof data.phone === 'string' ? data.phone.trim() : '';
+  const commissionRate = Number(data.commissionRate ?? 10);
+  if (!businessName || businessName.length > 120 || !/^\S+@\S+\.\S+$/.test(email) || email.length > 254 ||
+      !Number.isFinite(commissionRate) || commissionRate < 0 || commissionRate > 100) {
     throw new HttpsError('invalid-argument', 'businessName and email are required.');
   }
 
   // Generate a temp password the admin can hand to the vendor (or the vendor
   // can use "Forgot password" immediately — either works).
-  const tempPassword = generateRandomId(10) + 'Aa1!';
+  const tempPassword = `${randomBytes(24).toString('base64url')}Aa1!`;
 
   let userRecord;
   try {
     userRecord = await getAuth().createUser({
-      email: data.email,
+      email,
       password: tempPassword,
-      displayName: data.ownerName || data.businessName,
+      displayName: ownerName || businessName,
       phoneNumber: undefined
     });
   } catch (err: any) {
-    throw new HttpsError('already-exists', `Could not create vendor login: ${err.message}`);
+    if ((err as any)?.code === 'auth/email-already-exists') {
+      throw new HttpsError('already-exists', 'A BioCart account already uses this email.');
+    }
+    console.error('Vendor account creation failed:', err);
+    throw new HttpsError('internal', 'Could not create the vendor login.');
   }
 
   const uid = userRecord.uid;
@@ -324,21 +365,23 @@ export const createVendorAccount = onCall({ region: 'asia-southeast1' }, async (
 
   batch.set(db.collection('vendors').doc(uid), {
     id: uid,
-    storeName: data.businessName,
-    ownerName: data.ownerName || '',
-    email: data.email,
-    phone: data.phone || '',
-    status: 'approved',
+    ownerUid: uid,
+    storeName: businessName,
+    ownerName,
+    email,
+    phone,
+    status: 'active',
     approvalStatus: 'approved',
-    commissionRate: Number(data.commissionRate) || 10,
+    commissionRate,
+    commission: { baseRateBps: Math.round(commissionRate * 100) },
     createdAt: now,
     updatedAt: now
   });
 
   batch.set(db.collection('users').doc(uid), {
     uid,
-    email: data.email,
-    name: data.ownerName || data.businessName,
+    email,
+    name: ownerName || businessName,
     role: 'vendor',
     status: 'active',
     createdAt: now,
@@ -357,7 +400,7 @@ export const createVendorAccount = onCall({ region: 'asia-southeast1' }, async (
 
   await batch.commit();
 
-  return { success: true, uid, tempPassword, email: data.email };
+  return { success: true, uid, tempPassword, email };
 });
 
 // ==========================================================

@@ -99,14 +99,13 @@ export const CheckoutModal: React.FC = () => {
         }
       } catch (fnErr: any) {
         console.warn('Cloud Function createOrder call details:', fnErr);
-        // If Cloud Function returned a specific business error, propagate it
-        if (fnErr?.message && !fnErr.message.includes('INTERNAL') && !fnErr.message.includes('NOT_FOUND')) {
-          throw fnErr;
-        }
+        // Client-submitted prices and inventory changes are not trustworthy.
+        // Keep the fallback available only for an explicitly configured emulator.
+        const functionsEmulator = import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true';
+        if (!functionsEmulator) throw fnErr;
       }
 
-      if (!orderId) {
-        // Fallback to client order creation if function is not deployed in local environment
+      if (!orderId && import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
         const OrderService = (await import('../../services/OrderService')).OrderService;
         const result = await OrderService.createOrder(
           orderData.userId || 'guest',
@@ -116,6 +115,8 @@ export const CheckoutModal: React.FC = () => {
         );
         orderId = result.orderId;
       }
+
+      if (!orderId) throw new Error('Order service did not return an order ID. Please retry.');
 
       setCreatedOrderId(orderId);
       setStep('success');

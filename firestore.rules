@@ -27,7 +27,11 @@ service cloud.firestore {
     // Vendor doc id == the vendor's own Firebase Auth uid, so ownership
     // is a direct uid comparison — no extra lookup needed.
     function isVendorOwner(vendorId) {
-      return isSignedIn() && request.auth.uid == vendorId;
+      return isSignedIn() && isEmailVerified() && request.auth.uid == vendorId &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor' &&
+        exists(/databases/$(database)/documents/vendors/$(vendorId)) &&
+        get(/databases/$(database)/documents/vendors/$(vendorId)).data.status in ['active', 'approved'];
     }
 
     // FIXED: this previously returned `true` unconditionally for everyone
@@ -35,8 +39,9 @@ service cloud.firestore {
     // meant every isAdmin()-gated collection in this whole file was wide
     // open to any caller, signed in or not. Real check restored below.
     function isAdmin() {
-      return isSignedIn() &&
+      return isSignedIn() && isEmailVerified() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
     }
 
@@ -128,13 +133,13 @@ service cloud.firestore {
 
     // 1. Users Profile Collection
     match /users/{userId} {
-      allow get: if isSignedIn();
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
                     (incoming().role in ['customer', 'guest'] ||
                      (isEmailVerified() && incoming().role == 'super_admin' && request.auth.token.email == 'sinfoxmedia@gmail.com'));
       allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
-                    (incoming().role == existing().role || isAdmin() ||
+                    ((incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'phoneNumber', 'location', 'photoURL', 'lastLoginAt', 'updatedAt'])) || isAdmin() ||
                      (isEmailVerified() && request.auth.token.email == 'sinfoxmedia@gmail.com' && incoming().role == 'super_admin'));
       allow delete: if isAdmin();
     }
@@ -167,7 +172,8 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isEmailVerified() && isOwner(incoming().userId) && isValidOrder(incoming());
+      // Orders are calculated and written by createOrder with the Admin SDK.
+      allow create: if false;
       allow update: if isEmailVerified() && (
         isAdmin() ||
         (isOwner(existing().userId) &&
@@ -191,8 +197,9 @@ service cloud.firestore {
 
     // 7. Order Line Items
     match /order_items/{itemId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && isEmailVerified());
+      allow read: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      // Order line items are created by the trusted createOrder function.
+      allow write: if false;
     }
 
     // 8. Customer Shopping Carts
@@ -296,7 +303,7 @@ service cloud.firestore {
     // createVendorAccount Cloud Function (Admin SDK, bypasses rules) —
     // clients never create a vendor doc directly.
     match /vendors/{vendorId} {
-      allow read: if true;
+      allow read: if isAdmin() || isVendorOwner(vendorId);
       allow create: if isAdmin();
       allow update: if isAdmin() ||
         (isVendorOwner(vendorId) &&

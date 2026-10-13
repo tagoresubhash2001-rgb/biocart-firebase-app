@@ -22,11 +22,13 @@ export class AuthService {
    */
   static async login(emailOrUsername: string, password: string): Promise<FirebaseUser> {
     try {
-      const targetEmail = emailOrUsername.trim();
+      const targetEmail = emailOrUsername.trim().toLowerCase();
 
       const result = await signInWithEmailAndPassword(auth, targetEmail, password);
       if (result.user) {
-        await UserService.updateLastLogin(result.user.uid);
+        if (!result.user.emailVerified) await sendEmailVerification(result.user);
+        const profile = await UserService.getUserProfile(result.user.uid);
+        if (profile) await UserService.updateLastLogin(result.user.uid);
       }
       return result.user;
     } catch (err) {
@@ -41,35 +43,21 @@ export class AuthService {
   static async loginWithGoogle(): Promise<FirebaseUser> {
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      await sendEmailVerification(user);
-      
-      // Check if user profile already exists
-      const profile = await UserService.getUserProfile(user.uid);
-      if (!profile) {
-        // Automatically provision a new Customer (or Admin if matching the administrative email)
-        const isOwner = user.emailVerified && user.email === 'sinfoxmedia@gmail.com';
-        const role: UserRole = isOwner ? 'super_admin' : 'customer';
-
-        const newProfile: UserProfile = {
-          uid: user.uid,
-          email: user.email || '',
-          name: user.displayName || 'BioCart User',
-          role,
-          status: 'active',
-          photoURL: user.photoURL || '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        await UserService.saveProfile(newProfile);
-      } else {
-        await UserService.updateLastLogin(user.uid);
-      }
-
-      return user;
+      return result.user;
     } catch (err) {
       throw normalizeError(err);
     }
+  }
+
+  static async provisionVerifiedOwner(): Promise<void> {
+    const user = auth.currentUser;
+    if (!user?.email || user.email.toLowerCase() !== 'sinfoxmedia@gmail.com' || !user.emailVerified) return;
+    // Refresh the ID token so the callable sees the latest email_verified claim.
+    await user.getIdToken(true);
+    const { httpsCallable } = await import('firebase/functions');
+    const { functions } = await import('../config/firebase');
+    const provision = httpsCallable(functions, 'provisionBioCartOwner');
+    await provision({ displayName: user.displayName || 'BioCart Owner' });
   }
 
   /**
@@ -83,16 +71,17 @@ export class AuthService {
     location?: string
   ): Promise<FirebaseUser> {
     try {
-      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const normalizedEmail = email.trim().toLowerCase();
+      const result = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
       const user = result.user;
 
       // Provision new user profile document
-      const isOwner = user.emailVerified && email === 'sinfoxmedia@gmail.com';
-      const role: UserRole = isOwner ? 'super_admin' : 'customer';
+      await sendEmailVerification(user);
+      const role: UserRole = 'customer';
 
       const newProfile: UserProfile = {
         uid: user.uid,
-        email,
+        email: normalizedEmail,
         name,
         role,
         phoneNumber,

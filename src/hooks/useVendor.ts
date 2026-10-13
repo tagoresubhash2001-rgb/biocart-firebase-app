@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../config/firebase';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 export function useVendor() {
   const { userProfile } = useAuth();
@@ -26,33 +26,14 @@ export function useVendor() {
       try {
         // 1. Direct lookup: check if vendor document ID matches auth uid
         const directDoc = await getDoc(doc(db, 'vendors', userProfile.uid));
-        if (directDoc.exists()) {
+        if (directDoc.exists() && directDoc.data().status === 'active') {
           setVendorId(directDoc.id);
           return;
         }
-
-        // 2. Query lookup: check if ownerUid field matches auth uid
-        const q = query(collection(db, 'vendors'), where('ownerUid', '==', userProfile.uid));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          setVendorId(snap.docs[0].id);
-          return;
-        }
-
-        // 3. Fallback for vendor-role accounts whose document ID is their auth uid
-        if (userProfile.role === 'vendor') {
-          setVendorId(userProfile.uid);
-          return;
-        }
-
         setVendorId(null);
       } catch (err) {
         console.error('Error resolving vendor identity:', err);
-        if (userProfile.role === 'vendor') {
-          setVendorId(userProfile.uid);
-        } else {
-          setVendorId(null);
-        }
+        setVendorId(null);
       } finally {
         setLoading(false);
       }

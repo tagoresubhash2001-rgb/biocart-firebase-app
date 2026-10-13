@@ -2,7 +2,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { AdminService } from '../../services/AdminService';
 import { StorageService } from '../../services/StorageService';
-import { Product, CategoryItem, VendorItem } from '../../types';
+import { Product, CategoryItem } from '../../types';
 import { useVendor } from '../../hooks/useVendor';
 import { useApp } from '../../context/AppContext';
 import { 
@@ -30,7 +30,6 @@ export const VendorProducts: React.FC = () => {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [vendors, setVendors] = useState<VendorItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,12 +64,10 @@ export const VendorProducts: React.FC = () => {
       }
     );
     const unsubCategories = AdminService.subscribeToCategories((list) => setCategories(list));
-    const unsubVendors = AdminService.subscribeToVendors((list) => setVendors(list));
 
     return () => {
       unsubProducts();
       unsubCategories();
-      unsubVendors();
     };
   }, [vendorId, vendorLoading]);
 
@@ -178,7 +175,8 @@ export const VendorProducts: React.FC = () => {
     if (!file) return;
     try {
       setUploadingImage(true);
-      const url = await StorageService.uploadImage(file, 'products');
+      if (!vendorId) throw new Error('Vendor account is not ready. Please sign in again.');
+      const url = await StorageService.uploadImage(file, `vendor_products/${vendorId}`);
       setEditingProduct((prev) => ({
         ...prev,
         image: url,
@@ -481,7 +479,7 @@ export const VendorProducts: React.FC = () => {
               <MultiImageGalleryManager
                 images={editingProduct.images || (editingProduct.image ? [editingProduct.image] : [])}
                 coverImage={editingProduct.image || ''}
-                folder="vendor_products"
+                folder={`vendor_products/${vendorId}`}
                 onChange={(updatedImages, updatedCover) => {
                   setEditingProduct({
                     ...editingProduct,

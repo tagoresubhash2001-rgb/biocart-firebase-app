@@ -27,21 +27,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
-    try {
-      const cached = localStorage.getItem('biocart_cached_user_profile');
-      return cached ? JSON.parse(cached) : null;
-    } catch {
-      return null;
-    }
-  });
+  // A browser cache is not an authorization source. Start with no role and
+  // wait for Firebase Auth + the current Firestore profile to resolve.
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
 
   const { startLoading, stopLoading } = useLoading();
   const { showNotification } = useNotification();
 
   const userRole = useMemo<UserRole>(() => {
-    return userProfile?.role || 'guest';
+    return userProfile?.status === 'active' ? userProfile.role : 'guest';
   }, [userProfile]);
 
   const isAuthenticated = useMemo<boolean>(() => {
@@ -74,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateAndCacheProfile(profile);
       } else {
         // Safe profile fallback creation
-        const isOwner = firebaseUser.emailVerified && firebaseUser.email === 'sinfoxmedia@gmail.com';
+        const isOwner = firebaseUser.emailVerified && firebaseUser.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
         const fallbackProfile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',
@@ -115,9 +110,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (user) {
         try {
+          if (user.email?.toLowerCase() === 'sinfoxmedia@gmail.com') {
+            await user.reload();
+            if (user.emailVerified) await AuthService.provisionVerifiedOwner();
+          }
           const profile = await UserService.getUserProfile(user.uid);
           if (profile) {
-            const verifiedOwner = user.emailVerified && user.email === 'sinfoxmedia@gmail.com';
+            const verifiedOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
             const resolvedProfile = verifiedOwner && profile.role === 'customer'
               ? { ...profile, role: 'super_admin' as UserRole, updatedAt: new Date().toISOString() }
               : profile;
@@ -125,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (resolvedProfile !== profile) await UserService.saveProfile(resolvedProfile);
           } else {
             // Provision if missing
-            const isOwner = user.emailVerified && user.email === 'sinfoxmedia@gmail.com';
+            const isOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
             const role: UserRole = isOwner ? 'super_admin' : 'customer';
             const newProfile: UserProfile = {
               uid: user.uid,
@@ -167,8 +166,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithEmail = useCallback(async (email: string, password: string) => {
     startLoading('Verifying credentials...');
     try {
-      await AuthService.login(email, password);
-      showNotification('Signed in successfully', 'success');
+      const user = await AuthService.login(email, password);
+      if (user.emailVerified) showNotification('Signed in successfully', 'success');
+      else showNotification('Verification link sent. Verify your email, then sign in again for admin access.', 'warning');
     } catch (err: any) {
       const norm = normalizeError(err);
       showNotification(norm.message, 'error');

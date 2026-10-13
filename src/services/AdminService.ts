@@ -212,8 +212,8 @@ export class AdminService {
             email: d.email || '',
             phone: d.phone || '',
             logo: d.logo || '',
-            status: d.status || 'active',
-            commission: d.commission || { baseRateBps: 1000 },
+            status: d.status === 'pending' || d.status === 'suspended' ? d.status : 'active',
+            commission: d.commission || { baseRateBps: Math.round(Number(d.commissionRate ?? d.commissionPercent ?? 10) * 100) },
             createdAt: d.createdAt || new Date().toISOString(),
             updatedAt: d.updatedAt || new Date().toISOString()
         });

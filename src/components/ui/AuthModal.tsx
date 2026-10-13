@@ -113,14 +113,14 @@ export const AuthModal: React.FC = () => {
 
             <div className="space-y-1.5" id="auth-email-group">
               <label className="text-xs font-semibold text-charcoal-700 dark:text-slate-300">
-                {authModalMode === 'login' ? 'Email or Username (e.g. Tagoresubhash2001)' : 'Email Address'}
+                {authModalMode === 'login' ? 'Email Address' : 'Email Address'}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-charcoal-400" />
                 <input
-                  type={authModalMode === 'login' ? 'text' : 'email'}
+                  type="email"
                   required
-                  placeholder={authModalMode === 'login' ? 'Tagoresubhash2001 or email@biocart.com' : 'tagore@biocart.in'}
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-charcoal-800 text-charcoal-950 dark:text-white border border-slate-200/60 dark:border-white/10 rounded-xl focus:border-nature-600 focus:outline-none transition-colors text-sm"

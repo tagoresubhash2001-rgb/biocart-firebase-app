@@ -17,12 +17,15 @@ const getEnvVar = (key: string): string => {
 
 // Canonical BioCart Firebase Configuration
 export const firebaseConfig = {
-  apiKey: getEnvVar('VITE_FIREBASE_API_KEY'),
-  authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN'),
-  projectId: getEnvVar('VITE_FIREBASE_PROJECT_ID'),
-  storageBucket: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-  appId: getEnvVar('VITE_FIREBASE_APP_ID')
+  // Firebase web config is public client configuration. Keeping these values
+  // as fallbacks lets Firebase Hosting builds work when no local .env file is
+  // present; environment values can still override them for other projects.
+  apiKey: getEnvVar('VITE_FIREBASE_API_KEY') || 'AIzaSyDk_PmLfTo7g8xIdVv1b-p9pGmALYwHUOA',
+  authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN') || 'bio-cart.firebaseapp.com',
+  projectId: getEnvVar('VITE_FIREBASE_PROJECT_ID') || 'bio-cart',
+  storageBucket: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET') || 'bio-cart.firebasestorage.app',
+  messagingSenderId: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID') || '941267141960',
+  appId: getEnvVar('VITE_FIREBASE_APP_ID') || '1:941267141960:web:1a4da53ee13d8f54d61f7d'
 };
 
 // Check for missing required config values to prevent silent fallback
