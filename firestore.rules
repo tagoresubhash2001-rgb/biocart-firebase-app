@@ -136,11 +136,9 @@ service cloud.firestore {
       allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
-                    (incoming().role in ['customer', 'guest'] ||
-                     (isEmailVerified() && incoming().role == 'super_admin' && request.auth.token.email == 'sinfoxmedia@gmail.com'));
+                    incoming().role in ['customer', 'guest'];
       allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
-                    ((incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'phoneNumber', 'location', 'photoURL', 'lastLoginAt', 'updatedAt'])) || isAdmin() ||
-                     (isEmailVerified() && request.auth.token.email == 'sinfoxmedia@gmail.com' && incoming().role == 'super_admin'));
+                    ((incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'phoneNumber', 'location', 'photoURL', 'lastLoginAt', 'updatedAt'])) || isAdmin());
       allow delete: if isAdmin();
     }
 
