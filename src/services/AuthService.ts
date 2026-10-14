@@ -33,9 +33,7 @@ export const isMobileDevice = (): boolean => {
   if (typeof window === 'undefined') return false;
   const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera || '';
   const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
-  const isTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const isSmallScreen = window.innerWidth <= 768;
-  return mobileRegex.test(userAgent) || (isTouchScreen && isSmallScreen);
+  return mobileRegex.test(userAgent);
 };
 
 export class AuthService {
@@ -60,13 +58,22 @@ export class AuthService {
 
   /**
    * Google OAuth Authentication
-   * Uses redirect on mobile devices and popup on desktop with redirect fallback.
+   * Attempts popup authentication first; falls back to redirect if popup is blocked or on mobile.
    */
   static async loginWithGoogle(): Promise<FirebaseUser | null> {
     try {
       if (isMobileDevice()) {
-        await signInWithRedirect(auth, googleProvider);
-        return null;
+        try {
+          const result = await signInWithPopup(auth, googleProvider);
+          return result.user;
+        } catch (popupErr: any) {
+          if (popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/cancelled-popup-request') {
+            console.warn('Popup blocked on mobile device, falling back to signInWithRedirect...');
+            await signInWithRedirect(auth, googleProvider);
+            return null;
+          }
+          throw popupErr;
+        }
       }
 
       try {

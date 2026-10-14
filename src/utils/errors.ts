@@ -58,8 +58,11 @@ export function normalizeError(error: any): AppError {
       return new AppError('Google sign-in was cancelled before completion.', 'auth', code);
     case 'auth/cancelled-popup-request':
       return new AppError('Google sign-in was cancelled.', 'auth', code);
-    case 'auth/unauthorized-domain':
-      return new AppError('This domain is not authorized for OAuth in Firebase. Please add this domain to Authorized Domains in Firebase Console.', 'auth', code);
+    case 'auth/unauthorized-domain': {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+      const domainHint = currentHost ? ` (Domain: "${currentHost}")` : '';
+      return new AppError(`This domain is not authorized for OAuth in Firebase${domainHint}. Please add "${currentHost || 'this domain'}" to Authorized Domains in Firebase Console.`, 'auth', code);
+    }
     case 'auth/invalid-phone-number':
       return new AppError('Invalid phone number format. Please provide a valid 10-digit phone number with country code (e.g. +91 98765 43210).', 'auth', code);
     case 'auth/invalid-verification-code':

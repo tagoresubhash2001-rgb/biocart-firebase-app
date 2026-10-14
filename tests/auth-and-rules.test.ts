@@ -329,4 +329,37 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.equal(result.success, true);
     });
   });
+
+  describe('8. Public CMS & Storefront Firestore Rules Verification', () => {
+    it('verifies firestore.rules declares public read access for faqs, testimonials, promotions', async () => {
+      const fs = await import('node:fs');
+      const rules = fs.readFileSync('firestore.rules', 'utf8');
+      
+      assert.match(rules, /match\s+\/faqs\/\{faqId\}\s*\{\s*allow\s+read:\s*if\s+true;/);
+      assert.match(rules, /match\s+\/testimonials\/\{testimonialId\}\s*\{\s*allow\s+read:\s*if\s+true;/);
+      assert.match(rules, /match\s+\/product_promotions\/\{promoId\}\s*\{\s*allow\s+read:\s*if\s+true;/);
+      assert.match(rules, /match\s+\/promotion_ribbons\/\{ribbonId\}\s*\{\s*allow\s+read:\s*if\s+true;/);
+    });
+
+    it('verifies admin write gating for public collections', async () => {
+      const fs = await import('node:fs');
+      const rules = fs.readFileSync('firestore.rules', 'utf8');
+      
+      assert.match(rules, /match\s+\/faqs\/\{faqId\}\s*\{[\s\S]*?allow\s+write:\s*if\s+isAdmin\(\);/);
+      assert.match(rules, /match\s+\/testimonials\/\{testimonialId\}\s*\{[\s\S]*?allow\s+write:\s*if\s+isAdmin\(\);/);
+    });
+  });
+
+  describe('9. Canonical BioCart Firebase Project Identity Verification', () => {
+    it('verifies src/config/firebase.ts defines canonical bio-cart project fallbacks', async () => {
+      const { firebaseConfig } = await import('../src/config/firebase.js');
+      assert.equal(firebaseConfig.projectId, 'bio-cart');
+      assert.equal(firebaseConfig.authDomain, 'bio-cart.firebaseapp.com');
+      assert.equal(firebaseConfig.messagingSenderId, '941267141960');
+      assert.match(firebaseConfig.apiKey, /^AIzaSyDk_/);
+      assert.match(firebaseConfig.appId, /^1:941267141960:web:/);
+    });
+  });
 });
+
+

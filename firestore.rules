@@ -289,6 +289,30 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 19c. Frequently Asked Questions (CMS)
+    match /faqs/{faqId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 19d. Customer Testimonials (CMS)
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 19e. Product Promotions (CMS & Storefront)
+    match /product_promotions/{promoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 19f. Promotional Ribbons (CMS & Storefront)
+    match /promotion_ribbons/{ribbonId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // 20. Customer Support Contact Messages
     match /contact_messages/{msgId} {
       allow create: if true; // Public contact form

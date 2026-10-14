@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../context/AppContext';
-import { BioCartLogo } from '../BioCartLogo';
+import { BioCartLogo } from '../ui/BioCartLogo';
 import {
   LayoutDashboard,
   Package,
