@@ -30,7 +30,8 @@ export const AdminUsers: React.FC = () => {
 
   const filteredUsers = users.filter(u => 
     u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (u.customerId && u.customerId.toLowerCase().includes(searchQuery.toLowerCase())) ||
     u.uid.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -49,7 +50,7 @@ export const AdminUsers: React.FC = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search by name, email, or UID..." 
+              placeholder="Search by name, email, Customer ID, or UID..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-slate-100  border border-slate-200  rounded-lg text-sm text-slate-900  focus:outline-none focus:border-nature-600 focus:ring-1 focus:ring-nature-600"
@@ -70,6 +71,7 @@ export const AdminUsers: React.FC = () => {
                 <thead className="bg-slate-50  text-slate-600  border-b border-slate-200 ">
                   <tr>
                     <th className="px-6 py-4 font-bold">User</th>
+                    <th className="px-6 py-4 font-bold">Customer ID</th>
                     <th className="px-6 py-4 font-bold">Contact</th>
                     <th className="px-6 py-4 font-bold">Role</th>
                     <th className="px-6 py-4 font-bold">Status</th>
@@ -90,9 +92,18 @@ export const AdminUsers: React.FC = () => {
                           </div>
                           <div className="flex flex-col">
                             <span className="font-bold text-slate-900 ">{user.name}</span>
-                            <span className="text-xs text-slate-500 font-mono">ID: {user.uid}</span>
+                            <span className="text-[11px] text-slate-400 font-mono">UID: {user.uid.slice(0, 10)}...</span>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {user.customerId ? (
+                          <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md font-mono text-xs font-bold">
+                            {user.customerId}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-mono text-xs">—</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">

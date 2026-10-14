@@ -85,6 +85,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       location: userProfile.location || '',
       photoURL: userProfile.photoURL || '',
       role: userProfile.role || 'customer',
+      customerId: userProfile.customerId || '',
       createdAt: userProfile.createdAt || '',
       status: userProfile.role === 'super_admin' ? 'Super Admin' : (userProfile.role === 'admin' ? 'Admin' : (userProfile.role === 'vendor' ? 'Vendor' : 'Premium Green Member'))
     };

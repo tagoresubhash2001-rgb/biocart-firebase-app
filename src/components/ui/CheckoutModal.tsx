@@ -99,6 +99,7 @@ export const CheckoutModal: React.FC = () => {
 
       const orderData = {
         userId: user.uid,
+        customerId: (user as any)?.customerId || '',
         subtotal,
         discountAmount: 0,
         shippingAmount: shippingFee,

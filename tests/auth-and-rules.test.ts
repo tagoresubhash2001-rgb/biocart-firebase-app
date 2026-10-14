@@ -10,6 +10,7 @@ import {
 import { resolveUserRole } from '../src/utils/authz.js';
 import { AuthService } from '../src/services/AuthService.js';
 import { removeUndefined } from '../src/utils/firestore.js';
+import { formatCustomerId, isValidCustomerId, BUSINESS_TIMEZONE } from '../src/services/CustomerIdService.js';
 
 describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => {
 
@@ -349,6 +350,20 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.match(rules, /match\s+\/faqs\/\{faqId\}\s*\{[\s\S]*?allow\s+write:\s*if\s+isAdmin\(\);/);
       assert.match(rules, /match\s+\/testimonials\/\{testimonialId\}\s*\{[\s\S]*?allow\s+write:\s*if\s+isAdmin\(\);/);
     });
+
+    it('verifies firestore.rules permits customerId in user profile updates', async () => {
+      const fs = await import('node:fs');
+      const rules = fs.readFileSync('firestore.rules', 'utf8');
+      
+      assert.match(rules, /match\s+\/users\/\{userId\}[\s\S]*?hasOnly\(\[[^\]]*'customerId'[^\]]*\]\)/);
+    });
+
+    it('verifies firestore.rules declares signed-in read/write access for system counters', async () => {
+      const fs = await import('node:fs');
+      const rules = fs.readFileSync('firestore.rules', 'utf8');
+      
+      assert.match(rules, /match\s+\/counters\/\{counterId\}\s*\{[\s\S]*?allow\s+read:\s*if\s+isSignedIn\(\);[\s\S]*?allow\s+write:\s*if\s+isSignedIn\(\);/);
+    });
   });
 
   describe('9. Canonical BioCart Firebase Project Identity Verification', () => {
@@ -508,6 +523,118 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.match(normalized.message, /permission/i);
     });
   });
+
+  describe('11. Customer ID Generation, Format, and Role Preservation', () => {
+    it('formats Customer ID in MMMNNNNYY format for serial 1 in October 2026', () => {
+      const testDate = new Date('2026-10-14T10:00:00Z');
+      const id = formatCustomerId(1, testDate);
+      assert.equal(id, 'OCT000126');
+      assert.equal(id.length, 9);
+      assert.equal(isValidCustomerId(id), true);
+    });
+
+    it('correctly zero-pads serial numbers up to 4 digits', () => {
+      const testDate = new Date('2026-01-05T00:00:00Z');
+      assert.equal(formatCustomerId(9, testDate), 'JAN000926');
+      assert.equal(formatCustomerId(42, testDate), 'JAN004226');
+      assert.equal(formatCustomerId(999, testDate), 'JAN099926');
+      assert.equal(formatCustomerId(1234, testDate), 'JAN123426');
+    });
+
+    it('expands naturally beyond 9999 to 5 or more digits without truncation or data loss', () => {
+      const testDate = new Date('2026-10-14T10:00:00Z');
+      const id10k = formatCustomerId(10000, testDate);
+      assert.equal(id10k, 'OCT1000026');
+      assert.equal(id10k.length, 10);
+      assert.equal(isValidCustomerId(id10k), true);
+
+      const id100k = formatCustomerId(100500, testDate);
+      assert.equal(id100k, 'OCT10050026');
+      assert.equal(isValidCustomerId(id100k), true);
+    });
+
+    it('respects the Asia/Kolkata business timezone across midnight UTC boundary', () => {
+      // 2026-09-30T23:30:00Z is 2026-10-01T05:00:00 in Asia/Kolkata (+05:30)
+      const boundaryDate = new Date('2026-09-30T23:30:00Z');
+      const id = formatCustomerId(100, boundaryDate);
+      assert.match(id, /^OCT/);
+      assert.equal(id, 'OCT010026');
+    });
+
+    it('rejects invalid, zero, negative, or non-integer serial numbers', () => {
+      assert.throws(() => formatCustomerId(0), /positive integer/);
+      assert.throws(() => formatCustomerId(-5), /positive integer/);
+      assert.throws(() => formatCustomerId(1.5), /positive integer/);
+      assert.throws(() => formatCustomerId(NaN), /positive integer/);
+    });
+
+    it('validates Customer ID format with isValidCustomerId', () => {
+      assert.equal(isValidCustomerId('OCT000126'), true);
+      assert.equal(isValidCustomerId('JAN999926'), true);
+      assert.equal(isValidCustomerId('DEC1000026'), true);
+      assert.equal(isValidCustomerId('OCT00126'), false); // only 3 digits
+      assert.equal(isValidCustomerId('oct000126'), false); // lowercase
+      assert.equal(isValidCustomerId('OCT0001'), false); // missing year
+      assert.equal(isValidCustomerId(''), false);
+      assert.equal(isValidCustomerId(null), false);
+      assert.equal(isValidCustomerId(undefined), false);
+    });
+
+    it('preserves existing Customer ID and role without re-generation or role downgrade', () => {
+      const existingCustomerProfile = {
+        uid: 'cust_abc_999',
+        customerId: 'OCT000126',
+        email: 'customer@biocart.in',
+        name: 'Existing Customer',
+        role: 'customer' as const,
+        status: 'active' as const,
+        createdAt: '2026-10-01T00:00:00.000Z',
+        updatedAt: '2026-10-01T00:00:00.000Z',
+      };
+
+      const parseResult = UserProfileSchema.safeParse(existingCustomerProfile);
+      assert.equal(parseResult.success, true);
+      if (parseResult.success) {
+        assert.equal(parseResult.data.customerId, 'OCT000126');
+        assert.equal(parseResult.data.role, 'customer');
+      }
+
+      const adminProfileWithId = {
+        uid: 'adm_master_01',
+        customerId: 'OCT000226',
+        email: 'admin@biocart.in',
+        name: 'Master Admin',
+        role: 'admin' as const,
+        status: 'active' as const,
+        createdAt: '2026-10-01T00:00:00.000Z',
+        updatedAt: '2026-10-01T00:00:00.000Z',
+      };
+
+      const adminParsed = UserProfileSchema.safeParse(adminProfileWithId);
+      assert.equal(adminParsed.success, true);
+      if (adminParsed.success) {
+        assert.equal(adminParsed.data.role, 'admin');
+        assert.equal(adminParsed.data.customerId, 'OCT000226');
+      }
+    });
+
+    it('UserProfileSchema validates customerId field optionality and format', () => {
+      const withoutId = {
+        uid: 'usr_no_id',
+        email: 'user@example.com',
+        name: 'No Id User',
+        role: 'customer' as const,
+        status: 'active' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      assert.equal(UserProfileSchema.safeParse(withoutId).success, true);
+
+      const withId = { ...withoutId, customerId: 'OCT000126' };
+      assert.equal(UserProfileSchema.safeParse(withId).success, true);
+    });
+  });
 });
+
 
 

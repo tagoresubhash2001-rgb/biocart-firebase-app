@@ -55,6 +55,7 @@ export interface UserProfile extends Partial<BaseEntity> {
   updatedAt: string; // ISO string
   photoURL?: string;
   lastLoginAt?: string;
+  customerId?: string; // BioCart Customer ID format: MMMNNNNYY (e.g. OCT000126)
 }
 
 export const UserProfileSchema = z.object({
@@ -65,6 +66,7 @@ export const UserProfileSchema = z.object({
   phoneNumber: z.string().optional(),
   phone: z.string().optional(), // Compatibility alias
   location: z.string().optional(),
+  customerId: z.string().optional(),
   status: z.enum(['active', 'suspended'] as const),
   createdAt: z.string(),
   updatedAt: z.string(),

@@ -3,6 +3,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { UserProfile, UserRole } from '../types/backend';
 import { AuthService, ConfirmationResult } from '../services/AuthService';
 import { UserService } from '../services/UserService';
+import { allocateNextCustomerId, ensureCustomerIdForProfile, isValidCustomerId } from '../services/CustomerIdService';
 import { useLoading } from './LoadingContext';
 import { useNotification } from './NotificationContext';
 import { normalizeError } from '../utils/errors';
@@ -80,24 +81,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 1. Check if user profile already exists in Firestore
       const existing = await UserService.getUserProfile(user.uid);
       if (existing) {
+        let currentProfile = existing;
+
+        // Safely backfill Customer ID for existing customers if missing
+        if (existing.role === 'customer' && !isValidCustomerId(existing.customerId)) {
+          try {
+            currentProfile = await ensureCustomerIdForProfile(existing);
+          } catch (cidErr) {
+            console.warn('Customer ID backfill deferred:', cidErr);
+          }
+        }
+
         // Safe non-destructive update: update lastLoginAt and fill missing non-authoritative details
         const updates: Partial<UserProfile> = {
           lastLoginAt: new Date().toISOString(),
         };
-        if (user.email && !existing.email) updates.email = user.email;
-        if (user.photoURL && !existing.photoURL) updates.photoURL = user.photoURL;
-        if (user.phoneNumber && !existing.phoneNumber) {
+        if (user.email && !currentProfile.email) updates.email = user.email;
+        if (user.photoURL && !currentProfile.photoURL) updates.photoURL = user.photoURL;
+        if (user.phoneNumber && !currentProfile.phoneNumber) {
           updates.phoneNumber = user.phoneNumber;
           updates.phone = user.phoneNumber;
         }
-        if (user.displayName && (!existing.name || existing.name === 'BioCart Customer')) {
+        if (user.displayName && (!currentProfile.name || currentProfile.name === 'BioCart Customer')) {
           updates.name = user.displayName;
         }
 
         await UserService.updateProfile(user.uid, updates).catch((err) => {
           console.warn('Non-critical profile field sync failed:', err);
         });
-        return { ...existing, ...updates };
+        return { ...currentProfile, ...updates };
       }
 
       // 2. Owner special provisioning via callable
@@ -109,7 +121,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // 3. New customer creation: strictly default customer role and active status
-      // Omit optional fields completely if not provided by Google/provider (NO undefined)
+      // Allocate permanent Customer ID for genuine new customer
+      let allocatedCustomerId: string | undefined;
+      try {
+        allocatedCustomerId = await allocateNextCustomerId(new Date());
+      } catch (cidErr) {
+        console.warn('Initial customer ID allocation deferred:', cidErr);
+      }
+
       const newProfile: UserProfile = {
         uid: user.uid,
         email: user.email || '',
@@ -122,6 +141,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: new Date().toISOString(),
         lastLoginAt: new Date().toISOString(),
       };
+      if (allocatedCustomerId) {
+        newProfile.customerId = allocatedCustomerId;
+      }
       if (user.phoneNumber) {
         newProfile.phoneNumber = user.phoneNumber;
         newProfile.phone = user.phoneNumber;

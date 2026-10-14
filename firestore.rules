@@ -144,7 +144,7 @@ service cloud.firestore {
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
                     incoming().role in ['customer', 'guest'];
       allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
-                    ((incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'phoneNumber', 'location', 'photoURL', 'lastLoginAt', 'updatedAt'])) || isAdmin());
+                    ((incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'phoneNumber', 'location', 'photoURL', 'lastLoginAt', 'updatedAt', 'customerId'])) || isAdmin());
       allow delete: if isAdmin();
     }
 
@@ -319,7 +319,13 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    // 21. Platform Usage Analytics Logs
+    // 21. System Counters (Customer ID Generation & Global Sequences)
+    match /counters/{counterId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // 21b. Platform Usage Analytics Logs
     match /analytics/{logId} {
       allow create: if true; // Public analytics collector
       allow read, update, delete: if isAdmin();

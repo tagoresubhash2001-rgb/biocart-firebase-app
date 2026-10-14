@@ -30,7 +30,8 @@ import {
   ExternalLink,
   ShoppingBag,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Copy
 } from 'lucide-react';
 import { AdminService } from '../services/AdminService';
 import { UserService } from '../services/UserService';
@@ -155,6 +156,20 @@ export const Dashboard: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
+
+  // Customer ID Copy State & Handler
+  const [copiedCustomerId, setCopiedCustomerId] = useState(false);
+  const handleCopyCustomerId = (id?: string) => {
+    const val = id || (user as any)?.customerId;
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+      setCopiedCustomerId(true);
+      addToast(`Customer ID ${val} copied to clipboard`, 'success');
+      setTimeout(() => setCopiedCustomerId(false), 2000);
+    }).catch(() => {
+      addToast(`Failed copying Customer ID`, 'warning');
+    });
+  };
 
   // Fetch Realtime Products for Wishlist
   useEffect(() => {
@@ -398,11 +413,17 @@ export const Dashboard: React.FC = () => {
   // Tracking Search Form
   const handleTrackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trackInputId.trim()) {
-      addToast('Please enter an Order ID to search', 'warning');
+    const query = trackInputId.trim();
+    if (!query) {
+      addToast('Please enter an Order ID or Customer ID to search', 'warning');
       return;
     }
-    setActiveOrderTrackId(trackInputId.trim());
+    const matched = orders.find(o => o.id === query || o.orderNumber === query || o.customerId === query);
+    if (matched) {
+      setActiveOrderTrackId(matched.id);
+    } else {
+      setActiveOrderTrackId(query);
+    }
   };
 
   if (isAuthenticating) {
@@ -490,9 +511,22 @@ export const Dashboard: React.FC = () => {
               <h4 className="font-display font-bold text-lg text-slate-900 leading-tight">
                 {user.name}
               </h4>
-              <p className="text-xs text-slate-500 font-mono mt-0.5 truncate max-w-[200px] mx-auto">
-                ID: {user.uid ? `${user.uid.slice(0, 8)}...` : 'BC-USER'}
-              </p>
+              <div className="mt-1.5 flex items-center justify-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Customer ID:</span>
+                <span className="font-mono font-bold text-xs text-emerald-800">
+                  {(user as any).customerId || 'Allocating...'}
+                </span>
+                {(user as any).customerId && (
+                  <button
+                    type="button"
+                    onClick={() => handleCopyCustomerId((user as any).customerId)}
+                    className="p-1 text-slate-400 hover:text-emerald-700 transition-colors cursor-pointer"
+                    title="Copy Customer ID"
+                  >
+                    {copiedCustomerId ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                )}
+              </div>
               <div className="mt-2 flex items-center justify-center gap-1.5">
                 <span className="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase border border-emerald-200">
                   {user.status || 'Eco Member'}
@@ -873,6 +907,44 @@ export const Dashboard: React.FC = () => {
                 )}
               </div>
 
+              {/* Permanent BioCart Customer ID Card */}
+              <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs" id="permanent-customer-id-card">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-900">Customer ID</span>
+                    <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded-full border border-emerald-200">
+                      Permanent Account Code
+                    </span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-mono font-bold text-emerald-950 mt-1.5 tracking-tight" id="customer-id-display">
+                    {(user as any).customerId || 'Allocating Customer ID...'}
+                  </div>
+                  <p className="text-xs text-emerald-800 mt-1">
+                    Your unique identifier for order dispatch, support inquiries, and parcel tracking across BioCart.
+                  </p>
+                </div>
+                {(user as any).customerId && (
+                  <button
+                    type="button"
+                    onClick={() => handleCopyCustomerId((user as any).customerId)}
+                    className="px-4 py-2.5 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer self-start sm:self-center"
+                    id="copy-customer-id-btn"
+                  >
+                    {copiedCustomerId ? (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-600" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-emerald-600" />
+                        <span>Copy Customer ID</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
               <form onSubmit={handleSaveProfile} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   
@@ -1032,7 +1104,14 @@ export const Dashboard: React.FC = () => {
                   <div className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <span className="font-mono text-sm font-bold text-emerald-800">{selectedOrderDetails.id}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-bold text-emerald-800">{selectedOrderDetails.id}</span>
+                          {(selectedOrderDetails.customerId || (user as any).customerId) && (
+                            <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200" title="Customer Identifier">
+                              Customer: {selectedOrderDetails.customerId || (user as any).customerId}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500 mt-0.5">
                           Order Date: {selectedOrderDetails.createdAt ? new Date(selectedOrderDetails.createdAt?.seconds ? selectedOrderDetails.createdAt.seconds * 1000 : selectedOrderDetails.createdAt).toLocaleString('en-IN') : 'Recent'}
                         </p>
