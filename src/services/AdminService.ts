@@ -14,7 +14,7 @@ import {
   limit
 , where } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, app } from '../config/firebase';
+import { db, app, auth } from '../config/firebase';
 const storage = getStorage(app);
 
 
@@ -288,7 +288,7 @@ export class AdminService {
         list.push({
           id: docSnap.id,
           actorId: d.actorId || 'system',
-          actorEmail: d.actorEmail || 'admin@biocart.com',
+          actorEmail: d.actorEmail || 'system@biocart.in',
           action: d.action || '',
           entityType: d.entityType || 'product',
           entityId: d.entityId || '',
@@ -332,6 +332,13 @@ export class AdminService {
   // AUDIT LOGGING HELPER
   // ==========================================
 
+  static resolveActor(passedActor?: { id?: string; email?: string }): { id: string; email: string } {
+    const currentUser = auth.currentUser;
+    const actorId = currentUser?.uid || passedActor?.id || 'system';
+    const actorEmail = currentUser?.email || passedActor?.email || 'authenticated-admin@biocart.in';
+    return { id: actorId, email: actorEmail };
+  }
+
   static async logAuditAction(
     actorId: string,
     actorEmail: string,
@@ -341,10 +348,11 @@ export class AdminService {
     details: Record<string, any> = {}
   ): Promise<void> {
     try {
+      const resolved = this.resolveActor({ id: actorId, email: actorEmail });
       const logRef = doc(collection(db, 'audit_logs'));
       await setDoc(logRef, {
-        actorId,
-        actorEmail,
+        actorId: resolved.id,
+        actorEmail: resolved.email,
         action,
         entityType,
         entityId,
@@ -360,7 +368,8 @@ export class AdminService {
   // PRODUCT CRUD OPERATIONS
   // ==========================================
 
-  static async saveProduct(product: Partial<Product>, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<string> {
+  static async saveProduct(product: Partial<Product>, actor?: { id: string; email: string }): Promise<string> {
+    const activeActor = this.resolveActor(actor);
     const isNew = !product.id;
     const docId = product.id || `prod-${Date.now()}`;
     const productRef = doc(db, 'products', docId);
@@ -414,8 +423,8 @@ export class AdminService {
     await setDoc(productRef, payload, { merge: true });
 
     await this.logAuditAction(
-      actor.id,
-      actor.email,
+      activeActor.id,
+      activeActor.email,
       isNew ? `Created product "${payload.name}"` : `Updated product "${payload.name}"`,
       'product',
       docId,
@@ -425,17 +434,19 @@ export class AdminService {
     return docId;
   }
 
-  static async deleteProduct(productId: string, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async deleteProduct(productId: string, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const ref = doc(db, 'products', productId);
     await deleteDoc(ref);
-    await this.logAuditAction(actor.id, actor.email, `Deleted product ${productId}`, 'product', productId);
+    await this.logAuditAction(activeActor.id, activeActor.email, `Deleted product ${productId}`, 'product', productId);
   }
 
   // ==========================================
   // CATEGORY CRUD OPERATIONS
   // ==========================================
 
-  static async saveCategory(category: Partial<CategoryItem>, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<string> {
+  static async saveCategory(category: Partial<CategoryItem>, actor?: { id: string; email: string }): Promise<string> {
+    const activeActor = this.resolveActor(actor);
     const isNew = !category.id;
     const docId = category.id || `cat-${Date.now()}`;
     const ref = doc(db, 'categories', docId);
@@ -457,8 +468,8 @@ export class AdminService {
 
     await setDoc(ref, payload, { merge: true });
     await this.logAuditAction(
-      actor.id,
-      actor.email,
+      activeActor.id,
+      activeActor.email,
       isNew ? `Created category "${payload.name}"` : `Updated category "${payload.name}"`,
       'category',
       docId
@@ -466,7 +477,8 @@ export class AdminService {
     return docId;
   }
 
-  static async deleteCategory(categoryId: string, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async deleteCategory(categoryId: string, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     // 1. Guard against deleting categories with attached products
     const catDoc = await getDoc(doc(db, 'categories', categoryId));
     const catName = catDoc.exists() ? catDoc.data()?.name : null;
@@ -487,7 +499,7 @@ export class AdminService {
     }
 
     await deleteDoc(doc(db, 'categories', categoryId));
-    await this.logAuditAction(actor.id, actor.email, `Deleted category ${categoryId}`, 'category', categoryId);
+    await this.logAuditAction(activeActor.id, activeActor.email, `Deleted category ${categoryId}`, 'category', categoryId);
   }
 
   static async reconcileCategories(options: { dryRun?: boolean; actor?: { id: string; email: string } } = {}): Promise<{
@@ -496,7 +508,8 @@ export class AdminService {
     preserved: string[];
     logs: string[];
   }> {
-    const { dryRun = false, actor = { id: 'admin', email: 'admin@biocart.com' } } = options;
+    const activeActor = this.resolveActor(options.actor);
+    const { dryRun = false } = options;
     const logs: string[] = [];
     const added: string[] = [];
     const updated: string[] = [];
@@ -571,8 +584,8 @@ export class AdminService {
       await batch.commit();
       logs.push(`Committed ${writesCount} category updates to Firestore.`);
       await this.logAuditAction(
-        actor.id,
-        actor.email,
+        activeActor.id,
+        activeActor.email,
         `Reconciled categories catalog: ${added.length} added, ${updated.length} updated, ${preserved.length} preserved`,
         'category',
         'catalog-reconciliation',
@@ -588,7 +601,8 @@ export class AdminService {
   // BANNER CRUD OPERATIONS
   // ==========================================
 
-  static async saveBanner(banner: Partial<BannerItem>, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<string> {
+  static async saveBanner(banner: Partial<BannerItem>, actor?: { id: string; email: string }): Promise<string> {
+    const activeActor = this.resolveActor(actor);
     const isNew = !banner.id;
     const docId = banner.id || `banner-${Date.now()}`;
     const ref = doc(db, 'banners', docId);
@@ -612,8 +626,8 @@ export class AdminService {
 
     await setDoc(ref, payload, { merge: true });
     await this.logAuditAction(
-      actor.id,
-      actor.email,
+      activeActor.id,
+      activeActor.email,
       isNew ? `Created banner "${payload.title}"` : `Updated banner "${payload.title}"`,
       'banner',
       docId
@@ -621,17 +635,18 @@ export class AdminService {
     return docId;
   }
 
-  static async deleteBanner(bannerId: string, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async deleteBanner(bannerId: string, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     await deleteDoc(doc(db, 'banners', bannerId));
-    await this.logAuditAction(actor.id, actor.email, `Deleted banner ${bannerId}`, 'banner', bannerId);
+    await this.logAuditAction(activeActor.id, activeActor.email, `Deleted banner ${bannerId}`, 'banner', bannerId);
   }
 
   // ==========================================
   // VENDOR CRUD OPERATIONS
   // ==========================================
 
-  static async saveVendor(vendor: Partial<VendorItem>, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<string> {
-    
+  static async saveVendor(vendor: Partial<VendorItem>, actor?: { id: string; email: string }): Promise<string> {
+    const activeActor = this.resolveActor(actor);
     const vendorsSnap = await getDocs(collection(db, 'vendors'));
     const isNew = !vendor.id;
     // Generate a stable ID based on business name if not provided
@@ -666,8 +681,8 @@ export class AdminService {
 
     await setDoc(ref, payload, { merge: true });
     await this.logAuditAction(
-      actor.id,
-      actor.email,
+      activeActor.id,
+      activeActor.email,
       isNew ? `Created vendor "${payload.storeName}"` : `Updated vendor "${payload.storeName}"`,
       'vendor',
       docId
@@ -678,16 +693,17 @@ export class AdminService {
   static async updateVendorStatus(
     vendorId: string, 
     status: VendorItem['status'],
-    actor = { id: 'admin', email: 'admin@biocart.com' }
+    actor?: { id: string; email: string }
   ): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const ref = doc(db, 'vendors', vendorId);
     await updateDoc(ref, {
       status,
       updatedAt: new Date().toISOString()
     });
     await this.logAuditAction(
-      actor.id,
-      actor.email,
+      activeActor.id,
+      activeActor.email,
       `Updated vendor ${vendorId} status to ${status}/${status}`,
       'vendor',
       vendorId
@@ -698,29 +714,32 @@ export class AdminService {
   // REVIEWS MODERATION OPERATIONS
   // ==========================================
 
-  static async updateReviewStatus(reviewId: string, status: Review['status'], actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async updateReviewStatus(reviewId: string, status: Review['status'], actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const ref = doc(db, 'reviews', reviewId);
     await updateDoc(ref, { status });
-    await this.logAuditAction(actor.id, actor.email, `Changed review ${reviewId} status to ${status}`, 'review', reviewId);
+    await this.logAuditAction(activeActor.id, activeActor.email, `Changed review ${reviewId} status to ${status}`, 'review', reviewId);
   }
 
-  static async deleteReview(reviewId: string, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async deleteReview(reviewId: string, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     await deleteDoc(doc(db, 'reviews', reviewId));
-    await this.logAuditAction(actor.id, actor.email, `Deleted review ${reviewId}`, 'review', reviewId);
+    await this.logAuditAction(activeActor.id, activeActor.email, `Deleted review ${reviewId}`, 'review', reviewId);
   }
 
   // ==========================================
   // SETTINGS MANAGEMENT
   // ==========================================
 
-  static async updateStoreSettings(settings: Partial<StoreSettings>, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async updateStoreSettings(settings: Partial<StoreSettings>, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const docRef = doc(db, 'settings', 'general');
     const updated = {
       ...settings,
       updatedAt: new Date().toISOString()
     };
     await setDoc(docRef, updated, { merge: true });
-    await this.logAuditAction(actor.id, actor.email, 'Updated central store settings', 'settings', 'general', settings);
+    await this.logAuditAction(activeActor.id, activeActor.email, 'Updated central store settings', 'settings', 'general', settings);
   }
 
   // ==========================================
@@ -728,6 +747,11 @@ export class AdminService {
   // ==========================================
 
   static async seedInitialCatalogIfEmpty(): Promise<void> {
+    // Safety guard: Never seed products or modify database in production unless explicitly requested in development
+    const allowSeed = import.meta.env.DEV && import.meta.env.VITE_ALLOW_FIRESTORE_SEEDING === 'true';
+    if (!allowSeed) {
+      return;
+    }
     try {
       // 1. Seed Products if missing or empty
       const prodSnapshot = await getDocs(collection(db, 'products'));
@@ -911,7 +935,8 @@ export class AdminService {
     }
   }
 
-  static async savePageCMS(pageId: string, data: any, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async savePageCMS(pageId: string, data: any, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const docRef = doc(db, 'pages', pageId);
     const payload = {
       ...data,
@@ -919,10 +944,11 @@ export class AdminService {
       updatedAt: new Date().toISOString()
     };
     await setDoc(docRef, payload, { merge: true });
-    await this.logAuditAction(actor.id, actor.email, `Saved CMS for page "${pageId}"`, 'page', pageId);
+    await this.logAuditAction(activeActor.id, activeActor.email, `Saved CMS for page "${pageId}"`, 'page', pageId);
   }
 
-  static async savePageDraft(pageId: string, draftSections: any[], actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async savePageDraft(pageId: string, draftSections: any[], actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const docRef = doc(db, 'pages', pageId);
     const payload = {
       draftSections,
@@ -950,12 +976,13 @@ export class AdminService {
     }
 
     // Attempt audit log without blocking main flow
-    this.logAuditAction(actor.id, actor.email, `Saved Draft for page "${pageId}"`, 'page', pageId).catch((e) =>
+    this.logAuditAction(activeActor.id, activeActor.email, `Saved Draft for page "${pageId}"`, 'page', pageId).catch((e) =>
       console.warn('Audit log write error:', e)
     );
   }
 
-  static async publishPageCMS(pageId: string, data: any, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async publishPageCMS(pageId: string, data: any, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const docRef = doc(db, 'pages', pageId);
     const publishedSections = data.draftSections && data.draftSections.length > 0 ? data.draftSections : (data.sections || []);
     const payload = {
@@ -989,24 +1016,27 @@ export class AdminService {
     }
 
     // Non-blocking audit log
-    this.logAuditAction(actor.id, actor.email, `Published CMS Page "${pageId}"`, 'page', pageId).catch((e) =>
+    this.logAuditAction(activeActor.id, activeActor.email, `Published CMS Page "${pageId}"`, 'page', pageId).catch((e) =>
       console.warn('Audit log write error:', e)
     );
   }
 
-  static async unpublishPageCMS(pageId: string, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async unpublishPageCMS(pageId: string, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const docRef = doc(db, 'pages', pageId);
     await setDoc(docRef, { status: 'draft', updatedAt: new Date().toISOString() }, { merge: true });
-    this.logAuditAction(actor.id, actor.email, `Unpublished CMS Page "${pageId}"`, 'page', pageId).catch(() => {});
+    this.logAuditAction(activeActor.id, activeActor.email, `Unpublished CMS Page "${pageId}"`, 'page', pageId).catch(() => {});
   }
 
-  static async deletePageCMS(pageId: string, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async deletePageCMS(pageId: string, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const docRef = doc(db, 'pages', pageId);
     await deleteDoc(docRef);
-    this.logAuditAction(actor.id, actor.email, `Deleted CMS Page "${pageId}"`, 'page', pageId).catch(() => {});
+    this.logAuditAction(activeActor.id, activeActor.email, `Deleted CMS Page "${pageId}"`, 'page', pageId).catch(() => {});
   }
 
-  static async saveHomepageCMS(data: any, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async saveHomepageCMS(data: any, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const docRef = doc(db, 'pages', 'home');
     const payload = {
       ...data,
@@ -1028,13 +1058,14 @@ export class AdminService {
       throw err;
     }
 
-    this.logAuditAction(actor.id, actor.email, `Updated Global Homepage CMS`, 'page', 'home').catch(() => {});
+    this.logAuditAction(activeActor.id, activeActor.email, `Updated Global Homepage CMS`, 'page', 'home').catch(() => {});
   }
 
-  static async saveGlobalAppearance(data: any, actor = { id: 'admin', email: 'admin@biocart.com' }): Promise<void> {
+  static async saveGlobalAppearance(data: any, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
     const docRef = doc(db, 'settings', 'appearance');
     await setDoc(docRef, { ...data, updatedAt: new Date().toISOString() }, { merge: true });
-    await this.logAuditAction(actor.id, actor.email, `Updated Global Appearance settings`, 'settings', 'appearance');
+    await this.logAuditAction(activeActor.id, activeActor.email, `Updated Global Appearance settings`, 'settings', 'appearance');
   }
 
   static subscribeToGlobalAppearance(callback: (data: any) => void): () => void {

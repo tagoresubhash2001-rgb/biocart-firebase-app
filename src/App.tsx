@@ -55,10 +55,10 @@ const AppContent: React.FC = () => {
               
                 if (subView === 'admin' || currentTab === 'admin' as any) return <AdminConsole />;
                 if (subView === 'vendor' || currentTab === 'vendor' as any) return <VendorConsole />;
-                if (subView === 'dashboard') return <Dashboard />;
-              if (subView === 'dealer-portal') return <DealerPortal />;
-              if (subView === 'distributor-portal') return <DistributorPortal />;
-              if (subView === '404') return <NotFoundPage />;
+                if (subView === 'dashboard' || currentTab === 'dashboard' as any) return <Dashboard />;
+                if (subView === 'dealer-portal' || currentTab === 'dealer-portal' as any) return <DealerPortal />;
+                if (subView === 'distributor-portal' || currentTab === 'distributor-portal' as any) return <DistributorPortal />;
+                if (subView === '404' || currentTab === '404' as any) return <NotFoundPage />;
 
               switch (currentTab) {
                 case 'home': return <Home />;

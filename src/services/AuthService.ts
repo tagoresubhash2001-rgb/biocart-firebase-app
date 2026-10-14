@@ -101,35 +101,84 @@ export class AuthService {
   }
 
   /**
-   * Initialize or return an active RecaptchaVerifier
+   * Safely normalize phone numbers to E.164 format.
+   * Handles Indian local conventions (leading 0s, spaces, hyphens) and international codes.
+   */
+  static normalizePhoneNumber(rawNumber: string, defaultCountryCode: string = '+91'): string {
+    if (!rawNumber || typeof rawNumber !== 'string') {
+      throw new Error('Please enter a mobile phone number.');
+    }
+
+    // Strip all whitespace, hyphens, and parentheses
+    let cleaned = rawNumber.trim().replace(/[\s\-\(\)]/g, '');
+
+    if (cleaned.startsWith('+')) {
+      // If user typed +91... or another country code
+      if (cleaned.startsWith('+91')) {
+        let digits = cleaned.slice(3).replace(/^0+/, ''); // Strip leading zeros after +91
+        if (!/^[6-9]\d{9}$/.test(digits)) {
+          throw new Error('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+        }
+        return `+91${digits}`;
+      }
+
+      // Other international country codes (E.164 format: + followed by 7 to 15 digits)
+      if (!/^\+[1-9]\d{6,14}$/.test(cleaned)) {
+        throw new Error('Please enter a valid phone number in international format (e.g. +91 9876543210).');
+      }
+      return cleaned;
+    }
+
+    // Numbers entered without a leading +
+    cleaned = cleaned.replace(/^0+/, ''); // Strip leading 0 (common STD/trunk dialing prefix in India)
+
+    if (defaultCountryCode === '+91') {
+      // If entered as 91XXXXXXXXXX (12 digits starting with 91)
+      if (/^91[6-9]\d{9}$/.test(cleaned)) {
+        return `+${cleaned}`;
+      }
+      // If entered as 10 digits (standard Indian mobile format)
+      if (/^[6-9]\d{9}$/.test(cleaned)) {
+        return `+91${cleaned}`;
+      }
+      throw new Error('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9 (e.g. 98765 43210).');
+    }
+
+    // General fallback using default country code
+    const normalized = `${defaultCountryCode}${cleaned}`;
+    if (!/^\+[1-9]\d{6,14}$/.test(normalized)) {
+      throw new Error('Please enter a valid phone number with country code.');
+    }
+    return normalized;
+  }
+
+  /**
+   * Initialize or return an active RecaptchaVerifier with clean DOM reset
    */
   static getRecaptchaVerifier(containerId: string = 'recaptcha-container'): RecaptchaVerifier {
     if (typeof window === 'undefined') {
       throw new Error('reCAPTCHA can only be initialized in the browser.');
     }
 
-    if (AuthService.recaptchaVerifier) {
-      try {
-        AuthService.recaptchaVerifier.clear();
-      } catch (e) {
-        console.warn('Error clearing previous RecaptchaVerifier:', e);
-      }
-      AuthService.recaptchaVerifier = null;
-    }
+    // Clear any existing active verifier to prevent stale widget or duplicate binding
+    AuthService.clearRecaptcha(containerId);
 
     const container = document.getElementById(containerId);
     if (!container) {
       throw new Error(`reCAPTCHA container '#${containerId}' was not found in the DOM.`);
     }
 
+    // Ensure container is empty before re-attaching
+    container.innerHTML = '';
+
     AuthService.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
       size: 'invisible',
       callback: () => {
-        // reCAPTCHA solved automatically
+        // reCAPTCHA solved automatically by invisible challenge
       },
       'expired-callback': () => {
-        console.warn('reCAPTCHA expired. Clearing verifier.');
-        AuthService.clearRecaptcha();
+        console.warn('reCAPTCHA token expired. Clearing verifier for retry.');
+        AuthService.clearRecaptcha(containerId);
       }
     });
 
@@ -137,9 +186,9 @@ export class AuthService {
   }
 
   /**
-   * Clear active RecaptchaVerifier instance
+   * Clear active RecaptchaVerifier instance and reset its DOM container
    */
-  static clearRecaptcha(): void {
+  static clearRecaptcha(containerId: string = 'recaptcha-container'): void {
     if (AuthService.recaptchaVerifier) {
       try {
         AuthService.recaptchaVerifier.clear();
@@ -148,26 +197,29 @@ export class AuthService {
       }
       AuthService.recaptchaVerifier = null;
     }
+
+    if (typeof document !== 'undefined') {
+      const container = document.getElementById(containerId);
+      if (container) {
+        container.innerHTML = '';
+      }
+    }
   }
 
   /**
-   * Send Phone OTP verification code via SMS
+   * Send Phone OTP verification code via SMS with E.164 normalization
    */
   static async sendPhoneOtp(
     phoneNumber: string, 
     containerId: string = 'recaptcha-container'
   ): Promise<ConfirmationResult> {
     try {
-      const formatted = phoneNumber.trim().replace(/\s+/g, '');
-      if (!/^\+[1-9]\d{7,14}$/.test(formatted)) {
-        throw new Error('Please enter a valid phone number with country code (e.g. +91 9876543210).');
-      }
-
+      const normalizedPhone = AuthService.normalizePhoneNumber(phoneNumber);
       const verifier = AuthService.getRecaptchaVerifier(containerId);
-      const confirmationResult = await signInWithPhoneNumber(auth, formatted, verifier);
+      const confirmationResult = await signInWithPhoneNumber(auth, normalizedPhone, verifier);
       return confirmationResult;
     } catch (err) {
-      AuthService.clearRecaptcha();
+      AuthService.clearRecaptcha(containerId);
       throw normalizeError(err);
     }
   }
@@ -180,8 +232,12 @@ export class AuthService {
     otpCode: string
   ): Promise<FirebaseUser> {
     try {
-      const trimmedOtp = otpCode.trim();
-      if (!trimmedOtp || trimmedOtp.length < 6) {
+      if (!confirmationResult || typeof confirmationResult.confirm !== 'function') {
+        throw new Error('Verification session has expired or is invalid. Please request a new OTP.');
+      }
+
+      const trimmedOtp = otpCode.trim().replace(/\D/g, '');
+      if (trimmedOtp.length !== 6) {
         throw new Error('Please enter the complete 6-digit verification code.');
       }
 

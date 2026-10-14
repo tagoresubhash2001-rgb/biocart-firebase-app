@@ -211,58 +211,64 @@
   -webkit-text-fill-color: transparent;
 }
 
-/* Accessibility & Color System Overrides (WCAG AA Compliance) */
-.text-slate-400,
-.text-charcoal-400,
-.text-gray-400,
-.text-slate-300,
-.text-charcoal-500,
-.text-gray-500,
-.text-muted,
-.text-muted-foreground {
-  color: #2E2E2E !important;
-  opacity: 1 !important;
+/* Explicit Light & High-Contrast Utility Rules (Ensure Tailwind overrides succeed) */
+.text-white, .text-white\/90, .text-white\/80 {
+  color: #ffffff !important;
+}
+.text-emerald-100, .text-emerald-100\/90 {
+  color: #d1fae5 !important;
+}
+.text-emerald-200 {
+  color: #a7f3d0 !important;
+}
+.text-emerald-300 {
+  color: #6ee7b7 !important;
+}
+.text-emerald-400 {
+  color: #34d399 !important;
+}
+.text-slate-100 {
+  color: #f1f5f9 !important;
+}
+.text-slate-200 {
+  color: #e2e8f0 !important;
 }
 
-.dark .text-slate-400,
-.dark .text-charcoal-400,
-.dark .text-gray-400,
-.dark .text-slate-300,
-.dark .text-charcoal-500,
-.dark .text-gray-500,
-.dark .text-muted,
-.dark .text-muted-foreground {
-  color: #cbd5e1 !important;
-  opacity: 1 !important;
-}
-
-/* Ensure no headings have low-opacity or unreadable colors */
+/* Light Surface Typography Defaults */
 h1, h2, h3, h4, h5, h6,
 .h1, .h2, .h3, .h4, .h5, .h6 {
-  color: #0F3D2E !important;
-  font-weight: 700 !important;
-  opacity: 1 !important;
+  color: #0F3D2E;
+  font-weight: 700;
 }
 
 .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6,
 .dark .h1, .dark .h2, .dark .h3, .dark .h4, .dark .h5, .dark .h6 {
-  color: #cbd5e1 !important;
-  font-weight: 700 !important;
-  opacity: 1 !important;
+  color: #f8fafc;
+  font-weight: 700;
 }
 
 p, .p {
-  color: #000000 !important;
-  line-height: 1.8 !important;
-  font-weight: 400 !important;
-  opacity: 1 !important;
+  color: #2E2E2E;
+  line-height: 1.7;
+  font-weight: 400;
 }
 
 .dark p, .dark .p {
-  color: #cbd5e1 !important;
-  line-height: 1.8 !important;
-  font-weight: 400 !important;
-  opacity: 1 !important;
+  color: #cbd5e1;
+  line-height: 1.7;
+  font-weight: 400;
+}
+
+/* Secondary & Muted Text on Light Surfaces */
+html:not(.dark) .bg-white .text-slate-400,
+html:not(.dark) .bg-white .text-gray-400,
+html:not(.dark) .bg-white .text-charcoal-400,
+html:not(.dark) .bg-white .text-muted,
+html:not(.dark) .bg-slate-50 .text-slate-400,
+html:not(.dark) .bg-slate-50 .text-gray-400,
+html:not(.dark) .bg-slate-50 .text-charcoal-400,
+html:not(.dark) .bg-slate-50 .text-muted {
+  color: #52525B; /* 4.6:1 contrast against pure white */
 }
 
 /* Force pure white for cards and ribbon in Light Theme */
@@ -282,45 +288,85 @@ html:not(.dark) .bg-white {
   background-color: #FFFFFF !important;
 }
 
-/* Force secondary text to #333333 */
-html:not(.dark) .text-charcoal-500,
-html:not(.dark) .text-slate-400,
-html:not(.dark) .text-slate-500,
-html:not(.dark) .text-charcoal-400,
-html:not(.dark) .text-gray-400,
-html:not(.dark) .text-gray-500 {
-  color: #333333 !important;
+/* Dark Container Context (Heroes, Dark Green Sections, Partner Inquiry, CTA Banners, Cinematic Overlays) */
+.bg-emerald-950,
+.bg-emerald-900,
+.bg-nature-900,
+.bg-nature-800,
+.bg-\[\#004643\],
+.bg-slate-900,
+.bg-slate-950,
+.bg-charcoal-900,
+.bg-charcoal-950,
+[class*="from-emerald-900"],
+[class*="from-emerald-950"],
+.dark-section,
+.dark-container {
+  color: #ffffff;
 }
 
-/* Primary text to #000000 */
-html:not(.dark) .text-charcoal-900,
-html:not(.dark) .text-slate-900,
-html:not(.dark) .text-nature-900,
-html:not(.dark) .text-nature-800 {
-  color: #000000 !important;
-}
-
-/* Cinematic Hero Text Color Overrides for High-Contrast against Dark Overlays */
+/* Headings inside dark containers */
+.bg-emerald-950 h1, .bg-emerald-950 h2, .bg-emerald-950 h3, .bg-emerald-950 h4, .bg-emerald-950 h5, .bg-emerald-950 h6,
+.bg-emerald-900 h1, .bg-emerald-900 h2, .bg-emerald-900 h3, .bg-emerald-900 h4, .bg-emerald-900 h5, .bg-emerald-900 h6,
+.bg-nature-900 h1, .bg-nature-900 h2, .bg-nature-900 h3, .bg-nature-900 h4, .bg-nature-900 h5, .bg-nature-900 h6,
+.bg-nature-800 h1, .bg-nature-800 h2, .bg-nature-800 h3, .bg-nature-800 h4, .bg-nature-800 h5, .bg-nature-800 h6,
+.bg-\[\#004643\] h1, .bg-\[\#004643\] h2, .bg-\[\#004643\] h3, .bg-\[\#004643\] h4, .bg-\[\#004643\] h5, .bg-\[\#004643\] h6,
+.bg-slate-900 h1, .bg-slate-900 h2, .bg-slate-900 h3, .bg-slate-900 h4, .bg-slate-900 h5, .bg-slate-900 h6,
+.bg-slate-950 h1, .bg-slate-950 h2, .bg-slate-950 h3, .bg-slate-950 h4, .bg-slate-950 h5, .bg-slate-950 h6,
+[class*="from-emerald-900"] h1, [class*="from-emerald-900"] h2, [class*="from-emerald-900"] h3, [class*="from-emerald-900"] h4, [class*="from-emerald-900"] h5, [class*="from-emerald-900"] h6,
+[class*="from-emerald-950"] h1, [class*="from-emerald-950"] h2, [class*="from-emerald-950"] h3, [class*="from-emerald-950"] h4, [class*="from-emerald-950"] h5, [class*="from-emerald-950"] h6,
+.dark-section h1, .dark-section h2, .dark-section h3, .dark-section h4, .dark-section h5, .dark-section h6,
+.dark-container h1, .dark-container h2, .dark-container h3, .dark-container h4, .dark-container h5, .dark-container h6,
 #about-banner h1, #contact-hero h1, #shop-hero-banner h1,
 #about-banner h2, #contact-hero h2, #shop-hero-banner h2,
 #about-banner h3, #contact-hero h3, #shop-hero-banner h3,
-#about-banner .h1, #contact-hero .h1, #shop-hero-banner .h1,
-.cinematic-hero h1, .cinematic-hero h2, .cinematic-hero h3,
-.cinematic-hero .h1, .cinematic-hero .h2, .cinematic-hero .h3 {
+.cinematic-hero h1, .cinematic-hero h2, .cinematic-hero h3 {
   color: #ffffff !important;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4) !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
+/* Paragraphs inside dark containers */
+.bg-emerald-950 p,
+.bg-emerald-900 p,
+.bg-nature-900 p,
+.bg-nature-800 p,
+.bg-\[\#004643\] p,
+.bg-slate-900 p,
+.bg-slate-950 p,
+[class*="from-emerald-900"] p,
+[class*="from-emerald-950"] p,
+.dark-section p,
+.dark-container p,
 #about-banner p, #contact-hero p, #shop-hero-banner p,
-#about-banner .p, #contact-hero .p, #shop-hero-banner .p,
-.cinematic-hero p, .cinematic-hero .p {
+.cinematic-hero p {
   color: #e2e8f0 !important;
-  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.3) !important;
+  line-height: 1.7;
 }
 
-#about-banner span, #contact-hero span, #shop-hero-banner span,
-.cinematic-hero span {
-  color: #34d399 !important; /* emerald-400 */
+/* Subtitles, muted paragraphs and pills inside dark containers */
+.bg-emerald-950 p.text-emerald-100,
+.bg-emerald-900 p.text-emerald-100,
+[class*="from-emerald-900"] p.text-emerald-100,
+[class*="from-emerald-950"] p.text-emerald-100,
+.bg-emerald-950 .text-emerald-100,
+.bg-emerald-900 .text-emerald-100,
+[class*="from-emerald-900"] .text-emerald-100,
+[class*="from-emerald-950"] .text-emerald-100 {
+  color: #d1fae5 !important;
+}
+
+.bg-emerald-950 .text-emerald-300,
+.bg-emerald-900 .text-emerald-300,
+[class*="from-emerald-900"] .text-emerald-300,
+[class*="from-emerald-950"] .text-emerald-300 {
+  color: #6ee7b7 !important;
+}
+
+.bg-emerald-950 .text-emerald-400,
+.bg-emerald-900 .text-emerald-400,
+[class*="from-emerald-900"] .text-emerald-400,
+[class*="from-emerald-950"] .text-emerald-400 {
+  color: #34d399 !important;
 }
 
 /* Ensure button and badge text remains readable when active/primary */
@@ -353,6 +399,28 @@ html:not(.dark) .text-nature-800 {
 
 .bg-white p, .bg-slate-50 p, .bg-slate-100 p {
   color: #2E2E2E !important;
+}
+
+/* High-contrast buttons on dark backgrounds */
+.bg-emerald-950 button.bg-white,
+.bg-emerald-900 button.bg-white,
+[class*="from-emerald-900"] button.bg-white,
+[class*="from-emerald-950"] button.bg-white,
+.dark-section button.bg-white {
+  color: #022c22 !important;
+  font-weight: 700 !important;
+}
+
+.bg-emerald-950 button.bg-emerald-400,
+.bg-emerald-950 button.bg-emerald-500,
+.bg-emerald-900 button.bg-emerald-400,
+.bg-emerald-900 button.bg-emerald-500,
+[class*="from-emerald-900"] button.bg-emerald-400,
+[class*="from-emerald-900"] button.bg-emerald-500,
+[class*="from-emerald-950"] button.bg-emerald-400,
+[class*="from-emerald-950"] button.bg-emerald-500 {
+  color: #022c22 !important;
+  font-weight: 700 !important;
 }
 
 .dark .bg-nature-800 p, .dark .bg-nature-700 p, .dark .bg-emerald-600 p, .dark .bg-\[\#004643\] p,

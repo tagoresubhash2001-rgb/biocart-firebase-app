@@ -199,54 +199,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     document.documentElement.classList.remove('dark');
     setTheme('light');
 
-    // Synchronize tab with hash on load
-    const hash = window.location.hash.replace('#', '');
-    const pathname = window.location.pathname.replace(/^\/+/g, '');
-    
-    // Proper redirections for localhost links (pathnames like /shop or /admin/products)
-    if (pathname && !hash) {
-      if (
-        ['home', 'about', 'shop', 'contact', 'product-details', 'dashboard', 'dealer-portal', 'distributor-portal', 'admin', 'vendor'].includes(pathname) ||
-        pathname.startsWith('admin/') || 
-        pathname.startsWith('vendor/')
-      ) {
-        window.location.href = '/#' + pathname;
-        return;
+    // Synchronize tab and view with clean path-based URL on load & popstate
+    const resolveRouteFromUrl = () => {
+      // 1. Migrate legacy hash routes (e.g. /#/terms-of-service or /#about-us) to clean paths
+      const rawHash = window.location.hash.replace(/^#\/?/, '');
+      if (rawHash) {
+        const [hashRoute, hashQuery] = rawHash.split('?');
+        const cleanPath = hashRoute === 'home' ? '/' : `/${hashRoute}`;
+        const searchSuffix = hashQuery ? `?${hashQuery}` : window.location.search;
+        window.history.replaceState(null, '', `${cleanPath}${searchSuffix}`);
       }
-    }
-    
-    const handleHash = () => {
-      const fullHash = window.location.hash.replace('#', '') || 'home';
-      const [newHash] = fullHash.split('?');
-      if (['dashboard', 'dealer-portal', 'distributor-portal', 'admin', 'vendor'].includes(newHash)) {
-        setSubViewState(newHash);
-      } else if (newHash.startsWith('admin/')) {
-        setSubViewState('admin');
-      } else if (newHash.startsWith('vendor/')) {
-        setSubViewState('vendor');
+
+      // 2. Read clean pathname
+      const pathname = window.location.pathname.replace(/^\/+/, '').split('/')[0] || 'home';
+      const knownSubViews = ['admin', 'vendor', 'dashboard', 'dealer-portal', 'distributor-portal'];
+
+      if (knownSubViews.includes(pathname)) {
+        setSubViewState(pathname);
       } else {
-        setCurrentTabState(newHash);
+        setSubViewState(null);
+        setCurrentTabState(pathname);
       }
     };
 
-    handleHash();
-    window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
+    resolveRouteFromUrl();
+    window.addEventListener('popstate', resolveRouteFromUrl);
+    window.addEventListener('hashchange', resolveRouteFromUrl);
+    return () => {
+      window.removeEventListener('popstate', resolveRouteFromUrl);
+      window.removeEventListener('hashchange', resolveRouteFromUrl);
+    };
   }, []);
 
   const setTab = (tab: string) => {
     setCurrentTabState(tab);
     setSubViewState(null);
-    window.location.hash = tab;
+    const targetPath = tab === 'home' ? '/' : `/${tab}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const setSubView = (view: string | null) => {
     setSubViewState(view);
     if (view) {
-      window.location.hash = view;
+      const targetPath = `/${view}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath);
+      }
     } else {
-      window.location.hash = currentTab;
+      const targetPath = currentTab === 'home' ? '/' : `/${currentTab}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState(null, '', targetPath);
+      }
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

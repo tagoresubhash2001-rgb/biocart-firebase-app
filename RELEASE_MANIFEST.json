@@ -1,12 +1,12 @@
 {
   "projectName": "BioCart",
   "version": "1.0.0-production-release",
-  "commitSha": "d56eb7e",
+  "commitSha": "1edd81a",
   "branch": "main",
   "repository": "https://github.com/tagoresubhash2001-rgb/biocart-firebase-app.git",
   "firebaseProject": "bio-cart",
   "region": "asia-southeast1",
-  "verifiedTimestamp": "2026-10-13T14:32:00+05:30",
+  "verifiedTimestamp": "2026-10-13T22:52:00+05:30",
   "status": "VERIFIED_PRODUCTION_READY",
   "authorizedAdmin": {
     "email": "sinfoxmedia@gmail.com",
@@ -15,22 +15,27 @@
   },
   "qualityGates": {
     "automatedTests": {
-      "passed": 19,
+      "passed": 24,
       "failed": 0,
-      "suites": 6,
-      "command": "npm test"
+      "suites": 8,
+      "command": "npm test",
+      "durationMs": 1001.69
     },
     "typeCheck": {
       "status": "passed",
-      "command": "npx tsc --noEmit"
+      "command": "npx tsc --noEmit",
+      "errors": 0
     },
     "productionBuild": {
       "status": "passed",
-      "command": "npm run build"
+      "command": "npm run build",
+      "buildTimeSeconds": 12.05,
+      "outputDirectory": "dist"
     },
     "functionsBuild": {
       "status": "passed",
-      "command": "npm --prefix functions run build"
+      "command": "npm --prefix functions run build",
+      "outputDirectory": "functions/lib"
     }
   },
   "deployedEndpoints": {
@@ -39,11 +44,13 @@
     "appHostingBackend": "https://biocart--bio-cart.asia-southeast1.hosted.app"
   },
   "packageContents": {
-    "excludedDirectories": [".git", "node_modules", "dist", ".firebase"],
-    "excludedFiles": [".env*", "*.local", "service-account*.json"],
+    "excludedDirectories": [".git", "node_modules", "functions/node_modules", "dist", ".firebase"],
+    "excludedFiles": [".env*", "*.local", "service-account*.json", "*.zip"],
     "includedArtifacts": [
       "src/",
-      "functions/",
+      "functions/src/",
+      "functions/package.json",
+      "functions/tsconfig.json",
       "public/",
       "docs/",
       "tests/",
@@ -53,6 +60,13 @@
       "apphosting.yaml",
       "server.js",
       "package.json",
+      "package-lock.json",
+      "tsconfig.json",
+      "tsconfig.app.json",
+      "tsconfig.node.json",
+      "vite.config.ts",
+      "tailwind.config.js",
+      "postcss.config.js",
       ".env.example",
       "RELEASE_MANIFEST.json"
     ]

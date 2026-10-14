@@ -61,7 +61,7 @@ export function normalizeError(error: any): AppError {
     case 'auth/unauthorized-domain':
       return new AppError('This domain is not authorized for OAuth in Firebase. Please add this domain to Authorized Domains in Firebase Console.', 'auth', code);
     case 'auth/invalid-phone-number':
-      return new AppError('Invalid phone number format. Please provide a valid phone number with country code.', 'auth', code);
+      return new AppError('Invalid phone number format. Please provide a valid 10-digit phone number with country code (e.g. +91 98765 43210).', 'auth', code);
     case 'auth/invalid-verification-code':
       return new AppError('Invalid 6-digit OTP code. Please check the code and try again.', 'auth', code);
     case 'auth/code-expired':
@@ -69,11 +69,20 @@ export function normalizeError(error: any): AppError {
     case 'auth/quota-exceeded':
       return new AppError('SMS quota limit exceeded for today. Please try again later or sign in with email.', 'auth', code);
     case 'auth/captcha-check-failed':
-      return new AppError('reCAPTCHA verification failed. Please try again.', 'auth', code);
+      return new AppError('reCAPTCHA verification challenge failed. Please refresh and try again.', 'auth', code);
     case 'auth/missing-phone-number':
       return new AppError('Please enter your mobile phone number.', 'auth', code);
     case 'auth/missing-verification-code':
       return new AppError('Please enter the 6-digit verification code.', 'auth', code);
+    case 'auth/billing-not-enabled':
+      return new AppError('SMS authentication quota requires billing enabled or a configured test phone number in Firebase Console.', 'auth', code);
+    case 'auth/app-not-authorized':
+      return new AppError('This domain is not authorized for SMS verification in Firebase. Please check Authorized Domains in Firebase Console.', 'auth', code);
+    case 'auth/operation-not-allowed':
+      return new AppError('Phone authentication is currently disabled. Please enable the Phone provider in Firebase Console.', 'auth', code);
+    case 'auth/missing-client-identifier':
+    case 'auth/app-verification-failed':
+      return new AppError('SMS security verification could not be completed. Please refresh the page and retry.', 'auth', code);
 
     // Firebase Firestore Codes
     case 'permission-denied':

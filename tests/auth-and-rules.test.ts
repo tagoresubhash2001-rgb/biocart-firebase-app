@@ -8,6 +8,7 @@ import {
   WishlistEntitySchema 
 } from '../src/types/backend.js';
 import { resolveUserRole } from '../src/utils/authz.js';
+import { AuthService } from '../src/services/AuthService.js';
 
 describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => {
 
@@ -42,6 +43,30 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.equal(normalized.category, 'auth');
       assert.equal(normalized.code, 'auth/code-expired');
       assert.match(normalized.message, /expired/i);
+    });
+
+    it('normalizes auth/quota-exceeded for SMS limit', () => {
+      const rawError = { code: 'auth/quota-exceeded', message: 'Quota exceeded' };
+      const normalized = normalizeError(rawError);
+      assert.equal(normalized.category, 'auth');
+      assert.equal(normalized.code, 'auth/quota-exceeded');
+      assert.match(normalized.message, /SMS quota limit exceeded/i);
+    });
+
+    it('normalizes auth/billing-not-enabled with clear guidance', () => {
+      const rawError = { code: 'auth/billing-not-enabled', message: 'Billing not enabled' };
+      const normalized = normalizeError(rawError);
+      assert.equal(normalized.category, 'auth');
+      assert.equal(normalized.code, 'auth/billing-not-enabled');
+      assert.match(normalized.message, /test phone number/i);
+    });
+
+    it('normalizes auth/app-not-authorized with clear guidance', () => {
+      const rawError = { code: 'auth/app-not-authorized', message: 'Domain not authorized' };
+      const normalized = normalizeError(rawError);
+      assert.equal(normalized.category, 'auth');
+      assert.equal(normalized.code, 'auth/app-not-authorized');
+      assert.match(normalized.message, /Authorized Domains/i);
     });
 
     it('normalizes auth/unauthorized-domain with clear guidance', () => {
@@ -127,42 +152,44 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
   });
 
   describe('3. Phone Number Sanitization & E.164 Formatting', () => {
-    const sanitizePhoneNumber = (raw: string, defaultCode = '+91'): string => {
-      let cleaned = raw.replace(/[\s\-\(\)]/g, '');
-      if (!cleaned.startsWith('+')) {
-        cleaned = `${defaultCode}${cleaned.replace(/^0+/, '')}`;
-      }
-      return cleaned;
-    };
-
-    const isValidE164 = (phone: string): boolean => {
-      return /^\+[1-9]\d{6,14}$/.test(phone);
-    };
-
-    it('cleans formatted local Indian numbers with spaces and hyphens', () => {
+    it('cleans formatted local Indian numbers with spaces and hyphens using AuthService', () => {
       const raw = '98765-43210';
-      const formatted = sanitizePhoneNumber(raw);
+      const formatted = AuthService.normalizePhoneNumber(raw);
       assert.equal(formatted, '+919876543210');
-      assert.equal(isValidE164(formatted), true);
+      assert.match(formatted, /^\+[1-9]\d{6,14}$/);
     });
 
-    it('handles numbers with leading 0', () => {
+    it('handles Indian numbers with leading 0 (STD/trunk dialing convention)', () => {
       const raw = '09876543210';
-      const formatted = sanitizePhoneNumber(raw);
+      const formatted = AuthService.normalizePhoneNumber(raw);
       assert.equal(formatted, '+919876543210');
-      assert.equal(isValidE164(formatted), true);
+      assert.match(formatted, /^\+[1-9]\d{6,14}$/);
     });
 
-    it('preserves existing E.164 international numbers', () => {
+    it('handles +91 prefixed numbers with spaces and leading 0 after country code', () => {
+      const raw = '+91 098765 43210';
+      const formatted = AuthService.normalizePhoneNumber(raw);
+      assert.equal(formatted, '+919876543210');
+      assert.match(formatted, /^\+[1-9]\d{6,14}$/);
+    });
+
+    it('handles numbers starting with 91 without plus sign', () => {
+      const raw = '919876543210';
+      const formatted = AuthService.normalizePhoneNumber(raw);
+      assert.equal(formatted, '+919876543210');
+    });
+
+    it('preserves existing E.164 international numbers (+1, +44, etc.)', () => {
       const raw = '+1 415 555 2671';
-      const formatted = sanitizePhoneNumber(raw);
+      const formatted = AuthService.normalizePhoneNumber(raw);
       assert.equal(formatted, '+14155552671');
-      assert.equal(isValidE164(formatted), true);
+      assert.match(formatted, /^\+[1-9]\d{6,14}$/);
     });
 
-    it('rejects malformed numbers missing digits', () => {
-      const raw = '+91123';
-      assert.equal(isValidE164(raw), false);
+    it('rejects malformed numbers missing digits or starting with invalid digits', () => {
+      assert.throws(() => AuthService.normalizePhoneNumber('+91123'), /10-digit Indian mobile number/i);
+      assert.throws(() => AuthService.normalizePhoneNumber('12345'), /10-digit Indian mobile number/i);
+      assert.throws(() => AuthService.normalizePhoneNumber('5555555555'), /starting with 6, 7, 8, or 9/i);
     });
   });
 

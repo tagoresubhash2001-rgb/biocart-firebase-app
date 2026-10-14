@@ -255,9 +255,9 @@ export const Footer: React.FC = () => {
                 {[
                   { label: 'Home', tab: 'home' },
                   { label: 'Shop Catalog', tab: 'shop' },
-                  { label: 'About Us', tab: 'about' },
-                  { label: 'Contact Us', tab: 'contact' },
-                  { label: 'Dealer Portal', tab: 'contact' },
+                  { label: 'About Us', tab: 'about-us' },
+                  { label: 'Contact Us', tab: 'contact-us' },
+                  { label: 'Dealer Portal', tab: 'dealer-portal' },
                 ].map((item, idx) => (
                   <li key={idx}>
                     <button 
@@ -437,9 +437,9 @@ export const Footer: React.FC = () => {
               © 2026 BioCart. Sindulis Agro Products Private Limited. All Rights Reserved.
             </p>
             <div className="flex flex-wrap justify-center gap-4 md:gap-6 text-charcoal-500 dark:text-slate-400 font-medium" id="copyright-bar-links">
-              <span onClick={() => { setTab('home'); setSubView(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 dark:hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
-              <span onClick={() => { setTab('home'); setSubView(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 dark:hover:text-white cursor-pointer transition-colors">Terms of Service</span>
-              <span onClick={() => { setTab('contact'); setSubView(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 dark:hover:text-white cursor-pointer transition-colors text-emerald-600 dark:text-emerald-400 font-bold">GST Invoice Request</span>
+              <span onClick={() => { setTab('privacy-policy'); setSubView(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 dark:hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
+              <span onClick={() => { setTab('terms-of-service'); setSubView(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 dark:hover:text-white cursor-pointer transition-colors">Terms of Service</span>
+              <span onClick={() => { setTab('contact-us'); setSubView(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 dark:hover:text-white cursor-pointer transition-colors text-emerald-600 dark:text-emerald-400 font-bold">GST Invoice Request</span>
             </div>
           </div>
 

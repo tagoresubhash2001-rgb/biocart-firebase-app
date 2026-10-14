@@ -1,49 +1,47 @@
 import React, { useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 
+import { INITIAL_CMS_PAGES } from '../../data/initialCMSPages';
+
 export const SEOManager: React.FC = () => {
   const { currentTab, subView, activeProductDetails, selectedCategory } = useApp();
 
   useEffect(() => {
-    // Determine the title, description, image and relative URL based on application state
+    // Determine the title, description, image and clean URL based on application state
     let title = 'BioCart | The Way of Healthy, Organic Life';
     let description = 'Discover BioCart\'s premium range of organic soil enhancers, compost accelerators, vermicompost, and non-toxic pest control formulas designed for ecological horticulture.';
     let ogImage = '/assets/biocart_logo_official.png';
-    let relativeUrl = '';
+    let cleanPath = currentTab === 'home' ? '/' : `/${currentTab}`;
+
+    const cmsPage = INITIAL_CMS_PAGES.find(p => p.id === currentTab || p.slug === currentTab);
 
     if (activeProductDetails) {
       title = `${activeProductDetails.name} | BioCart Organic Gardening`;
       description = activeProductDetails.description || `Buy ${activeProductDetails.name} at BioCart. Premium, certified organic ${activeProductDetails.category.toLowerCase()} for your garden.`;
       ogImage = activeProductDetails.image;
-      relativeUrl = `?product=${activeProductDetails.id}`;
+      cleanPath = `/product-details?product=${activeProductDetails.id}`;
+    } else if (subView === 'dashboard') {
+      title = 'My Green Dashboard | BioCart Members';
+      description = 'Manage your BioCart member details, track active organic gardening orders, and view your favorited eco-supplies.';
+      cleanPath = '/dashboard';
+    } else if (subView === 'dealer-portal' || currentTab === 'dealer-portal') {
+      title = 'Authorized Dealer Portal | BioCart Solutions';
+      description = 'Access wholesale trade resources, bulk ordering catalogs, and compliance verification certificates for BioCart retailers.';
+      cleanPath = '/dealer-portal';
+    } else if (subView === 'distributor-portal' || currentTab === 'distributor-portal') {
+      title = 'Industrial Distributor Console | BioCart';
+      description = 'Manage large-scale bulk freight dispatches, agricultural supply chain tracking, and wholesale invoices for BioCart distributors.';
+      cleanPath = '/distributor-portal';
     } else if (currentTab === 'shop') {
       const catText = selectedCategory !== 'All' ? ` ${selectedCategory}` : '';
       title = `Eco Shop${catText} | BioCart Organic Supplies`;
       description = `Browse our professional, organic-certified ${selectedCategory.toLowerCase() !== 'all' ? selectedCategory.toLowerCase() + ' ' : ''}gardening collection. Non-toxic pest control, nutrient-dense fertilizers, and soil care.`;
       ogImage = 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?q=80&w=1200&auto=format&fit=crop';
-      relativeUrl = '?tab=shop';
-    } else if (currentTab === 'about') {
-      title = 'Our Sustainable Mission | BioCart Soil Care';
-      description = 'Learn about BioCart\'s commitment to circular agriculture, chemical-free bio-fertilizers, and regenerative gardening solutions for sustainable home crops.';
-      ogImage = 'https://images.unsplash.com/photo-1592417817098-8f3d6eb19675?q=80&w=1200&auto=format&fit=crop';
-      relativeUrl = '?tab=about';
-    } else if (currentTab === 'contact') {
-      title = 'Expert Consultation & Contact | BioCart';
-      description = 'Get in touch with BioCart soil doctors and agricultural experts. Request customized organic crop guides, dealer partnerships, and customer support.';
-      ogImage = 'https://images.unsplash.com/photo-1595273670150-db0a3e368167?q=80&w=1200&auto=format&fit=crop';
-      relativeUrl = '?tab=contact';
-    } else if (subView === 'dashboard') {
-      title = 'My Green Dashboard | BioCart Members';
-      description = 'Manage your BioCart member details, track active organic gardening orders, and view your favorited eco-supplies.';
-      relativeUrl = '?view=dashboard';
-    } else if (subView === 'dealer-portal') {
-      title = 'Authorized Dealer Portal | BioCart Solutions';
-      description = 'Access wholesale trade resources, bulk ordering catalogs, and compliance verification certificates for BioCart retailers.';
-      relativeUrl = '?view=dealer-portal';
-    } else if (subView === 'distributor-portal') {
-      title = 'Industrial Distributor Console | BioCart';
-      description = 'Manage large-scale bulk freight dispatches, agricultural supply chain tracking, and wholesale invoices for BioCart distributors.';
-      relativeUrl = '?view=distributor-portal';
+      cleanPath = '/shop';
+    } else if (cmsPage) {
+      title = cmsPage.seo?.title || `${cmsPage.title} | BioCart Organic Horticulture`;
+      description = cmsPage.seo?.description || cmsPage.description || description;
+      cleanPath = `/${cmsPage.slug || cmsPage.id}`;
     }
 
     // Apply the title
@@ -91,7 +89,7 @@ export const SEOManager: React.FC = () => {
     setMetaTag('property', 'og:title', title);
     setMetaTag('property', 'og:description', description);
     setMetaTag('property', 'og:image', ogImage);
-    setMetaTag('property', 'og:url', window.location.origin + window.location.pathname + relativeUrl);
+    setMetaTag('property', 'og:url', window.location.origin + cleanPath);
     setMetaTag('property', 'og:type', 'website');
     setMetaTag('property', 'og:site_name', 'BioCart Organic Gardening');
 
@@ -102,7 +100,7 @@ export const SEOManager: React.FC = () => {
     setMetaTag('name', 'twitter:image', ogImage);
 
     // Canonical URL
-    const canonicalUrl = window.location.origin + window.location.pathname + relativeUrl;
+    const canonicalUrl = window.location.origin + cleanPath;
     let canonicalLink: HTMLLinkElement | null = document.querySelector("link[rel='canonical']");
     if (!canonicalLink) {
       canonicalLink = document.createElement('link');

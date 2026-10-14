@@ -136,12 +136,23 @@ export const AuthModal: React.FC = () => {
   // Handle Send OTP
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isSendingOtp) return; // Prevent duplicate concurrent requests
     setPhoneError(null);
 
-    const cleanNumber = phoneNumber.replace(/\D/g, '');
-    if (!cleanNumber || cleanNumber.length < 8) {
-      setPhoneError('Please enter a valid phone number (at least 8-10 digits).');
-      return;
+    const rawClean = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    let cleanNumber = rawClean;
+
+    if (countryCode === '+91') {
+      cleanNumber = cleanNumber.replace(/^0+/, ''); // Strip leading 0 common in Indian dialing
+      if (!/^[6-9]\d{9}$/.test(cleanNumber)) {
+        setPhoneError('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
+        return;
+      }
+    } else {
+      if (cleanNumber.length < 7 || cleanNumber.length > 15) {
+        setPhoneError('Please enter a valid phone number with country code (7 to 15 digits).');
+        return;
+      }
     }
 
     const fullPhone = `${countryCode}${cleanNumber}`;
@@ -163,12 +174,14 @@ export const AuthModal: React.FC = () => {
   // Handle Resend OTP
   const handleResendOtp = async () => {
     if (countdown > 0 || isSendingOtp) return;
+    setPhoneError(null);
     await handleSendOtp();
   };
 
   // Handle Verify OTP
   const handleVerifyOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isVerifyingOtp) return; // Prevent duplicate clicks
     setPhoneError(null);
 
     const cleanCode = otpCode.trim().replace(/\D/g, '');
@@ -252,6 +265,9 @@ export const AuthModal: React.FC = () => {
           {/* PHONE OTP FLOW */}
           {authModalMode === 'phone' ? (
             <div className="space-y-4" id="phone-auth-container">
+              {/* Invisible reCAPTCHA container - permanently mounted in phone container to allow Resend OTP */}
+              <div id="recaptcha-container" className="my-1"></div>
+
               {phoneStep === 'input' ? (
                 <form onSubmit={handleSendOtp} className="space-y-4" id="phone-input-form">
                   <div className="space-y-1.5" id="phone-input-group">
@@ -281,9 +297,6 @@ export const AuthModal: React.FC = () => {
                       />
                     </div>
                   </div>
-
-                  {/* Invisible reCAPTCHA container */}
-                  <div id="recaptcha-container" className="my-1"></div>
 
                   {phoneError && (
                     <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">

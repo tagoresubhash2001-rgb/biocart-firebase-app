@@ -19,6 +19,9 @@ export type SectionType =
   | 'team_members'
   | 'timeline_milestones'
   | 'partner_inquiry'
+  | 'order_tracking'
+  | 'soil_consultation'
+  | 'dealer_locator'
   | 'custom_html';
 
 export interface HeroBannerItem {
