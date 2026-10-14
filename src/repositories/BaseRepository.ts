@@ -25,6 +25,7 @@ import { db } from '../config/firebase';
 import { BaseRepository } from '../types/backend';
 import { normalizeError, retryWithBackoff } from '../utils/errors';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { removeUndefined } from '../utils/firestore';
 
 /**
  * Creates a generic Firestore converter for Type safety, adding automatic timestamps and optimistic version tracking
@@ -33,10 +34,11 @@ export function createConverter<T extends Record<string, any>>(): FirestoreDataC
   return {
     toFirestore(modelObject: T): DocumentData {
       const { id, ...data } = modelObject as any;
-      return {
+      const raw = {
         ...data,
         updatedAt: new Date().toISOString(),
       };
+      return removeUndefined(raw) as DocumentData;
     },
     fromFirestore(snapshot: QueryDocumentSnapshot<DocumentData>): T {
       const data = snapshot.data();
@@ -139,8 +141,9 @@ export class FirestoreBaseRepository<T extends Record<string, any>> implements B
           version: item.version || 1,
           isDeleted: item.isDeleted ?? false,
         };
-        await setDoc(ref, timestampedItem, { merge: true });
-        this.triggerAuditLog('CREATE', id, timestampedItem);
+        const sanitized = removeUndefined(timestampedItem);
+        await setDoc(ref, sanitized as any, { merge: true });
+        this.triggerAuditLog('CREATE', id, sanitized);
       } catch (err) {
         handleFirestoreError(err, OperationType.CREATE, `${this.collectionName}/${id}`);
       }
@@ -164,8 +167,9 @@ export class FirestoreBaseRepository<T extends Record<string, any>> implements B
           updatePayload.version = (item as any).version + 1;
         }
 
-        await updateDoc(ref, updatePayload);
-        this.triggerAuditLog('UPDATE', id, updatePayload);
+        const sanitized = removeUndefined(updatePayload);
+        await updateDoc(ref, sanitized);
+        this.triggerAuditLog('UPDATE', id, sanitized);
       } catch (err) {
         handleFirestoreError(err, OperationType.UPDATE, `${this.collectionName}/${id}`);
       }

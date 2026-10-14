@@ -57,10 +57,13 @@ export const Dashboard: React.FC = () => {
     addToast,
     setActiveProductDetails,
     setCartOpen,
-    setTab
+    setTab,
+    setAuthModalOpen,
+    setAuthModalMode,
+    setSubView
   } = useApp();
 
-  const { changePassword, sendEmailVerification, refreshProfile, firebaseUser } = useAuth();
+  const { changePassword, sendEmailVerification, refreshProfile, firebaseUser, isAuthenticating } = useAuth();
 
   // Tab state with hash parameter support (e.g. #dashboard?tab=wishlist)
   const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
@@ -402,6 +405,16 @@ export const Dashboard: React.FC = () => {
     setActiveOrderTrackId(trackInputId.trim());
   };
 
+  if (isAuthenticating) {
+    return (
+      <div className="max-w-md mx-auto my-24 p-8 text-center bg-white rounded-3xl border border-slate-100 shadow-xl" id="dashboard-auth-loader">
+        <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <h3 className="font-display font-bold text-lg text-slate-800">Loading Your Account...</h3>
+        <p className="text-xs text-slate-500 mt-2">Synchronizing your BioCart customer profile and order history...</p>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="max-w-md mx-auto my-16 p-8 text-center bg-white rounded-3xl border border-slate-150 shadow-xl">
@@ -412,14 +425,27 @@ export const Dashboard: React.FC = () => {
         <p className="text-sm text-slate-500 my-4 leading-relaxed">
           Please log in to manage your orders, saved addresses, wishlist, and profile settings.
         </p>
-        <button
-          onClick={() => {
-            window.location.hash = 'home';
-          }}
-          className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-all shadow-md"
-        >
-          Return to Storefront
-        </button>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={() => {
+              setAuthModalMode('login');
+              setAuthModalOpen(true);
+            }}
+            className="w-full py-3 bg-[#004643] hover:bg-[#003532] text-white rounded-xl text-sm font-semibold transition-all shadow-md cursor-pointer"
+          >
+            Sign In Now
+          </button>
+          <button
+            onClick={() => {
+              setSubView(null);
+              setTab('home');
+              window.location.hash = '';
+            }}
+            className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-all cursor-pointer"
+          >
+            Return to Storefront
+          </button>
+        </div>
       </div>
     );
   }

@@ -74,6 +74,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
   }, [showNotification]);
 
+  // Unified, safe customer profile provisioning and synchronization
+  const provisionOrFetchProfile = useCallback(async (user: FirebaseUser): Promise<UserProfile | null> => {
+    try {
+      // 1. Check if user profile already exists in Firestore
+      const existing = await UserService.getUserProfile(user.uid);
+      if (existing) {
+        // Safe non-destructive update: update lastLoginAt and fill missing non-authoritative details
+        const updates: Partial<UserProfile> = {
+          lastLoginAt: new Date().toISOString(),
+        };
+        if (user.email && !existing.email) updates.email = user.email;
+        if (user.photoURL && !existing.photoURL) updates.photoURL = user.photoURL;
+        if (user.phoneNumber && !existing.phoneNumber) {
+          updates.phoneNumber = user.phoneNumber;
+          updates.phone = user.phoneNumber;
+        }
+        if (user.displayName && (!existing.name || existing.name === 'BioCart Customer')) {
+          updates.name = user.displayName;
+        }
+
+        await UserService.updateProfile(user.uid, updates).catch((err) => {
+          console.warn('Non-critical profile field sync failed:', err);
+        });
+        return { ...existing, ...updates };
+      }
+
+      // 2. Owner special provisioning via callable
+      const isOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
+      if (isOwner) {
+        await AuthService.provisionVerifiedOwner();
+        const ownerProfile = await UserService.getUserProfile(user.uid);
+        if (ownerProfile) return ownerProfile;
+      }
+
+      // 3. New customer creation: strictly default customer role and active status
+      // Omit optional fields completely if not provided by Google/provider (NO undefined)
+      const newProfile: UserProfile = {
+        uid: user.uid,
+        email: user.email || '',
+        name: (user.displayName && user.displayName.trim().length >= 2)
+          ? user.displayName.trim()
+          : (user.email ? user.email.split('@')[0] : 'BioCart Customer'),
+        role: 'customer',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+      };
+      if (user.phoneNumber) {
+        newProfile.phoneNumber = user.phoneNumber;
+        newProfile.phone = user.phoneNumber;
+      }
+      if (user.photoURL) {
+        newProfile.photoURL = user.photoURL;
+      }
+
+      await UserService.saveProfile(newProfile);
+      return newProfile;
+    } catch (err) {
+      console.error('Error during profile provisioning:', err);
+      throw err;
+    }
+  }, []);
+
   // Refresh or fetch the latest profile details from Firestore
   const refreshProfile = useCallback(async () => {
     if (!firebaseUser) {
@@ -81,38 +145,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     try {
-      const profile = await UserService.getUserProfile(firebaseUser.uid);
-      if (profile) {
-        updateAndCacheProfile(profile);
-      } else {
-        // Missing profiles may only be provisioned as customers. The owner
-        // callable is the only path that can grant administrative roles.
-        if (firebaseUser.email?.toLowerCase() === 'sinfoxmedia@gmail.com' && firebaseUser.emailVerified) {
-          await AuthService.provisionVerifiedOwner();
-          const ownerProfile = await UserService.getUserProfile(firebaseUser.uid);
-          updateAndCacheProfile(ownerProfile);
-          return;
-        }
-        const fallbackProfile: UserProfile = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          name: firebaseUser.displayName || firebaseUser.phoneNumber || 'BioCart Customer',
-          role: 'customer',
-          phoneNumber: firebaseUser.phoneNumber || undefined,
-          phone: firebaseUser.phoneNumber || undefined,
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        await UserService.saveProfile(fallbackProfile);
-        updateAndCacheProfile(fallbackProfile);
-      }
+      const profile = await provisionOrFetchProfile(firebaseUser);
+      updateAndCacheProfile(profile);
     } catch (error) {
       console.error('Failed to sync user profile:', error);
       updateAndCacheProfile(null);
       showNotification('Unable to sync profile. Check network connection.', 'warning');
     }
-  }, [firebaseUser, updateAndCacheProfile, showNotification]);
+  }, [firebaseUser, provisionOrFetchProfile, updateAndCacheProfile, showNotification]);
 
   // Synchronize on Auth state change
   useEffect(() => {
@@ -121,38 +161,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setFirebaseUser(user);
 
       if (user) {
-        updateAndCacheProfile(null);
         try {
           if (user.email?.toLowerCase() === 'sinfoxmedia@gmail.com') {
             await user.reload();
-            if (user.emailVerified) await AuthService.provisionVerifiedOwner();
           }
-          const profile = await UserService.getUserProfile(user.uid);
-          if (profile) {
-            updateAndCacheProfile(profile);
-          } else {
-            // A verified owner is provisioned only by the trusted callable.
-            const isOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
-            if (isOwner) {
-              await AuthService.provisionVerifiedOwner();
-              const ownerProfile = await UserService.getUserProfile(user.uid);
-              updateAndCacheProfile(ownerProfile);
-            } else {
-              const newProfile: UserProfile = {
-                uid: user.uid,
-                email: user.email || '',
-                name: user.displayName || user.phoneNumber || 'BioCart Customer',
-                role: 'customer',
-                phoneNumber: user.phoneNumber || undefined,
-                phone: user.phoneNumber || undefined,
-                status: 'active',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              };
-              await UserService.saveProfile(newProfile);
-              updateAndCacheProfile(newProfile);
-            }
-          }
+          const profile = await provisionOrFetchProfile(user);
+          updateAndCacheProfile(profile);
         } catch (error) {
           console.error('Error in session provisioning:', error);
           updateAndCacheProfile(null);
@@ -165,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => unsubscribe();
-  }, [updateAndCacheProfile, showNotification]);
+  }, [provisionOrFetchProfile, updateAndCacheProfile, showNotification]);
 
   const loginWithEmail = useCallback(async (email: string, password: string) => {
     startLoading('Verifying credentials...');
@@ -207,6 +221,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const user = await AuthService.loginWithGoogle();
       if (user) {
+        // Explicitly await profile provisioning so session and user profile are ready
+        try {
+          const profile = await provisionOrFetchProfile(user);
+          updateAndCacheProfile(profile);
+        } catch (provisionErr) {
+          console.warn('Post-login profile provisioning error:', provisionErr);
+        }
         showNotification('Google Sign-In completed successfully', 'success');
       }
       // If null, mobile redirect flow has been initiated
@@ -219,7 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       stopLoading();
     }
-  }, [startLoading, stopLoading, showNotification]);
+  }, [startLoading, stopLoading, showNotification, provisionOrFetchProfile, updateAndCacheProfile]);
 
   const sendPhoneOtp = useCallback(async (phoneNumber: string, containerId: string = 'recaptcha-container'): Promise<ConfirmationResult> => {
     startLoading('Sending verification code via SMS...');

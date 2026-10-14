@@ -1,6 +1,7 @@
 import { UserProfile, UserProfileSchema } from '../types/backend';
 import { userRepository } from '../repositories/UserRepository';
 import { normalizeError } from '../utils/errors';
+import { removeUndefined } from '../utils/firestore';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -51,13 +52,14 @@ export class UserService {
   }
 
   /**
-   * Save a user's profile with strict schema validation
+   * Save a user's profile with strict schema validation and undefined sanitization
    */
   static async saveProfile(profile: UserProfile): Promise<void> {
     try {
-      // Perform strict validation using Zod schema
-      const validated = UserProfileSchema.parse(profile);
-      await userRepository.createProfile(validated);
+      // Clean undefined fields first so Zod and Firestore receive valid data
+      const cleaned = removeUndefined(profile);
+      const validated = UserProfileSchema.parse(cleaned);
+      await userRepository.createProfile(validated as UserProfile);
     } catch (err) {
       throw normalizeError(err);
     }
@@ -74,11 +76,12 @@ export class UserService {
         throw new Error('User profile not found.');
       }
 
-      const merged = { ...current, ...fields, updatedAt: new Date().toISOString() };
+      const sanitizedFields = removeUndefined(fields);
+      const merged = removeUndefined({ ...current, ...sanitizedFields, updatedAt: new Date().toISOString() });
       // Validate merged object
       UserProfileSchema.parse(merged);
 
-      await userRepository.update(uid, fields);
+      await userRepository.update(uid, sanitizedFields);
     } catch (err) {
       throw normalizeError(err);
     }

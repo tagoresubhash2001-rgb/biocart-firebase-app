@@ -292,12 +292,17 @@ export class AuthService {
         email: normalizedEmail,
         name,
         role,
-        phoneNumber,
-        location,
         status: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
+      if (phoneNumber) {
+        newProfile.phoneNumber = phoneNumber;
+        newProfile.phone = phoneNumber;
+      }
+      if (location) {
+        newProfile.location = location;
+      }
       
       try {
         await UserService.saveProfile(newProfile);

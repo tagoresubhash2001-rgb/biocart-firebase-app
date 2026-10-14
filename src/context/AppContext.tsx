@@ -344,6 +344,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await loginWithGoogle();
       setAuthModalOpen(false);
+      setSubViewState('dashboard');
     } catch (err: any) {
       console.error('Firebase Google Auth failed:', err);
     }

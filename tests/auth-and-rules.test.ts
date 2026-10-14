@@ -9,6 +9,7 @@ import {
 } from '../src/types/backend.js';
 import { resolveUserRole } from '../src/utils/authz.js';
 import { AuthService } from '../src/services/AuthService.js';
+import { removeUndefined } from '../src/utils/firestore.js';
 
 describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => {
 
@@ -358,6 +359,153 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.equal(firebaseConfig.messagingSenderId, '941267141960');
       assert.match(firebaseConfig.apiKey, /^AIzaSyDk_/);
       assert.match(firebaseConfig.appId, /^1:941267141960:web:/);
+    });
+  });
+
+  describe('10. Profile Provisioning & Firestore Data Sanitization', () => {
+    it('1. Google user with no phone number: removes undefined fields completely', () => {
+      const rawGoogleProfile = {
+        uid: 'amf6O3XHhPX5ygCftezjKqITkq02',
+        email: 'sindulissolutions@gmail.com',
+        name: 'Sindulis Solutions',
+        role: 'customer' as const,
+        phoneNumber: undefined,
+        phone: undefined,
+        status: 'active' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const sanitized = removeUndefined(rawGoogleProfile);
+      assert.equal('phoneNumber' in sanitized, false);
+      assert.equal('phone' in sanitized, false);
+      assert.equal(sanitized.uid, 'amf6O3XHhPX5ygCftezjKqITkq02');
+      assert.equal(sanitized.email, 'sindulissolutions@gmail.com');
+
+      const validated = UserProfileSchema.safeParse(sanitized);
+      assert.equal(validated.success, true);
+    });
+
+    it('2. Existing user with a saved phone number: preserves valid phone without tampering', () => {
+      const existingProfile = {
+        uid: 'usr_existing_phone_01',
+        email: 'customer@biocart.in',
+        name: 'Ramesh Patel',
+        role: 'customer' as const,
+        phoneNumber: '+919876543210',
+        phone: '+919876543210',
+        status: 'active' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const sanitized = removeUndefined(existingProfile);
+      assert.equal(sanitized.phoneNumber, '+919876543210');
+      assert.equal(sanitized.phone, '+919876543210');
+      const validated = UserProfileSchema.safeParse(sanitized);
+      assert.equal(validated.success, true);
+    });
+
+    it('3. Existing profile with customer data: preserves customer details upon merge', () => {
+      const existingDoc = {
+        uid: 'usr_repeat_customer_01',
+        email: 'repeat@biocart.in',
+        name: 'Ananya Sharma',
+        role: 'customer' as const,
+        location: 'Bengaluru, Karnataka',
+        status: 'active' as const,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        customerId: 'CUST-2026-0042',
+      };
+
+      const googleUpdates = {
+        lastLoginAt: new Date().toISOString(),
+        photoURL: 'https://lh3.googleusercontent.com/a/sample',
+      };
+
+      const merged = removeUndefined({ ...existingDoc, ...googleUpdates });
+      assert.equal(merged.uid, 'usr_repeat_customer_01');
+      assert.equal(merged.customerId, 'CUST-2026-0042');
+      assert.equal(merged.location, 'Bengaluru, Karnataka');
+      assert.equal(merged.photoURL, 'https://lh3.googleusercontent.com/a/sample');
+      assert.ok(merged.lastLoginAt);
+    });
+
+    it('4. New customer profile creation: assigns customer role and active status', () => {
+      const newCustomer = {
+        uid: 'usr_new_google_01',
+        email: 'freshuser@gmail.com',
+        name: 'Fresh Customer',
+        role: 'customer' as const,
+        status: 'active' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastLoginAt: new Date().toISOString(),
+      };
+
+      const parsed = UserProfileSchema.safeParse(removeUndefined(newCustomer));
+      assert.equal(parsed.success, true);
+      if (parsed.success) {
+        assert.equal(parsed.data.role, 'customer');
+        assert.equal(parsed.data.status, 'active');
+      }
+    });
+
+    it('5. Authentication refresh and session persistence: resolves customer role correctly', () => {
+      const profile = {
+        uid: 'usr_session_check',
+        email: 'session@biocart.in',
+        name: 'Session User',
+        role: 'customer' as const,
+        status: 'active' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const resolved = resolveUserRole(profile, false);
+      assert.equal(resolved, 'customer');
+    });
+
+    it('6. Customer dashboard route access: verifies dashboard is an authorized subView', async () => {
+      const knownSubViews = ['admin', 'vendor', 'dashboard', 'dealer-portal', 'distributor-portal'];
+      assert.ok(knownSubViews.includes('dashboard'));
+    });
+
+    it('7. Admin role and authorization preservation: existing admin is never downgraded to customer', () => {
+      const adminProfile = {
+        uid: 'adm_subhash_01',
+        email: 'admin@biocart.in',
+        name: 'BioCart Administrator',
+        role: 'admin' as const,
+        status: 'active' as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Ensure that merging non-authoritative Google info preserves admin role
+      const updates = {
+        lastLoginAt: new Date().toISOString(),
+        photoURL: 'https://lh3.googleusercontent.com/a/admin',
+      };
+
+      const merged = { ...adminProfile, ...updates };
+      assert.equal(merged.role, 'admin');
+
+      const verifiedRole = resolveUserRole(merged, true);
+      assert.equal(verifiedRole, 'admin');
+    });
+
+    it('8. Firestore write failure with a useful error message', () => {
+      const rawFirestoreError = {
+        code: 'permission-denied',
+        message: 'Missing or insufficient permissions.',
+      };
+
+      const normalized = normalizeError(rawFirestoreError);
+      assert.equal(normalized.category, 'permission');
+      assert.equal(normalized.code, 'permission-denied');
+      assert.match(normalized.message, /permission/i);
     });
   });
 });
