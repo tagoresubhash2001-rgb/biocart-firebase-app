@@ -268,27 +268,29 @@ export const createOrder = onCall({ region: 'asia-southeast1' }, async (request)
 });
 
 // ==========================================================
-// provisionBioCartOwner — grants admin access only to the verified owner.
+// provisionBioCartOwner — grants admin access only to authorized administrators.
 // ==========================================================
 export const provisionBioCartOwner = onCall({ region: 'asia-southeast1' }, async (request) => {
-  const ownerEmail = 'sinfoxmedia@gmail.com';
+  const allowedAdmins = ['sinfoxmedia@gmail.com', 'tagoresubhash2001@gmail.com'];
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const userEmail = request.auth.token.email?.toLowerCase();
   if (request.auth.token.email_verified !== true ||
-      typeof request.auth.token.email !== 'string' || request.auth.token.email.toLowerCase() !== ownerEmail) {
-    throw new HttpsError('permission-denied', 'Only the verified BioCart owner can run account setup.');
+      typeof userEmail !== 'string' || !allowedAdmins.includes(userEmail)) {
+    throw new HttpsError('permission-denied', 'Only authorized BioCart administrators can run account setup.');
   }
 
   const ownerUser = await getAuth().getUser(request.auth.uid);
   const ownerRef = db.collection('users').doc(request.auth.uid);
   const currentOwner = await ownerRef.get();
   const now = new Date().toISOString();
+  const defaultName = userEmail === 'tagoresubhash2001@gmail.com' ? 'Subhash Tagore' : 'BioCart Administrator';
   const displayName = typeof request.data?.displayName === 'string' && request.data.displayName.trim()
     ? request.data.displayName.trim()
-    : ownerUser.displayName || 'BioCart Owner';
+    : ownerUser.displayName || defaultName;
 
   await ownerRef.set({
     uid: request.auth.uid,
-    email: ownerEmail,
+    email: userEmail,
     name: displayName,
     role: 'super_admin',
     status: 'active',
@@ -298,7 +300,7 @@ export const provisionBioCartOwner = onCall({ region: 'asia-southeast1' }, async
     lastLoginAt: now,
   }, { merge: true });
 
-  return { success: true, email: ownerEmail };
+  return { success: true, email: userEmail };
 });
 
 // ==========================================================

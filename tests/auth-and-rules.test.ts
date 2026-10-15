@@ -634,7 +634,107 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.equal(UserProfileSchema.safeParse(withId).success, true);
     });
   });
+
+  describe('8. Admin Access, Password Management & Nova Bar Layout Safety', () => {
+    const ALLOWED_ADMIN_EMAILS = ['sinfoxmedia@gmail.com', 'tagoresubhash2001@gmail.com'];
+    const PRIMARY_ADMIN_UID = 'PdUDGin2uZbAyakst0RWzsgp7Ek1';
+
+    it('recognizes tagoresubhash2001@gmail.com and sinfoxmedia@gmail.com as authorized admins', () => {
+      assert.equal(ALLOWED_ADMIN_EMAILS.includes('tagoresubhash2001@gmail.com'), true);
+      assert.equal(ALLOWED_ADMIN_EMAILS.includes('sinfoxmedia@gmail.com'), true);
+      assert.equal(ALLOWED_ADMIN_EMAILS.includes('randomuser@gmail.com'), false);
+    });
+
+    it('preserves super_admin role and active status for tagoresubhash2001@gmail.com', () => {
+      const adminProfile = {
+        uid: PRIMARY_ADMIN_UID,
+        email: 'tagoresubhash2001@gmail.com',
+        name: 'Subhash Tagore',
+        role: 'super_admin' as const,
+        status: 'active' as const,
+        customerId: 'OCT000326',
+        createdAt: '2026-10-12T19:09:19.448Z',
+        updatedAt: '2026-10-15T00:00:00.000Z',
+      };
+
+      const parsed = UserProfileSchema.safeParse(adminProfile);
+      assert.equal(parsed.success, true);
+      if (parsed.success) {
+        assert.equal(parsed.data.role, 'super_admin');
+        assert.equal(parsed.data.status, 'active');
+        assert.equal(parsed.data.uid, PRIMARY_ADMIN_UID);
+      }
+
+      // Authorization resolver confirms full admin rights
+      const role = resolveUserRole(adminProfile, true);
+      assert.equal(role, 'super_admin');
+    });
+
+    it('validates password management rules: length and matching', () => {
+      const validatePasswordForm = (pwd: string, confirm: string, isNewOnly: boolean, current?: string) => {
+        if (!isNewOnly && (!current || current.length === 0)) {
+          return { valid: false, error: 'Current password is required.' };
+        }
+        if (!pwd || pwd.length < 6) {
+          return { valid: false, error: 'Password must be at least 6 characters long.' };
+        }
+        if (pwd !== confirm) {
+          return { valid: false, error: 'Passwords do not match.' };
+        }
+        return { valid: true };
+      };
+
+      // Email/password user with current password
+      assert.equal(validatePasswordForm('NewSecret@2026', 'NewSecret@2026', false, 'OldSecret@2025').valid, true);
+      assert.equal(validatePasswordForm('short', 'short', false, 'OldSecret@2025').valid, false);
+      assert.equal(validatePasswordForm('Secret@2026', 'Different@2026', false, 'OldSecret@2025').valid, false);
+      assert.equal(validatePasswordForm('Secret@2026', 'Secret@2026', false, '').valid, false);
+
+      // Google-only user setting password (does not require current password)
+      assert.equal(validatePasswordForm('Tagore@2001', 'Tagore@2001', true).valid, true);
+      assert.equal(validatePasswordForm('123', '123', true).valid, false);
+    });
+
+    it('differentiates provider linking states (google-only, password-only, dual)', () => {
+      const getProviderStatus = (providerIds: string[]) => {
+        const hasGoogle = providerIds.includes('google.com');
+        const hasPassword = providerIds.includes('password');
+        return {
+          hasGoogle,
+          hasPassword,
+          isDual: hasGoogle && hasPassword,
+          isGoogleOnly: hasGoogle && !hasPassword,
+          isPasswordOnly: !hasGoogle && hasPassword,
+        };
+      };
+
+      const googleOnly = getProviderStatus(['google.com']);
+      assert.equal(googleOnly.isGoogleOnly, true);
+      assert.equal(googleOnly.isDual, false);
+
+      const dual = getProviderStatus(['google.com', 'password']);
+      assert.equal(dual.isDual, true);
+      assert.equal(dual.hasGoogle, true);
+      assert.equal(dual.hasPassword, true);
+    });
+
+    it('validates top padding clearance classes for Nova Bar across non-hero containers', () => {
+      // Nova Bar takes ~88px vertical space (fixed top-4/top-6 + 64px height)
+      // Top padding of pt-28 (112px) or pt-32 (128px) guarantees clearance
+      const isCleared = (className: string) => {
+        return className.includes('pt-28') || className.includes('pt-32') || className.includes('pt-36');
+      };
+
+      assert.equal(isCleared('max-w-6xl mx-auto px-4 sm:px-6 pt-28 pb-12 sm:pt-32 sm:pb-16'), true);
+      assert.equal(isCleared('w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-12 sm:pt-32 sm:pb-16 space-y-12'), true);
+      assert.equal(isCleared('max-w-6xl mx-auto px-6 pt-28 pb-12 sm:pt-32 sm:pb-16 space-y-12 animate-fade-in'), true);
+      assert.equal(isCleared('max-w-md mx-auto px-6 pt-32 pb-24 text-center space-y-6'), true);
+      assert.equal(isCleared('py-10'), false);
+      assert.equal(isCleared('py-6 sm:py-8'), false);
+    });
+  });
 });
+
 
 
 

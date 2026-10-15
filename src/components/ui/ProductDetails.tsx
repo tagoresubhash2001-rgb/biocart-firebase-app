@@ -238,7 +238,7 @@ export const ProductDetails: React.FC = () => {
   const currentMainImage = galleryImages[activeImageIdx] || product.image || '/assets/products/prod_vermicompost.png';
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-12" id="product-details-container">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-12 sm:pt-32 sm:pb-16 space-y-12" id="product-details-container">
       
       {/* Breadcrumb Navigation */}
       <nav aria-label="Breadcrumb" className="flex items-center justify-between text-xs font-semibold text-slate-500 pb-2 border-b border-slate-100 dark:border-white/5">

@@ -34,7 +34,7 @@ export const DealerPortal: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-12 space-y-12 animate-fade-in" id="dealer-portal">
+    <div className="max-w-6xl mx-auto px-6 pt-28 pb-12 sm:pt-32 sm:pb-16 space-y-12 animate-fade-in" id="dealer-portal">
       {/* Portal Header */}
       <div className="space-y-4 text-center max-w-2xl mx-auto">
         <div className="p-3 bg-nature-50 dark:bg-nature-950/40 text-nature-700 w-fit mx-auto rounded-full border border-nature-100">
@@ -177,7 +177,7 @@ export const DistributorPortal: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-12 space-y-12 animate-fade-in" id="distributor-portal">
+    <div className="max-w-6xl mx-auto px-6 pt-28 pb-12 sm:pt-32 sm:pb-16 space-y-12 animate-fade-in" id="distributor-portal">
       {/* Portal Header */}
       <div className="space-y-4 text-center max-w-2xl mx-auto">
         <div className="p-3 bg-nature-50 dark:bg-nature-950/40 text-nature-700 w-fit mx-auto rounded-full border border-nature-100">
@@ -311,7 +311,7 @@ export const NotFoundPage: React.FC = () => {
   const { setTab } = useApp();
 
   return (
-    <div className="max-w-md mx-auto px-6 py-24 text-center space-y-6 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in" id="404-page">
+    <div className="max-w-md mx-auto px-6 pt-32 pb-24 text-center space-y-6 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in" id="404-page">
       <div className="p-4 bg-rose-50 dark:bg-rose-950/20 text-rose-600 rounded-full w-fit">
         <AlertCircle className="w-12 h-12" />
       </div>

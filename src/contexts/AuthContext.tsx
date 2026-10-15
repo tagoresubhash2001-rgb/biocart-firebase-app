@@ -78,15 +78,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Unified, safe customer profile provisioning and synchronization
   const provisionOrFetchProfile = useCallback(async (user: FirebaseUser): Promise<UserProfile | null> => {
     try {
+      const userEmail = user.email?.toLowerCase();
+      const isAuthorizedAdmin = user.emailVerified && (
+        userEmail === 'sinfoxmedia@gmail.com' || userEmail === 'tagoresubhash2001@gmail.com'
+      );
+
       // 1. Check if user profile already exists in Firestore
       const existing = await UserService.getUserProfile(user.uid);
       if (existing) {
         let currentProfile = existing;
 
-        // Safely backfill Customer ID for existing customers if missing
-        if (existing.role === 'customer' && !isValidCustomerId(existing.customerId)) {
+        // If this is an authorized admin whose role is not yet super_admin or admin, elevate via callable
+        if (isAuthorizedAdmin && currentProfile.role !== 'super_admin' && currentProfile.role !== 'admin') {
           try {
-            currentProfile = await ensureCustomerIdForProfile(existing);
+            await AuthService.provisionVerifiedOwner();
+            const elevated = await UserService.getUserProfile(user.uid);
+            if (elevated) currentProfile = elevated;
+          } catch (elevErr) {
+            console.warn('Admin elevation failed:', elevErr);
+          }
+        }
+
+        // Safely backfill Customer ID for existing customers if missing
+        if (currentProfile.role === 'customer' && !isValidCustomerId(currentProfile.customerId)) {
+          try {
+            currentProfile = await ensureCustomerIdForProfile(currentProfile);
           } catch (cidErr) {
             console.warn('Customer ID backfill deferred:', cidErr);
           }
@@ -102,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updates.phoneNumber = user.phoneNumber;
           updates.phone = user.phoneNumber;
         }
-        if (user.displayName && (!currentProfile.name || currentProfile.name === 'BioCart Customer')) {
+        if (user.displayName && (!currentProfile.name || currentProfile.name === 'BioCart Customer' || currentProfile.name === 'BioCart User')) {
           updates.name = user.displayName;
         }
 
@@ -112,9 +128,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ...currentProfile, ...updates };
       }
 
-      // 2. Owner special provisioning via callable
-      const isOwner = user.emailVerified && user.email?.toLowerCase() === 'sinfoxmedia@gmail.com';
-      if (isOwner) {
+      // 2. Owner & Admin special provisioning via callable
+      if (isAuthorizedAdmin) {
         await AuthService.provisionVerifiedOwner();
         const ownerProfile = await UserService.getUserProfile(user.uid);
         if (ownerProfile) return ownerProfile;

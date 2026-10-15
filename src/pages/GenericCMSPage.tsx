@@ -898,7 +898,7 @@ export const GenericCMSPage: React.FC<GenericCMSPageProps> = ({ pageId }) => {
   // Ensure unpublished drafts are NOT visible on the storefront
   if (activePage.status === 'draft') {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 text-center">
+      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 pt-32 pb-20 text-center">
         <div className="w-16 h-16 bg-amber-50 border border-amber-200 rounded-full flex items-center justify-center mb-4">
           <AlertCircle className="w-8 h-8 text-amber-600" />
         </div>
@@ -922,15 +922,17 @@ export const GenericCMSPage: React.FC<GenericCMSPageProps> = ({ pageId }) => {
       .filter((s: PageSection) => s.enabled)
       .sort((a: PageSection, b: PageSection) => (a.order || 0) - (b.order || 0));
 
+    const hasHeroAtTop = enabledSections.length > 0 && enabledSections[0].type === 'hero';
+
     return (
-      <div className="min-h-screen bg-slate-50/50 pb-20">
+      <div className={`min-h-screen bg-slate-50/50 pb-20 ${hasHeroAtTop ? '' : 'pt-28 md:pt-32'}`}>
         {enabledSections.map((sec: PageSection) => {
           switch (sec.type) {
             case 'hero':
               return (
                 <section
                   key={sec.id}
-                  className="relative bg-emerald-950 text-white overflow-hidden py-20 px-6 md:px-16"
+                  className="relative bg-emerald-950 text-white overflow-hidden pt-28 pb-16 md:pt-36 md:pb-20 px-6 md:px-16"
                   style={{
                     backgroundImage: sec.data.imageUrl ? `linear-gradient(rgba(6, 44, 32, 0.85), rgba(6, 44, 32, 0.95)), url(${sec.data.imageUrl})` : undefined,
                     backgroundSize: 'cover',
@@ -1249,7 +1251,7 @@ export const GenericCMSPage: React.FC<GenericCMSPageProps> = ({ pageId }) => {
 
   // Fallback for standard or category legacy format
   return (
-    <div className="max-w-4xl mx-auto px-6 py-16 space-y-8">
+    <div className="max-w-4xl mx-auto px-6 pt-28 pb-16 sm:pt-32 space-y-8">
       {activePage.image && (
         <img src={activePage.image} alt={activePage.title} className="w-full h-80 object-cover rounded-2xl shadow-md" />
       )}

@@ -259,13 +259,16 @@ export class AuthService {
 
   static async provisionVerifiedOwner(): Promise<void> {
     const user = auth.currentUser;
-    if (!user?.email || user.email.toLowerCase() !== 'sinfoxmedia@gmail.com' || !user.emailVerified) return;
+    const allowedAdmins = ['sinfoxmedia@gmail.com', 'tagoresubhash2001@gmail.com'];
+    const email = user?.email?.toLowerCase();
+    if (!user || !email || !allowedAdmins.includes(email) || !user.emailVerified) return;
     // Refresh the ID token so the callable sees the latest email_verified claim.
     await user.getIdToken(true);
     const { httpsCallable } = await import('firebase/functions');
     const { functions } = await import('../config/firebase');
     const provision = httpsCallable(functions, 'provisionBioCartOwner');
-    await provision({ displayName: user.displayName || 'BioCart Owner' });
+    const defaultName = email === 'tagoresubhash2001@gmail.com' ? 'Subhash Tagore' : 'BioCart Administrator';
+    await provision({ displayName: user.displayName || defaultName });
   }
 
   /**
