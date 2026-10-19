@@ -1,6 +1,11 @@
 node_modules/
 build/
 dist/
+functions/lib/
+scripts/legacy-patches/
+server.js
+src_files.txt
+block.txt
 .firebase/
 coverage/
 .DS_Store

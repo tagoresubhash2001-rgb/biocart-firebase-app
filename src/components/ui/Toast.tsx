@@ -1,12 +1,12 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
-import { CheckCircle, Info, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle, Info, AlertTriangle, X, XCircle } from 'lucide-react';
 
 export const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useApp();
 
-  const getIcon = (type: 'success' | 'info' | 'warning') => {
+  const getIcon = (type: 'success' | 'info' | 'warning' | 'error') => {
     switch (type) {
       case 'success':
         return <CheckCircle className="w-5 h-5 text-nature-600 dark:text-nature-400" id="toast-icon-success" />;
@@ -14,6 +14,10 @@ export const ToastContainer: React.FC = () => {
         return <Info className="w-5 h-5 text-earth-600 dark:text-earth-400" id="toast-icon-info" />;
       case 'warning':
         return <AlertTriangle className="w-5 h-5 text-amber-500" id="toast-icon-warning" />;
+      case 'error':
+        return <XCircle className="w-5 h-5 text-red-500" id="toast-icon-error" />;
+      default:
+        return <Info className="w-5 h-5 text-earth-600 dark:text-earth-400" id="toast-icon-default" />;
     }
   };
 
@@ -27,7 +31,9 @@ export const ToastContainer: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, y: 10 }}
             transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="pointer-events-auto flex items-start gap-3 p-4 rounded-2xl glass shadow-xl border border-white/20 dark:border-white/5"
+            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-2xl glass shadow-xl border border-white/20 dark:border-white/5 ${
+              toast.type === 'error' ? 'border-l-4 border-l-red-500' : ''
+            }`}
             id={`toast-${toast.id}`}
           >
             <div className="flex-shrink-0 mt-0.5">{getIcon(toast.type)}</div>

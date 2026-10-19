@@ -56,6 +56,19 @@ export function isValidCustomerId(id: string | null | undefined): boolean {
  * Concurrency-safe: executes inside a Firestore atomic transaction.
  */
 export async function allocateNextCustomerId(registrationDate: Date = new Date()): Promise<string> {
+  // First try the secure backend callable
+  try {
+    const { httpsCallable } = await import('firebase/functions');
+    const { functions } = await import('../config/firebase');
+    const callable = httpsCallable<void, { customerId: string; serial: number }>(functions, 'allocateCustomerId');
+    const res = await callable();
+    if (res?.data?.customerId) {
+      return res.data.customerId;
+    }
+  } catch (callableErr) {
+    console.warn('Backend allocateCustomerId callable unreached or failed, falling back to client transaction:', callableErr);
+  }
+
   const counterRef = doc(db, 'counters', 'customers');
 
   try {

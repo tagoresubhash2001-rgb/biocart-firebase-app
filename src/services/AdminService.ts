@@ -18,7 +18,7 @@ import { db, app, auth } from '../config/firebase';
 const storage = getStorage(app);
 
 
-import { Product, CategoryItem, BannerItem, VendorItem, Review, StoreSettings, AuditLog } from '../types';
+import { Product, CategoryItem, BannerItem, VendorItem, Review, StoreSettings, AuditLog, AgentEntity, VendorProductAssignment } from '../types';
 import { SEED_PRODUCTS } from '../data/seedData';
 import { MASTER_CATEGORIES } from '../data/categoryCatalog';
 
@@ -45,6 +45,17 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
     text: '🌱 Spring Bio-Harvest Sale: Get 25% Off Premium Vermicompost & Bio-Fertilizers!',
     ctaText: 'Shop Bio-Deals',
     ctaLink: '#shop'
+  },
+  financialPolicy: {
+    commissionBasis: 'net_after_gateway_fee',
+    gatewayFeeRateBps: 200, // 2.0% Razorpay / Payment Gateway fee
+    gatewayFeeFlatPaise: 0,
+    gatewayFeeTaxRateBps: 1800, // 18% GST on Gateway fee
+    commissionGstRateBps: 1800, // 18% GST on Commission
+    couponFunding: 'platform',
+    settlementDayOfWeek: 2, // Tuesday
+    payoutHoldPeriodDays: 3,
+    minimumPayoutPaise: 50000 // Rs. 500
   }
 };
 
@@ -117,6 +128,114 @@ export class AdminService {
       }
     });
     return unsub;
+  }
+
+  /**
+   * Fetches a single product by document ID or SKU.
+   */
+  static async getProductById(productId: string): Promise<Product | null> {
+    try {
+      const docRef = doc(db, 'products', productId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          name: data.name || '',
+          category: data.category || 'Organic Fertilizers',
+          categoryId: data.categoryId || '',
+          vendorId: data.vendorId || 'biocart',
+          vendorName: data.vendorName || 'BioCart Direct',
+          price: Number(data.price) || 0,
+          mrp: Number(data.mrp) || Number(data.price) || 0,
+          discount: Number(data.discount) || 0,
+          sku: data.sku || docSnap.id,
+          rating: Number(data.rating) || 4.8,
+          reviewsCount: Number(data.reviewsCount) || 0,
+          image: data.image || '',
+          images: Array.isArray(data.images) && data.images.length > 0 ? data.images : (data.image ? [data.image] : []),
+          description: data.description || '',
+          shortDescription: data.shortDescription || '',
+          features: Array.isArray(data.features) ? data.features : [],
+          benefits: Array.isArray(data.benefits) ? data.benefits : [],
+          usageInstructions: Array.isArray(data.usageInstructions) ? data.usageInstructions : [],
+          ingredients: Array.isArray(data.ingredients) ? data.ingredients : [],
+          weightVariants: Array.isArray(data.weightVariants) && data.weightVariants.length > 0 ? data.weightVariants : ['1kg'],
+          selectedVariant: data.selectedVariant || '',
+          stockStatus: data.stockStatus || (data.inStock !== false ? 'In Stock' : 'Out of Stock'),
+          inStock: data.inStock !== false,
+          stockQuantity: typeof data.stockQuantity === 'number' ? data.stockQuantity : (Number(data.stock) || 0),
+          badge: data.badge || '',
+          materials: data.materials || '',
+          dimensions: data.dimensions || '',
+          faqs: Array.isArray(data.faqs) ? data.faqs : [],
+          reviews: Array.isArray(data.reviews) ? data.reviews : [],
+          isFeatured: data.isFeatured !== false,
+          isBestSeller: !!data.isBestSeller,
+          isNewArrival: !!data.isNewArrival,
+          isSponsored: !!data.isSponsored,
+          homepageVisible: data.homepageVisible !== false,
+          shopVisible: data.shopVisible !== false,
+          active: data.active !== false,
+          createdAt: data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt || new Date().toISOString()
+        };
+      }
+
+      // Check if matches SKU via query
+      const q = query(collection(db, 'products'), where('sku', '==', productId), limit(1));
+      const querySnap = await getDocs(q);
+      if (!querySnap.empty) {
+        const foundDoc = querySnap.docs[0];
+        const data = foundDoc.data();
+        return {
+          id: foundDoc.id,
+          name: data.name || '',
+          category: data.category || 'Organic Fertilizers',
+          categoryId: data.categoryId || '',
+          vendorId: data.vendorId || 'biocart',
+          vendorName: data.vendorName || 'BioCart Direct',
+          price: Number(data.price) || 0,
+          mrp: Number(data.mrp) || Number(data.price) || 0,
+          discount: Number(data.discount) || 0,
+          sku: data.sku || foundDoc.id,
+          rating: Number(data.rating) || 4.8,
+          reviewsCount: Number(data.reviewsCount) || 0,
+          image: data.image || '',
+          images: Array.isArray(data.images) && data.images.length > 0 ? data.images : (data.image ? [data.image] : []),
+          description: data.description || '',
+          shortDescription: data.shortDescription || '',
+          features: Array.isArray(data.features) ? data.features : [],
+          benefits: Array.isArray(data.benefits) ? data.benefits : [],
+          usageInstructions: Array.isArray(data.usageInstructions) ? data.usageInstructions : [],
+          ingredients: Array.isArray(data.ingredients) ? data.ingredients : [],
+          weightVariants: Array.isArray(data.weightVariants) && data.weightVariants.length > 0 ? data.weightVariants : ['1kg'],
+          selectedVariant: data.selectedVariant || '',
+          stockStatus: data.stockStatus || (data.inStock !== false ? 'In Stock' : 'Out of Stock'),
+          inStock: data.inStock !== false,
+          stockQuantity: typeof data.stockQuantity === 'number' ? data.stockQuantity : (Number(data.stock) || 0),
+          badge: data.badge || '',
+          materials: data.materials || '',
+          dimensions: data.dimensions || '',
+          faqs: Array.isArray(data.faqs) ? data.faqs : [],
+          reviews: Array.isArray(data.reviews) ? data.reviews : [],
+          isFeatured: data.isFeatured !== false,
+          isBestSeller: !!data.isBestSeller,
+          isNewArrival: !!data.isNewArrival,
+          isSponsored: !!data.isSponsored,
+          homepageVisible: data.homepageVisible !== false,
+          shopVisible: data.shopVisible !== false,
+          active: data.active !== false,
+          createdAt: data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt || new Date().toISOString()
+        };
+      }
+
+      return null;
+    } catch (err) {
+      console.error('Error fetching product by ID:', err);
+      return null;
+    }
   }
 
   // --- FAQs ---
@@ -212,6 +331,11 @@ export class AdminService {
             email: d.email || '',
             phone: d.phone || '',
             logo: d.logo || '',
+            description: d.description || '',
+            website: d.website || '',
+            legal: d.legal || {},
+            addresses: d.addresses || {},
+            settlement: d.settlement || {},
             status: d.status === 'pending' || d.status === 'suspended' ? d.status : 'active',
             commission: d.commission || { baseRateBps: Math.round(Number(d.commissionRate ?? d.commissionPercent ?? 10) * 100) },
             createdAt: d.createdAt || new Date().toISOString(),
@@ -271,6 +395,10 @@ export class AdminService {
           socialLinks: {
             ...DEFAULT_STORE_SETTINGS.socialLinks,
             ...(d.socialLinks || {})
+          },
+          financialPolicy: {
+            ...DEFAULT_STORE_SETTINGS.financialPolicy!,
+            ...(d.financialPolicy || {})
           }
         });
       } else {
@@ -326,6 +454,17 @@ export class AdminService {
       });
       callback(list);
     }, (err) => { console.error('Orders subscription error:', err); callback([]); });
+  }
+
+  static subscribeToVendorWallets(callback: (wallets: any[]) => void): () => void {
+    const ref = collection(db, 'vendor_wallets');
+    return onSnapshot(ref, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      callback(list);
+    }, (err) => { console.error('Vendor wallets subscription error:', err); callback([]); });
   }
 
   // ==========================================
@@ -420,7 +559,24 @@ export class AdminService {
       ...(isNew ? { createdAt: new Date().toISOString() } : {})
     };
 
-    await setDoc(productRef, payload, { merge: true });
+    const batch = writeBatch(db);
+    batch.set(productRef, payload, { merge: true });
+
+    // Atomic sync to inventory/{docId}
+    const invRef = doc(db, 'inventory', docId);
+    batch.set(invRef, {
+      id: docId,
+      productId: docId,
+      vendorId: payload.vendorId,
+      quantity: payload.stockQuantity,
+      availableQuantity: payload.stockQuantity,
+      reservedQuantity: 0,
+      inStock: payload.inStock,
+      stockStatus: payload.stockStatus,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    await batch.commit();
 
     await this.logAuditAction(
       activeActor.id,
@@ -652,27 +808,47 @@ export class AdminService {
     // Generate a stable ID based on business name if not provided
     const docId = vendor.id || (vendor.storeName ? vendor.storeName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `vendor-${Date.now()}`);
     
+    const cleanEmail = (vendor.email || '').trim().toLowerCase();
+    const cleanStoreName = (vendor.storeName || '').trim();
+    const cleanOwnerName = (vendor.ownerName || '').trim();
+    const cleanPhone = (vendor.phone || '').trim();
+
     if (isNew) {
       let duplicateFound = false;
       vendorsSnap.forEach(docSnap => {
         const d = docSnap.data();
-        if (d.id === docId || (d.email && d.email === vendor.email) || (d.phone && d.phone === vendor.phone)) {
+        if (d.id === docId || (d.email && d.email.toLowerCase() === cleanEmail) || (d.phone && d.phone === cleanPhone)) {
           duplicateFound = true;
         }
       });
       if (duplicateFound) {
         throw new Error('A vendor with this Email, Phone, or Name already exists.');
       }
+    } else {
+      // Check for duplicate email in another vendor record
+      if (cleanEmail) {
+        vendorsSnap.forEach(docSnap => {
+          const d = docSnap.data();
+          if (docSnap.id !== docId && d.email && d.email.toLowerCase() === cleanEmail) {
+            throw new Error('Another vendor partner is already registered with this email.');
+          }
+        });
+      }
     }
     const ref = doc(db, 'vendors', docId);
 
-    const payload = {
+    const payload: Partial<VendorItem> = {
       id: docId,
-      storeName: vendor.storeName || 'New Vendor Store',
-      ownerName: vendor.ownerName || 'Store Owner',
-      email: vendor.email || '',
-      phone: vendor.phone || '',
+      storeName: cleanStoreName || 'New Vendor Store',
+      ownerName: cleanOwnerName || 'Store Owner',
+      email: cleanEmail,
+      phone: cleanPhone,
       logo: vendor.logo || '',
+      description: vendor.description || '',
+      website: vendor.website || '',
+      legal: vendor.legal || {},
+      addresses: vendor.addresses || {},
+      settlement: vendor.settlement || {},
       status: vendor.status || 'active',
       commission: vendor.commission || { baseRateBps: 1000 },
       updatedAt: new Date().toISOString(),
@@ -685,7 +861,8 @@ export class AdminService {
       activeActor.email,
       isNew ? `Created vendor "${payload.storeName}"` : `Updated vendor "${payload.storeName}"`,
       'vendor',
-      docId
+      docId,
+      { storeName: payload.storeName, email: payload.email, commissionRate: payload.commission?.baseRateBps ? payload.commission.baseRateBps / 100 : 10 }
     );
     return docId;
   }
@@ -746,16 +923,11 @@ export class AdminService {
   // IDEMPOTENT MOCK DATA SEEDING
   // ==========================================
 
-  static async seedInitialCatalogIfEmpty(): Promise<void> {
-    // Safety guard: Never seed products or modify database in production unless explicitly requested in development
-    const allowSeed = import.meta.env.DEV && import.meta.env.VITE_ALLOW_FIRESTORE_SEEDING === 'true';
-    if (!allowSeed) {
-      return;
-    }
+  static async seedInitialCatalogIfEmpty(force: boolean = false): Promise<void> {
     try {
-      // 1. Seed Products if missing or empty
+      // 1. Seed Products & Inventory if missing or empty
       const prodSnapshot = await getDocs(collection(db, 'products'));
-      if (prodSnapshot.empty) {
+      if (prodSnapshot.empty || force) {
         console.log('Seeding initial BioCart product catalog to Firestore...');
         const batch = writeBatch(db);
 
@@ -878,6 +1050,84 @@ export class AdminService {
     } catch (err) {
       console.error('Error seeding initial catalog to Firestore:', err);
     }
+  }
+
+  static async syncMasterCatalog(actor?: { id: string; email: string }): Promise<{ products: number; categories: number; inventory: number }> {
+    const activeActor = this.resolveActor(actor);
+    
+    // 1. Seed & reconcile categories
+    const catBatch = writeBatch(db);
+    MASTER_CATEGORIES.forEach((cat) => {
+      const docRef = doc(db, 'categories', cat.id);
+      catBatch.set(docRef, { 
+        ...cat, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+    });
+    await catBatch.commit();
+
+    // 2. Seed & reconcile products & inventory
+    const prodBatch = writeBatch(db);
+    SEED_PRODUCTS.forEach((prod) => {
+      const docRef = doc(db, 'products', prod.id);
+      const payload: Product = {
+        ...prod,
+        vendorId: 'biocart',
+        vendorName: 'BioCart Direct',
+        isFeatured: true,
+        isBestSeller: prod.badge === 'Best Seller',
+        isNewArrival: prod.badge === 'New Arrival',
+        isSponsored: prod.badge === 'Sponsored' || prod.badge === 'Organic Choice',
+        homepageVisible: true,
+        shopVisible: true,
+        active: true,
+        stockQuantity: 150,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      prodBatch.set(docRef, payload, { merge: true });
+      prodBatch.set(doc(db, 'inventory', prod.id), {
+        id: prod.id,
+        productId: prod.id,
+        vendorId: 'biocart',
+        sku: prod.sku,
+        quantity: 150,
+        reservedQuantity: 0,
+        availableQuantity: 150,
+        lowStockThreshold: 10,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    });
+    await prodBatch.commit();
+
+    // 3. Ensure official BioCart vendor exists
+    const vendorRef = doc(db, 'vendors', 'biocart');
+    await setDoc(vendorRef, {
+      id: 'biocart',
+      ownerUid: 'system',
+      storeName: 'BioCart Direct Official',
+      status: 'active',
+      approvalStatus: 'approved',
+      commissionRate: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    await this.logAuditAction(
+      activeActor.id,
+      activeActor.email,
+      `Synchronized master catalog: ${SEED_PRODUCTS.length} products, ${MASTER_CATEGORIES.length} categories, ${SEED_PRODUCTS.length} inventory records`,
+      'product',
+      'master-catalog-sync',
+      { productsCount: SEED_PRODUCTS.length, categoriesCount: MASTER_CATEGORIES.length }
+    );
+
+    return {
+      products: SEED_PRODUCTS.length,
+      categories: MASTER_CATEGORIES.length,
+      inventory: SEED_PRODUCTS.length
+    };
   }
 
   static subscribeToVendorProducts(
@@ -1178,5 +1428,316 @@ export class AdminService {
     const docRef = doc(db, 'faqs', faqId);
     await deleteDoc(docRef);
   }
+
+  // ==========================================
+  // AGENT MANAGEMENT OPERATIONS
+  // ==========================================
+
+  static subscribeToAgents(callback: (agents: AgentEntity[]) => void): () => void {
+    const colRef = collection(db, 'agents');
+    return onSnapshot(colRef, (snapshot) => {
+      const list: AgentEntity[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() } as AgentEntity);
+      });
+      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      callback(list);
+    }, (err) => {
+      console.warn('Error fetching agents:', err);
+      callback([]);
+    });
+  }
+
+  static async saveAgent(agent: Partial<AgentEntity>, actor?: { id: string; email: string }): Promise<string> {
+    const activeActor = this.resolveActor(actor);
+    const agentId = agent.id || `agent-${Date.now()}`;
+    const docRef = doc(db, 'agents', agentId);
+    const payload: Partial<AgentEntity> = {
+      id: agentId,
+      name: agent.name || 'BioCart Agent',
+      email: agent.email || '',
+      phone: agent.phone || '',
+      status: agent.status || 'active',
+      permissions: agent.permissions || ['view_vendors', 'onboard_vendor'],
+      internalNotes: agent.internalNotes || '',
+      createdBy: activeActor.id,
+      updatedAt: new Date().toISOString(),
+      ...(agent.createdAt ? {} : { createdAt: new Date().toISOString() })
+    };
+
+    await setDoc(docRef, payload, { merge: true });
+    await this.logAuditAction(
+      activeActor.id,
+      activeActor.email,
+      `Saved Agent profile "${payload.name}" (${payload.email})`,
+      'user',
+      agentId,
+      { permissions: payload.permissions, status: payload.status }
+    );
+    return agentId;
+  }
+
+  static async updateAgentStatus(agentId: string, status: 'active' | 'suspended', actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
+    const docRef = doc(db, 'agents', agentId);
+    await updateDoc(docRef, { status, updatedAt: new Date().toISOString() });
+    await this.logAuditAction(
+      activeActor.id,
+      activeActor.email,
+      `Updated Agent ${agentId} status to ${status}`,
+      'user',
+      agentId,
+      { status }
+    );
+  }
+
+  // ==========================================
+  // VENDOR PRODUCT CATALOGUE ASSIGNMENT
+  // ==========================================
+
+  static subscribeToVendorAssignments(vendorId: string, callback: (assignments: VendorProductAssignment[]) => void): () => void {
+    const q = query(collection(db, 'vendor_product_assignments'), where('vendorId', '==', vendorId));
+    return onSnapshot(q, (snapshot) => {
+      const list: VendorProductAssignment[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() } as VendorProductAssignment);
+      });
+      callback(list);
+    }, (err) => {
+      console.warn('Error fetching vendor assignments:', err);
+      callback([]);
+    });
+  }
+
+  static async assignProductToVendor(
+    vendor: VendorItem,
+    product: Product,
+    actor?: { id: string; email: string }
+  ): Promise<string> {
+    const activeActor = this.resolveActor(actor);
+    const assignmentId = `${vendor.id}_${product.id}`;
+    const docRef = doc(db, 'vendor_product_assignments', assignmentId);
+
+    const payload: VendorProductAssignment = {
+      id: assignmentId,
+      vendorId: vendor.id,
+      vendorName: vendor.storeName,
+      productId: product.id,
+      productName: product.name,
+      sku: product.sku || '',
+      assignedBy: activeActor.id,
+      assignedByEmail: activeActor.email,
+      status: 'active',
+      assignedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    await setDoc(docRef, payload, { merge: true });
+    await this.logAuditAction(
+      activeActor.id,
+      activeActor.email,
+      `Assigned catalogue product "${product.name}" to vendor "${vendor.storeName}"`,
+      'product',
+      product.id,
+      { vendorId: vendor.id, vendorName: vendor.storeName, assignmentId }
+    );
+    return assignmentId;
+  }
+
+  static async removeProductFromVendor(
+    vendorId: string,
+    productId: string,
+    actor?: { id: string; email: string }
+  ): Promise<void> {
+    const activeActor = this.resolveActor(actor);
+    const assignmentId = `${vendorId}_${productId}`;
+    const docRef = doc(db, 'vendor_product_assignments', assignmentId);
+    await deleteDoc(docRef);
+    await this.logAuditAction(
+      activeActor.id,
+      activeActor.email,
+      `Removed catalogue product ${productId} assignment from vendor ${vendorId}`,
+      'product',
+      productId,
+      { vendorId, assignmentId }
+    );
+  }
+
+  // ==========================================
+  // FINANCIAL LEDGER
+  // ==========================================
+  static subscribeToFinancialLedger(
+    callback: (entries: any[]) => void,
+    vendorIdFilter?: string
+  ): () => void {
+    const colRef = collection(db, 'financial_ledger');
+    let q = query(colRef, orderBy('createdAt', 'desc'), limit(100));
+    if (vendorIdFilter) {
+      q = query(colRef, where('vendorId', '==', vendorIdFilter), orderBy('createdAt', 'desc'), limit(100));
+    }
+    return onSnapshot(q, (snap) => {
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      callback(list);
+    }, (err) => {
+      console.warn('Financial ledger subscription warning (falling back if index missing):', err);
+      // Fallback query without composite orderBy
+      const fallbackQ = vendorIdFilter
+        ? query(colRef, where('vendorId', '==', vendorIdFilter), limit(100))
+        : query(colRef, limit(100));
+      onSnapshot(fallbackQ, (fallbackSnap) => {
+        const fallbackList: any[] = [];
+        fallbackSnap.forEach((docSnap) => {
+          fallbackList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        fallbackList.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        callback(fallbackList);
+      });
+    });
+  }
+
+  // ==========================================
+  // BLOG CRUD & SUBSCRIPTION OPERATIONS
+  // ==========================================
+
+  static subscribeToBlogs(callback: (blogs: any[]) => void): () => void {
+    const colRef = collection(db, 'blogs');
+    return onSnapshot(colRef, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      callback(list);
+    }, (err) => {
+      console.warn('Error subscribing to blogs:', err);
+      try {
+        const offline = JSON.parse(localStorage.getItem('biocart_offline_blogs') || '[]');
+        callback(offline);
+      } catch {
+        callback([]);
+      }
+    });
+  }
+
+  static async getBlogByIdOrSlug(idOrSlug: string): Promise<any | null> {
+    try {
+      // 1. Try by doc ID
+      const directDocRef = doc(db, 'blogs', idOrSlug);
+      const directSnap = await getDoc(directDocRef);
+      if (directSnap.exists()) {
+        return { id: directSnap.id, ...directSnap.data() };
+      }
+
+      // 2. Query by slug
+      const q = query(collection(db, 'blogs'), where('slug', '==', idOrSlug), limit(1));
+      const qSnap = await getDocs(q);
+      if (!qSnap.empty) {
+        const first = qSnap.docs[0];
+        return { id: first.id, ...first.data() };
+      }
+      return null;
+    } catch (err) {
+      console.error('Error fetching blog post:', err);
+      return null;
+    }
+  }
+
+  static async saveBlog(blog: any, actor?: { id: string; email: string }): Promise<string> {
+    const activeActor = this.resolveActor(actor);
+    const blogId = blog.id || (blog.slug ? blog.slug : `blog-${Date.now()}`);
+    const docRef = doc(db, 'blogs', blogId);
+
+    const payload = {
+      ...blog,
+      id: blogId,
+      updatedAt: new Date().toISOString(),
+      createdAt: blog.createdAt || new Date().toISOString()
+    };
+
+    // Ensure content string is present for firestore.rules validation
+    if (!payload.content) {
+      payload.content = payload.excerpt || payload.title || 'BioCart Organic Agriculture Article';
+    }
+
+    await setDoc(docRef, payload, { merge: true });
+
+    // Read-back verification
+    const verified = await getDoc(docRef);
+    if (!verified.exists()) {
+      throw new Error(`Blog write verification failed for ID: ${blogId}`);
+    }
+
+    await this.logAuditAction(
+      activeActor.id,
+      activeActor.email,
+      `Saved blog post "${blog.title || blogId}" with status [${blog.status || 'draft'}]`,
+      'blog',
+      blogId,
+      { status: blog.status, slug: blog.slug }
+    );
+
+    return blogId;
+  }
+
+  static async deleteBlog(blogId: string, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
+    const docRef = doc(db, 'blogs', blogId);
+    await deleteDoc(docRef);
+    await this.logAuditAction(
+      activeActor.id,
+      activeActor.email,
+      `Deleted blog post "${blogId}"`,
+      'blog',
+      blogId
+    );
+  }
+
+  /**
+   * Real-time subscription to Vendor Settlements & Payout Batches
+   */
+  static subscribeToSettlements(callback: (settlements: any[]) => void): () => void {
+    const q = query(
+      collection(db, 'vendor_settlements'),
+      orderBy('createdAt', 'desc'),
+      limit(150)
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      callback(list);
+    }, (error) => {
+      console.warn('Error fetching settlements:', error);
+      callback([]);
+    });
+  }
+
+  /**
+   * Super Admin Manual Payout Trigger via Cloud Function
+   */
+  static async triggerManualPayout(vendorId: string, amountPaise?: number, reason?: string): Promise<any> {
+    const { httpsCallable } = await import('firebase/functions');
+    const { functions } = await import('../config/firebase');
+    const trigger = httpsCallable(functions, 'triggerManualSettlement');
+    const res = await trigger({ vendorId, amountPaise, reason });
+    return res.data;
+  }
+
+  /**
+   * Admin Retry Vendor Payout via Cloud Function
+   */
+  static async retryVendorPayout(settlementId: string): Promise<any> {
+    const { httpsCallable } = await import('firebase/functions');
+    const { functions } = await import('../config/firebase');
+    const retry = httpsCallable(functions, 'retryVendorPayout');
+    const res = await retry({ settlementId });
+    return res.data;
+  }
 }
+
 

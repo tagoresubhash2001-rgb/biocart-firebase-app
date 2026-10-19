@@ -26,7 +26,10 @@ import {
   Megaphone,
   Flag,
   Mail,
-  HelpCircle
+  HelpCircle,
+  Truck,
+  UserCheck,
+  Banknote
 } from 'lucide-react';
 
 export type AdminSection =
@@ -34,15 +37,21 @@ export type AdminSection =
   | 'products'
   | 'categories'
   | 'pages'
+  | 'blogs'
   | 'reviews'
   | 'vendors'
+  | 'financials'
+  | 'payouts'
+  | 'agents'
   | 'customers'
   | 'orders'
+  | 'shipments'
   | 'settings'
   | 'audit-logs'
   | 'coupons'
   | 'inventory'
   | 'promotions'
+  | 'promotional-ribbons'
   | 'contact-messages'
   | 'users'
   | 'faqs';
@@ -64,18 +73,24 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   const navItems: { id: AdminSection; label: string; icon: React.FC<{ className?: string }>; badge?: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'financials', label: 'Financial Control Center', icon: DollarSign },
     { id: 'products', label: 'Products Catalog', icon: Package },
     { id: 'inventory', label: 'Inventory', icon: Boxes },
     { id: 'categories', label: 'Categories', icon: FolderTree },
     { id: 'coupons', label: 'Coupons', icon: Tag },
     { id: 'promotions', label: 'Product Promotions', icon: Megaphone },
+    { id: 'promotional-ribbons', label: 'Promotional Ribbons', icon: Flag },
     { id: 'pages', label: 'Page Management', icon: HomeIcon },
+    { id: 'blogs', label: 'Blog CMS & SEO', icon: Sparkles },
     { id: 'reviews', label: 'Reviews Moderation', icon: Star },
     { id: 'faqs', label: 'FAQs', icon: HelpCircle },
     { id: 'vendors', label: 'Vendors Marketplace', icon: Store },
+    { id: 'payouts', label: 'Payouts & Settlements', icon: Banknote },
+    { id: 'agents', label: 'Agent Management', icon: UserCheck },
     { id: 'customers', label: 'Customers', icon: Users },
     { id: 'users', label: 'Admin Users', icon: UserCog },
     { id: 'orders', label: 'Orders Foundation', icon: ShoppingBag },
+    { id: 'shipments', label: 'Logistics & Delhivery', icon: Truck },
     { id: 'contact-messages', label: 'Contact Messages', icon: Mail },
     { id: 'settings', label: 'Store Settings', icon: SettingsIcon },
     { id: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck },

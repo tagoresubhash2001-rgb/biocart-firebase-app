@@ -34,7 +34,8 @@ import {
   Copy,
   Shield,
   Smartphone,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { AdminService } from '../services/AdminService';
 import { UserService } from '../services/UserService';
@@ -42,9 +43,11 @@ import { AddressService } from '../services/AddressService';
 import { AuthService } from '../services/AuthService';
 import { auth, googleProvider } from '../config/firebase';
 import { normalizeError } from '../utils/errors';
-import { Product } from '../types';
+import { Product, ShipmentItem } from '../types';
 import { AddressEntity } from '../types/backend';
 import { ProductCard } from '../components/ui/ProductCard';
+import { ShippingService, TrackingResult } from '../services/ShippingService';
+import { BioCartLoader } from '../components/ui/BioCartLoader';
 
 type DashboardTab = 'overview' | 'profile' | 'orders' | 'track' | 'wishlist' | 'addresses' | 'security';
 
@@ -181,6 +184,49 @@ export const Dashboard: React.FC = () => {
     });
   };
 
+  // Delhivery Logistics & Shipment Tracking State
+  const [trackingShipments, setTrackingShipments] = useState<ShipmentItem[]>([]);
+  const [liveDelhiveryTracking, setLiveDelhiveryTracking] = useState<Record<string, TrackingResult>>({});
+  const [loadingLiveAwb, setLoadingLiveAwb] = useState<string | null>(null);
+
+  const handleFetchLiveTracking = async (awb: string) => {
+    setLoadingLiveAwb(awb);
+    try {
+      const res = await ShippingService.trackShipment(awb);
+      setLiveDelhiveryTracking((prev) => ({ ...prev, [awb]: res }));
+      addToast(`Live Delhivery tracking updated for AWB ${awb}`, 'info');
+    } catch (err: any) {
+      console.error('Failed to track Delhivery shipment:', err);
+      addToast(err.message || 'Failed to fetch live carrier scans.', 'warning');
+    } finally {
+      setLoadingLiveAwb(null);
+    }
+  };
+
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this order? This cannot be undone.')) {
+      return;
+    }
+    setCancellingOrderId(orderId);
+    try {
+      const { httpsCallable } = await import('firebase/functions');
+      const { functions } = await import('../config/firebase');
+      const cancelFn = httpsCallable<{ orderId: string; reason?: string }, { success: boolean }>(functions, 'cancelOrder');
+      await cancelFn({ orderId, reason: 'Cancelled by customer from Dashboard' });
+      addToast('Order cancelled successfully.', 'success');
+      if (selectedOrderDetails?.id === orderId) {
+        setSelectedOrderDetails((prev: any) => prev ? { ...prev, status: 'cancelled' } : null);
+      }
+    } catch (err: any) {
+      console.error('Failed to cancel order:', err);
+      addToast(err?.message || 'Failed to cancel order.', 'error');
+    } finally {
+      setCancellingOrderId(null);
+    }
+  };
+
   // Fetch Realtime Products for Wishlist
   useEffect(() => {
     const unsub = AdminService.subscribeToProducts((list) => {
@@ -254,6 +300,37 @@ export const Dashboard: React.FC = () => {
       loadAddresses();
     }
   }, [user?.uid]);
+
+  // Synchronize Delhivery shipments for current search/order
+  useEffect(() => {
+    const activeId = (trackInputId || activeOrderTrackId || '').trim();
+    if (!activeId) {
+      setTrackingShipments([]);
+      return;
+    }
+
+    const colRef = collection(db, 'shipments');
+    const q = query(colRef, where('orderNumber', '==', activeId));
+
+    const unsub = onSnapshot(q, (snap) => {
+      const list: ShipmentItem[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as ShipmentItem));
+      if (list.length > 0) {
+        setTrackingShipments(list);
+      } else {
+        const awbQ = query(colRef, where('trackingNumber', '==', activeId));
+        onSnapshot(awbQ, (awbSnap) => {
+          const awbList: ShipmentItem[] = [];
+          awbSnap.forEach((d) => awbList.push({ id: d.id, ...d.data() } as ShipmentItem));
+          setTrackingShipments(awbList);
+        });
+      }
+    }, (err) => {
+      console.warn('Shipments query failed:', err);
+    });
+
+    return () => unsub();
+  }, [trackInputId, activeOrderTrackId]);
 
   // Handle Google Linking
   const handleLinkGoogle = async () => {
@@ -505,9 +582,7 @@ export const Dashboard: React.FC = () => {
   if (isAuthenticating) {
     return (
       <div className="max-w-md mx-auto pt-32 pb-24 px-8 text-center bg-white rounded-3xl border border-slate-100 shadow-xl" id="dashboard-auth-loader">
-        <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <h3 className="font-display font-bold text-lg text-slate-800">Loading Your Account...</h3>
-        <p className="text-xs text-slate-500 mt-2">Synchronizing your BioCart customer profile and order history...</p>
+        <BioCartLoader message="Synchronizing your BioCart customer profile and order history..." size="md" />
       </div>
     );
   }
@@ -1269,7 +1344,16 @@ export const Dashboard: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="flex justify-end pt-2">
+                    <div className="flex justify-end gap-2 pt-2">
+                      {['placed', 'processing', 'awaiting_payment'].includes((selectedOrderDetails.status || '').toLowerCase()) && (
+                        <button
+                          onClick={() => handleCancelOrder(selectedOrderDetails.id)}
+                          disabled={cancellingOrderId === selectedOrderDetails.id}
+                          className="px-4 py-2 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {cancellingOrderId === selectedOrderDetails.id ? 'Cancelling...' : 'Cancel Order'}
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setActiveOrderTrackId(selectedOrderDetails.id);
@@ -1336,12 +1420,23 @@ export const Dashboard: React.FC = () => {
                       </ul>
 
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                        <button
-                          onClick={() => setSelectedOrderDetails(order)}
-                          className="text-xs font-bold text-slate-600 hover:text-emerald-700 cursor-pointer"
-                        >
-                          View Full Invoice & Snapshot
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setSelectedOrderDetails(order)}
+                            className="text-xs font-bold text-slate-600 hover:text-emerald-700 cursor-pointer"
+                          >
+                            View Full Invoice & Snapshot
+                          </button>
+                          {['placed', 'processing', 'awaiting_payment'].includes((order.status || '').toLowerCase()) && (
+                            <button
+                              onClick={() => handleCancelOrder(order.id)}
+                              disabled={cancellingOrderId === order.id}
+                              className="text-xs font-bold text-red-600 hover:text-red-700 cursor-pointer disabled:opacity-50"
+                            >
+                              {cancellingOrderId === order.id ? 'Cancelling...' : 'Cancel'}
+                            </button>
+                          )}
+                        </div>
 
                         <button
                           onClick={() => {
@@ -1394,7 +1489,132 @@ export const Dashboard: React.FC = () => {
               </form>
 
               {/* Tracking Visualization */}
-              {currentTrackId && isFoundOrder ? (
+              {trackingShipments.length > 0 ? (
+                <div className="space-y-6 pt-2" id="delhivery-multi-package-tracking">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-wrap items-center justify-between text-xs font-semibold gap-2">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-5 h-5 text-emerald-700" />
+                      <div>
+                        <span className="text-slate-500">Logistics Carrier:</span>
+                        <strong className="text-emerald-950 ml-1.5 font-bold">Delhivery Express Logistics</strong>
+                      </div>
+                    </div>
+                    <div className="text-emerald-800 font-mono text-[11px]">
+                      {trackingShipments.length} Package{trackingShipments.length > 1 ? 's' : ''} in Consignment
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {trackingShipments.map((shp, idx) => {
+                      const awb = shp.trackingNumber || shp.waybill || 'N/A';
+                      const liveData = liveDelhiveryTracking[awb];
+                      const isLoadingAwb = loadingLiveAwb === awb;
+                      const scans = liveData?.scans || shp.scans || [];
+
+                      return (
+                        <div key={shp.id || idx} className="p-5 border border-slate-200 rounded-2xl bg-white shadow-sm space-y-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <Package className="w-4 h-4 text-emerald-600" />
+                                <span className="text-xs font-bold text-slate-900">
+                                  Package #{idx + 1} • {shp.vendorId ? `Vendor: ${shp.vendorId}` : 'BioCart Hub'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-mono text-xs font-bold text-emerald-700">AWB: {awb}</span>
+                                {awb !== 'N/A' && (
+                                  <button
+                                    onClick={() => handleCopyCustomerId(awb)}
+                                    className="p-1 text-slate-400 hover:text-slate-600"
+                                    title="Copy AWB"
+                                  >
+                                    <Copy className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  (liveData?.status || shp.status) === 'delivered'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : ['in_transit', 'out_for_delivery', 'manifested'].includes(liveData?.status || shp.status)
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-amber-100 text-amber-700'
+                                }`}
+                              >
+                                {(liveData?.status || shp.status || 'manifested').replace(/_/g, ' ')}
+                              </span>
+
+                              {awb !== 'N/A' && (
+                                <button
+                                  onClick={() => handleFetchLiveTracking(awb)}
+                                  disabled={isLoadingAwb}
+                                  className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                                  title="Query live Delhivery tracking"
+                                >
+                                  {isLoadingAwb ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin text-emerald-600" />
+                                  ) : (
+                                    <RefreshCw className="w-3 h-3" />
+                                  )}
+                                  Refresh Scans
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {(liveData?.expectedDeliveryDate || shp.expectedDeliveryDate) && (
+                            <div className="text-xs text-slate-600 flex items-center gap-1.5 bg-slate-50 p-2.5 rounded-xl">
+                              <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              <span>
+                                Estimated Delivery:{' '}
+                                <strong className="text-slate-900">
+                                  {new Date(liveData?.expectedDeliveryDate || shp.expectedDeliveryDate || '').toLocaleDateString('en-IN', {
+                                    weekday: 'short',
+                                    day: 'numeric',
+                                    month: 'short'
+                                  })}
+                                </strong>
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Scans Timeline */}
+                          <div>
+                            <h5 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1">
+                              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                              Delhivery Courier Scans
+                            </h5>
+                            {scans.length > 0 ? (
+                              <div className="relative border-l-2 border-slate-200 ml-2.5 space-y-3 py-1">
+                                {scans.map((scan, sIdx) => (
+                                  <div key={sIdx} className="relative pl-4">
+                                    <div className="absolute -left-[5px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-600 border-2 border-white" />
+                                    <div className="text-xs font-semibold text-slate-800">
+                                      {scan.instructions || scan.status}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      {scan.location ? `${scan.location} • ` : ''}
+                                      {scan.timestamp ? new Date(scan.timestamp).toLocaleString('en-IN') : ''}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-slate-400 italic">
+                                Package manifested with Delhivery. Click "Refresh Scans" once the package is picked up.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : currentTrackId && isFoundOrder ? (
                 <div className="space-y-8 pt-4" id="tracking-visualization">
                   <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-wrap items-center justify-between text-xs font-semibold gap-2">
                     <div>
@@ -1445,7 +1665,7 @@ export const Dashboard: React.FC = () => {
                         )}
                       </div>
                       <div className={!['shipped', 'delivered'].includes(isFoundOrder.status?.toLowerCase()) ? 'opacity-60' : ''}>
-                        <h4 className="font-semibold text-sm text-slate-900">Dispatched from Guntur Depot</h4>
+                        <h4 className="font-semibold text-sm text-slate-900">Dispatched with Delhivery</h4>
                         <p className="text-xs text-slate-500 mt-0.5">Enroute via partner agricultural transport logistics.</p>
                       </div>
                     </div>
@@ -1473,13 +1693,13 @@ export const Dashboard: React.FC = () => {
               ) : currentTrackId ? (
                 <div className="text-center py-10 text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
                   <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
-                  <p className="font-semibold text-slate-800">Order ID "{currentTrackId}" not found in your purchase history.</p>
-                  <p className="text-xs text-slate-500">Please double check your Order ID from the My Orders tab.</p>
+                  <p className="font-semibold text-slate-800">Reference "{currentTrackId}" not found in your orders.</p>
+                  <p className="text-xs text-slate-500">Please enter a valid BioCart Order Number or Delhivery AWB.</p>
                 </div>
               ) : (
                 <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                   <Truck className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-slate-700">Enter an Order ID above to view shipment progress.</p>
+                  <p className="text-sm font-semibold text-slate-700">Enter an Order ID or Delhivery AWB above to view shipment progress.</p>
                 </div>
               )}
             </div>

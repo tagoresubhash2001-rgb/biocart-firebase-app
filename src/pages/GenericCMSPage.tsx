@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePageCMS } from '../hooks/usePageCMS';
 import { INITIAL_CMS_PAGES } from '../data/initialCMSPages';
 import { PageSection, CMSPage } from '../types/cms';
@@ -12,6 +12,7 @@ import { useApp } from '../context/AppContext';
 import { AdminService } from '../services/AdminService';
 import { db } from '../config/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { BioCartLoader } from '../components/ui/BioCartLoader';
 
 interface GenericCMSPageProps {
   pageId: string;
@@ -860,6 +861,29 @@ export const GenericCMSPage: React.FC<GenericCMSPageProps> = ({ pageId }) => {
   const { setTab, setSelectedCategory } = useApp();
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
+  // Backward-compatibility redirect: If a visitor lands on a legacy category URL, seamlessly route to Shop
+  useEffect(() => {
+    const legacyCategoryMap: Record<string, string> = {
+      'organic-fertilizers': 'Organic Fertilizers',
+      'coir-potting-mix': 'Potting Mix',
+      'potting-mix': 'Potting Mix',
+      'plant-care-solutions': 'Plant Care',
+      'plant-care': 'Plant Care',
+      'organic-seeds': 'Seeds',
+      'seeds': 'Seeds',
+      'gardening-gear': 'Gardening Accessories',
+      'gardening-accessories': 'Gardening Accessories',
+      'healthy-living': 'Healthy Living'
+    };
+
+    const targetCategory = legacyCategoryMap[pageId] || legacyCategoryMap[pageId.replace(/^cat-/, '')];
+    if (targetCategory) {
+      setSelectedCategory(targetCategory);
+      setTab('shop');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [pageId, setSelectedCategory, setTab]);
+
   // Fallback to initial canonical seed page if Firestore document doesn't exist
   const initialFallback = INITIAL_CMS_PAGES.find(
     (p) => p.id === pageId || p.slug === pageId
@@ -870,7 +894,7 @@ export const GenericCMSPage: React.FC<GenericCMSPageProps> = ({ pageId }) => {
   if (loading && !activePage) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+        <BioCartLoader message="Loading content..." size="md" />
       </div>
     );
   }

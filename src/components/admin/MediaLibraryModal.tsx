@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Image as ImageIcon, Upload, Trash2, Check, Search, 
-  X, AlertCircle, FileText, ExternalLink 
+  X, AlertCircle, FileText, ExternalLink, Loader2 
 } from 'lucide-react';
 import { StorageService } from '../../services/StorageService';
 
@@ -105,6 +105,7 @@ export const MediaLibraryModal: React.FC<MediaLibraryModalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [customUrl, setCustomUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [userUploadedItems, setUserUploadedItems] = useState<{ id: string; name: string; url: string; category: string }[]>(() => {
     try {
@@ -133,16 +134,20 @@ export const MediaLibraryModal: React.FC<MediaLibraryModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError('File size exceeds 5MB limit');
+    // Validate size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError(`File "${file.name}" exceeds 10MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB).`);
+      e.target.value = '';
       return;
     }
 
     try {
       setIsUploading(true);
+      setUploadProgress(10);
       setUploadError(null);
-      const publicUrl = await StorageService.uploadImage(file, folder);
+      const publicUrl = await StorageService.uploadImage(file, folder, (progress) => {
+        setUploadProgress(progress);
+      });
       
       const newItem = {
         id: `upload-${Date.now()}`,
@@ -155,16 +160,19 @@ export const MediaLibraryModal: React.FC<MediaLibraryModalProps> = ({
       setUserUploadedItems(updated);
       try {
         localStorage.setItem('biocart_media_library', JSON.stringify(updated));
-      } catch (e) {
-        console.warn('LocalStorage quota exceeded', e);
+      } catch (err) {
+        console.warn('LocalStorage quota exceeded', err);
       }
       
       onSelectImage(publicUrl);
       onClose();
     } catch (err: any) {
-      setUploadError(err.message || 'Image upload failed');
+      console.error('Media upload failure:', err);
+      setUploadError(err.message || 'Image upload failed. Please verify your connection.');
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -312,18 +320,40 @@ export const MediaLibraryModal: React.FC<MediaLibraryModalProps> = ({
                 Upload New Image Asset
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 text-center max-w-sm">
-                Supported formats: PNG, JPG, WEBP, SVG. Maximum file size: 5 MB.
+                Supported formats: PNG, JPG, WEBP, SVG, GIF. Maximum file size: 10 MB.
               </p>
 
               {uploadError && (
-                <div className="mb-4 flex items-center gap-2 text-xs text-rose-600 bg-rose-50 px-4 py-2 rounded-xl">
-                  <AlertCircle className="w-4 h-4" />
-                  {uploadError}
+                <div className="mb-4 flex items-center justify-between gap-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 px-4 py-2.5 rounded-xl max-w-md w-full shadow-sm animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                    <span>{uploadError}</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setUploadError(null)}
+                    className="text-rose-500 hover:text-rose-800 p-0.5 rounded transition-colors"
+                    title="Dismiss"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
 
-              <label className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl cursor-pointer shadow-md transition-all">
-                {isUploading ? 'Uploading to Storage...' : 'Browse Computer Files'}
+              <label className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl cursor-pointer shadow-md transition-all flex items-center gap-2">
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>
+                      {uploadProgress > 0 ? `Uploading to Storage... (${uploadProgress}%)` : 'Uploading to Storage...'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span>Browse Computer Files</span>
+                  </>
+                )}
                 <input
                   type="file"
                   accept="image/*"

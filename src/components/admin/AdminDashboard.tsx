@@ -18,12 +18,16 @@ import {
   Sparkles
 } from 'lucide-react';
 import { AdminSection } from './AdminLayout';
+import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface AdminDashboardProps {
   onNavigate: (section: AdminSection) => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
+  const { addToast } = useApp();
+  const { userProfile } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [vendors, setVendors] = useState<VendorItem[]>([]);
@@ -31,7 +35,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const [users, setUsers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [financialLedger, setFinancialLedger] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -53,6 +59,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     const unsubUsers = AdminService.subscribeToUsers((list) => setUsers(list));
     const unsubOrders = AdminService.subscribeToOrders((list) => setOrders(list));
     const unsubLogs = AdminService.subscribeToAuditLogs((list) => setAuditLogs(list));
+    const unsubLedger = AdminService.subscribeToFinancialLedger((list) => setFinancialLedger(list));
 
 
     
@@ -65,25 +72,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       unsubUsers();
       unsubOrders();
       unsubLogs();
+      unsubLedger();
 
 
     };
   }, []);
 
   // Compute live real-time metrics
-  const effectiveProducts = products.length > 0 ? products : SEED_PRODUCTS;
-  const activeProducts = effectiveProducts.filter((p) => p.active !== false).length;
-  const outOfStockProducts = effectiveProducts.filter((p) => !p.inStock || (p.stockQuantity !== undefined && p.stockQuantity <= 0)).length;
+  const handleSyncCatalog = async () => {
+    try {
+      setIsSyncing(true);
+      const res = await AdminService.syncMasterCatalog({
+        id: userProfile?.uid || 'admin',
+        email: userProfile?.email || 'admin@biocart.in'
+      });
+      addToast(`Catalog synced: ${res.products} products, ${res.categories} categories`, 'success');
+    } catch (err: any) {
+      console.error('Failed to sync master catalog:', err);
+      addToast(err.message || 'Catalog synchronization failed', 'warning');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+  const activeProducts = products.filter((p) => p.active !== false).length;
+  const outOfStockProducts = products.filter((p) => !p.inStock || (p.stockQuantity !== undefined && p.stockQuantity <= 0)).length;
   const pendingReviews = reviews.filter((r) => r.status === 'pending').length;
   const pendingVendors = vendors.filter((v) => v.status === 'pending').length;
   const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
 
   const statCards = [
-    { title: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, sub: `${orders.length} Completed Orders`, icon: DollarSign, color: 'from-emerald-600 to-teal-500', link: 'orders' as AdminSection },
+    { title: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, sub: `${orders.length} Completed Orders`, icon: DollarSign, color: 'from-emerald-600 to-teal-500', link: 'financials' as AdminSection },
     { title: 'Total Orders', value: orders.length.toString(), sub: 'Live Marketplace Checkout', icon: ShoppingBag, color: 'from-blue-600 to-cyan-500', link: 'orders' as AdminSection },
     { title: 'Total Customers', value: users.length.toString(), sub: 'Registered BioCart Accounts', icon: Users, color: 'from-purple-600 to-indigo-500', link: 'customers' as AdminSection },
     { title: 'Registered Vendors', value: vendors.length.toString(), sub: `${pendingVendors} Pending Approval`, icon: Store, color: 'from-amber-600 to-orange-500', link: 'vendors' as AdminSection },
-    { title: 'Total Products', value: effectiveProducts.length.toString(), sub: `${activeProducts} Active | ${outOfStockProducts} Low/Out Stock`, icon: Package, color: 'from-teal-600 to-emerald-500', link: 'products' as AdminSection },
+    { title: 'Total Products', value: products.length.toString(), sub: `${activeProducts} Active | ${outOfStockProducts} Low/Out Stock`, icon: Package, color: 'from-teal-600 to-emerald-500', link: 'products' as AdminSection },
     { title: 'Pending Reviews', value: pendingReviews.toString(), sub: 'Requires Admin Moderation', icon: Star, color: 'from-rose-600 to-pink-500', link: 'reviews' as AdminSection }
   ];
 
@@ -105,21 +127,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
             <Sparkles className="w-4 h-4 animate-pulse" />
             <span>LIVE FIRESTORE REAL-TIME CONTROL</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Marketplace Operations Overview</h1>
-          <p className="text-xs text-[#777777] mt-1">Real-time status of BioCart vendor catalog, inventory, and dynamic frontend controls.</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Marketplace Operations Overview</h1>
+          <p className="text-xs text-slate-300 mt-1">Real-time status of BioCart vendor catalog, inventory, and dynamic frontend controls.</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleSyncCatalog}
+            disabled={isSyncing}
+            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            title="Seed / Synchronize master catalog into Firestore"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Syncing...' : 'Sync Master Catalog'}
+          </button>
           <button
             onClick={() => onNavigate('products')}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-900 font-medium text-xs rounded-xl shadow-lg shadow-emerald-900/30 transition-all flex items-center gap-2"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-emerald-900/30 transition-all flex items-center gap-2 cursor-pointer"
           >
             <Package className="w-4 h-4" />
             Manage Products
           </button>
           <button
             onClick={() => onNavigate('settings')}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-700 font-medium text-xs rounded-xl border border-slate-300 transition-all"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl border border-slate-600 transition-all cursor-pointer"
           >
             Store Settings
           </button>

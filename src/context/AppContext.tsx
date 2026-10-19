@@ -2,11 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { WishlistService } from '../services/WishlistService';
+import { SEED_PRODUCTS } from '../data/seedData';
+import { AdminService } from '../services/AdminService';
 
 export interface ToastMessage {
   id: string;
   message: string;
-  type: 'success' | 'info' | 'warning';
+  type: 'success' | 'info' | 'warning' | 'error';
 }
 
 interface AppContextType {
@@ -28,6 +30,7 @@ interface AppContextType {
   } | null;
   toasts: ToastMessage[];
   activeProductDetails: Product | null;
+  activeBlogSlug: string | null;
   searchQuery: string;
   selectedCategory: string;
   activeOrderTrackId: string | null;
@@ -35,8 +38,9 @@ interface AppContextType {
   isAuthModalOpen: boolean;
   authModalMode: 'login' | 'register' | 'forgot' | 'phone';
   
-  setTab: (tab: string) => void;
+  setTab: (tab: string, meta?: { blogSlug?: string }) => void;
   setSubView: (view: string | null) => void;
+  setActiveBlogSlug: (slug: string | null) => void;
 
   toggleTheme: () => void;
   addToCart: (product: Product, quantity?: number) => void;
@@ -49,7 +53,7 @@ interface AppContextType {
   sendPhoneOtp: (phoneNumber: string, containerId?: string) => Promise<any>;
   verifyPhoneOtp: (confirmation: any, otpCode: string) => Promise<void>;
   logout: () => void;
-  addToast: (message: string, type?: 'success' | 'info' | 'warning') => void;
+  addToast: (message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
   removeToast: (id: string) => void;
   setActiveProductDetails: (product: Product | null) => void;
   setSearchQuery: (query: string) => void;
@@ -186,6 +190,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeOrderTrackId, setActiveOrderTrackId] = useState<string | null>(null);
+  const [activeBlogSlug, setActiveBlogSlug] = useState<string | null>(null);
   const [isCartOpen, setCartOpen] = useState(false);
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'forgot' | 'phone'>('login');
@@ -212,14 +217,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // 2. Read clean pathname
-      const pathname = window.location.pathname.replace(/^\/+/, '').split('/')[0] || 'home';
+      const pathSegments = window.location.pathname.replace(/^\/+/, '').split('/');
+      const pathname = pathSegments[0] || 'home';
       const knownSubViews = ['admin', 'vendor', 'dashboard', 'dealer-portal', 'distributor-portal'];
 
       if (knownSubViews.includes(pathname)) {
         setSubViewState(pathname);
+        setActiveBlogSlug(null);
+      } else if (pathname === 'blogs' || pathname === 'blog') {
+        setSubViewState(null);
+        setCurrentTabState('blogs');
+        if (pathSegments.length > 1 && pathSegments[1]) {
+          setActiveBlogSlug(pathSegments[1]);
+        } else {
+          setActiveBlogSlug(null);
+        }
       } else {
         setSubViewState(null);
+        setActiveBlogSlug(null);
         setCurrentTabState(pathname);
+
+        // If navigating to product-details with a product query param, hydrate activeProductDetails
+        if (pathname === 'product-details') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const productId = urlParams.get('product');
+          if (productId) {
+            AdminService.getProductById(productId).then(remoteProd => {
+              if (remoteProd) {
+                setActiveProductDetails(remoteProd);
+              } else if (import.meta.env.VITE_USE_SEED_FALLBACK === 'true') {
+                const canonicalMatch = SEED_PRODUCTS.find(p => p.id === productId || p.sku === productId);
+                if (canonicalMatch) {
+                  setActiveProductDetails(canonicalMatch);
+                }
+              }
+            }).catch(() => {
+              if (import.meta.env.VITE_USE_SEED_FALLBACK === 'true') {
+                const canonicalMatch = SEED_PRODUCTS.find(p => p.id === productId || p.sku === productId);
+                if (canonicalMatch) {
+                  setActiveProductDetails(canonicalMatch);
+                }
+              }
+            });
+          }
+        }
       }
     };
 
@@ -232,10 +273,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  const setTab = (tab: string) => {
+  const setTab = (tab: string, meta?: { blogSlug?: string }) => {
     setCurrentTabState(tab);
     setSubViewState(null);
-    const targetPath = tab === 'home' ? '/' : `/${tab}`;
+    let targetPath = tab === 'home' ? '/' : `/${tab}`;
+    if (tab === 'blogs' && meta?.blogSlug) {
+      setActiveBlogSlug(meta.blogSlug);
+      targetPath = `/blogs/${meta.blogSlug}`;
+    } else if (tab === 'blogs') {
+      setActiveBlogSlug(null);
+      targetPath = '/blogs';
+    } else {
+      setActiveBlogSlug(null);
+    }
     if (window.location.pathname !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
@@ -244,19 +294,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setSubView = (view: string | null) => {
     setSubViewState(view);
+    setActiveBlogSlug(null);
     if (view) {
       const targetPath = `/${view}`;
       if (window.location.pathname !== targetPath) {
         window.history.pushState(null, '', targetPath);
       }
     } else {
-      const targetPath = currentTab === 'home' ? '/' : `/${currentTab}`;
+      const targetPath = currentTab === 'home' ? '/' : (currentTab === 'blogs' && activeBlogSlug ? `/blogs/${activeBlogSlug}` : `/${currentTab}`);
       if (window.location.pathname !== targetPath) {
         window.history.pushState(null, '', targetPath);
       }
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
 
   const toggleTheme = () => {
     // BioCart is permanently Light Theme — dark mode is disabled.
@@ -266,19 +318,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addToCart = (product: Product, quantity: number = 1) => {
+    let isExisting = false;
+    let newQty = quantity;
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
       if (existingItem) {
-        addToast(`Updated quantity of ${product.name} to ${existingItem.quantityInCart! + quantity}`, 'success');
+        isExisting = true;
+        newQty = (existingItem.quantityInCart || 0) + quantity;
         return prevCart.map((item) =>
           item.id === product.id
-            ? { ...item, quantityInCart: (item.quantityInCart || 0) + quantity }
+            ? { ...item, quantityInCart: newQty }
             : item
         );
       }
-      addToast(`Added ${product.name} to your cart`, 'success');
       return [...prevCart, { ...product, quantityInCart: quantity }];
     });
+    if (isExisting) {
+      addToast(`Updated quantity of ${product.name} to ${newQty}`, 'success');
+    } else {
+      addToast(`Added ${product.name} to your cart`, 'success');
+    }
   };
 
   const updateCartQuantity = (productId: string, quantity: number) => {
@@ -318,7 +377,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const login = async (email: string, name: string = 'Tagore Subhash', password?: string) => {
+  const login = async (email: string, name: string = '', password?: string) => {
     try {
       if (authModalMode === 'login') {
         if (!password) {
@@ -361,7 +420,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addToast = (message: string, type: 'success' | 'info' | 'warning' = 'success') => {
+  const addToast = (message: string, type: 'success' | 'info' | 'warning' | 'error' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
@@ -384,6 +443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         user,
         toasts,
         activeProductDetails,
+        activeBlogSlug,
         searchQuery,
         selectedCategory,
         activeOrderTrackId,
@@ -392,6 +452,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         authModalMode,
         setTab,
         setSubView,
+        setActiveBlogSlug,
         toggleTheme,
         addToCart,
         updateCartQuantity,

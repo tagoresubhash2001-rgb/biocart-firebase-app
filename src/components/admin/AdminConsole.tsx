@@ -16,13 +16,19 @@ import { AdminCoupons } from './AdminCoupons';
 import { AdminProductPromotions } from './AdminProductPromotions';
 import { AdminContactMessages } from './AdminContactMessages';
 import { AdminUsers } from './AdminUsers';
+import { AdminShipments } from './AdminShipments';
+import { AdminAgents } from './AdminAgents';
+import { AdminPromotionalRibbons } from './AdminPromotionalRibbons';
+import { AdminBlogs } from './AdminBlogs';
+import { AdminPayouts } from './AdminPayouts';
+import { AdminFinancials } from './AdminFinancials';
 import { AuthGuard } from '../../guards/AuthGuard';
 import { RoleGuard } from '../../guards/RoleGuard';
 
 const VALID_SECTIONS: AdminSection[] = [
-  'dashboard', 'products', 'categories', 'pages', 'reviews',
-  'vendors', 'customers', 'orders', 'settings', 'audit-logs',
-  'faqs', 'inventory', 'coupons', 'promotions', 'contact-messages', 'users'
+  'dashboard', 'financials', 'products', 'categories', 'pages', 'blogs', 'reviews',
+  'vendors', 'payouts', 'agents', 'customers', 'orders', 'shipments', 'settings', 'audit-logs',
+  'faqs', 'inventory', 'coupons', 'promotions', 'promotional-ribbons', 'contact-messages', 'users'
 ];
 
 export const AdminConsole: React.FC = () => {
@@ -58,20 +64,30 @@ export const AdminConsole: React.FC = () => {
         switch (activeSection) {
           case 'dashboard':
             return <AdminDashboard onNavigate={handleSelectSection} />;
+          case 'financials':
+            return <AdminFinancials />;
           case 'products':
             return <AdminProducts />;
           case 'categories':
             return <AdminCategories />;
           case 'pages':
             return <AdminPages />;
+          case 'blogs':
+            return <AdminBlogs />;
           case 'reviews':
             return <AdminReviews />;
           case 'vendors':
             return <AdminVendors />;
+          case 'payouts':
+            return <AdminPayouts />;
+          case 'agents':
+            return <AdminAgents />;
           case 'customers':
             return <AdminCustomers />;
           case 'orders':
             return <AdminOrders />;
+          case 'shipments':
+            return <AdminShipments />;
           case 'faqs':
             return <AdminFAQs />;
           case 'settings':
@@ -84,6 +100,8 @@ export const AdminConsole: React.FC = () => {
             return <AdminCoupons />;
           case 'promotions':
             return <AdminProductPromotions />;
+          case 'promotional-ribbons':
+            return <AdminPromotionalRibbons />;
           case 'contact-messages':
             return <AdminContactMessages />;
           case 'users':

@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Private Administrative & Operational Portals
+Disallow: /admin
+Disallow: /vendor
+Disallow: /dashboard
+
+# Sitemaps
+Sitemap: https://biocart.in/sitemap.xml

@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useHomepageCMS } from '../../hooks/useHomepageCMS';
+import { useStoreSettings } from '../../hooks/useStoreSettings';
+import { AdminService } from '../../services/AdminService';
+import { MASTER_CATEGORIES } from '../../data/categoryCatalog';
+import { CategoryItem } from '../../types';
 
 import { 
   Leaf, Shield, Globe, Award, Mail, Phone, MapPin, Sparkles, 
@@ -11,9 +15,18 @@ import { BioCartLogo } from '../ui/BioCartLogo';
 
 export const Footer: React.FC = () => {
   const { cms } = useHomepageCMS();
+  const { settings } = useStoreSettings();
   const { setTab, setSubView, setSelectedCategory } = useApp();
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+
+  useEffect(() => {
+    const unsub = AdminService.subscribeToCategories((list) => {
+      setCategories(list);
+    });
+    return () => unsub();
+  }, []);
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,15 +224,15 @@ export const Footer: React.FC = () => {
               <div className="space-y-3.5 text-[13px] footer-meta font-sans font-medium">
                 <div className="flex items-center gap-2.5">
                   <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>+91 91542 22539</span>
+                  <span>{settings.contactPhone || '+91 91542 22539'}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Mail className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>care@biocart.co.in</span>
+                  <span>{settings.contactEmail || 'care@biocart.co.in'}</span>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                  <span>Sindulis Agro Farms, Tanuku, AP - 534211</span>
+                  <span>{settings.address || 'Sindulis Agro Farms, Tanuku, AP - 534211'}</span>
                 </div>
               </div>
               
@@ -254,10 +267,10 @@ export const Footer: React.FC = () => {
               <ul className="space-y-[14px]" id="col-company-links">
                 {[
                   { label: 'Home', tab: 'home' },
-                  { label: 'Shop Catalog', tab: 'shop' },
+                  { label: 'Shop', tab: 'shop' },
                   { label: 'About Us', tab: 'about-us' },
                   { label: 'Contact Us', tab: 'contact-us' },
-                  { label: 'Dealer Portal', tab: 'dealer-portal' },
+                  { label: 'Blogs', tab: 'blogs' },
                 ].map((item, idx) => (
                   <li key={idx}>
                     <button 
@@ -283,24 +296,19 @@ export const Footer: React.FC = () => {
                 Shop
               </h4>
               <ul className="space-y-[14px]" id="col-categories-links">
-                {[
-                  { name: 'Organic Fertilizers', filter: 'Organic Fertilizers' },
-                  { name: 'Coir & Potting Mix', filter: 'Potting Mix' },
-                  { name: 'Plant Care Solutions', filter: 'Plant Care' },
-                  { name: 'Organic Seeds', filter: 'Seeds' },
-                  { name: 'Gardening Gear', filter: 'Gardening Accessories' },
-                  { name: 'Healthy Living', filter: 'Healthy Living' }
-                ].map((item, idx) => (
-                  <li key={idx}>
-                    <button 
-                      onClick={() => handleCategoryClick(item.filter)} 
-                      className="footer-link group/link"
-                    >
-                      <span className="footer-link-text">{item.name}</span>
-                      <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-emerald-600 dark:bg-emerald-400 group-hover/link:w-full transition-all duration-300" />
-                    </button>
-                  </li>
-                ))}
+                {(categories.length > 0 ? categories : MASTER_CATEGORIES)
+                  .filter((cat) => cat.active !== false && !cat.parentId)
+                  .map((item) => (
+                    <li key={item.id}>
+                      <button 
+                        onClick={() => handleCategoryClick(item.name)} 
+                        className="footer-link group/link"
+                      >
+                        <span className="footer-link-text">{item.name}</span>
+                        <span className="absolute bottom-0 left-0 w-0 h-[2px] bg-emerald-600 dark:bg-emerald-400 group-hover/link:w-full transition-all duration-300" />
+                      </button>
+                    </li>
+                  ))}
               </ul>
             </div>
 
@@ -408,11 +416,11 @@ export const Footer: React.FC = () => {
 
             <div className="flex gap-4" id="social-circular-buttons">
               {[
-                { icon: Instagram, href: 'https://instagram.com' },
-                { icon: Facebook, href: 'https://facebook.com' },
-                { icon: Twitter, href: 'https://twitter.com' },
-                { icon: Linkedin, href: 'https://linkedin.com' },
-                { icon: Youtube, href: 'https://youtube.com' }
+                { icon: Instagram, href: settings.socialLinks?.instagram || 'https://instagram.com/biocart' },
+                { icon: Facebook, href: settings.socialLinks?.facebook || 'https://facebook.com/biocart' },
+                { icon: Twitter, href: settings.socialLinks?.twitter || 'https://twitter.com/biocart' },
+                { icon: Linkedin, href: settings.socialLinks?.linkedin || 'https://linkedin.com/company/biocart' },
+                { icon: Youtube, href: settings.socialLinks?.youtube || 'https://youtube.com/biocart' }
               ].map((social, idx) => {
                 const IconComponent = social.icon;
                 return (

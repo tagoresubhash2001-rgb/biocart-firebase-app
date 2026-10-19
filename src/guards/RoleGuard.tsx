@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../types/backend';
 import { ShieldAlert } from 'lucide-react';
+import { BioCartLoader } from '../components/ui/BioCartLoader';
 
 interface RoleGuardProps {
   children: React.ReactNode;
@@ -20,8 +21,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({ children, allowedRoles, fa
   if (isAuthenticating) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] p-6" id="role-guard-loader">
-        <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-xs text-charcoal-500">Checking security permissions...</p>
+        <BioCartLoader message="Checking security permissions..." size="sm" />
       </div>
     );
   }

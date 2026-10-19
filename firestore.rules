@@ -30,13 +30,19 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Vendor doc id == the vendor's own Firebase Auth uid, so ownership
-    // is a direct uid comparison — no extra lookup needed.
+    // Vendor doc id == the vendor's own Firebase Auth uid, or vendor doc has ownerUid == uid
     function isVendorOwner(vendorId) {
-      return isSignedIn() && isEmailVerified() && request.auth.uid == vendorId &&
+      return isSignedIn() && isEmailVerified() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor' &&
         exists(/databases/$(database)/documents/vendors/$(vendorId)) &&
+        (
+          request.auth.uid == vendorId ||
+          (
+            'ownerUid' in get(/databases/$(database)/documents/vendors/$(vendorId)).data &&
+            get(/databases/$(database)/documents/vendors/$(vendorId)).data.ownerUid == request.auth.uid
+          )
+        ) &&
         get(/databases/$(database)/documents/vendors/$(vendorId)).data.status in ['active', 'approved'];
     }
 
@@ -247,8 +253,31 @@ service cloud.firestore {
 
     // 14. Promotional Discount Coupons
     match /coupons/{couponId} {
+      // Signed-in users, customers checking out, vendors, and admins can read coupons
       allow read: if isSignedIn();
-      allow write: if isAdmin() && isValidCoupon(incoming());
+
+      // Admins have full create, update, delete permissions
+      allow create: if isAdmin() || (
+        isVendorOwner(incoming().creatorVendorId) &&
+        incoming().creatorRole == 'vendor' &&
+        incoming().creatorVendorId is string &&
+        incoming().usedCount == 0 &&
+        isValidCoupon(incoming())
+      );
+
+      allow update: if isAdmin() || (
+        isVendorOwner(existing().creatorVendorId) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'discountValue', 'minOrderAmount', 'maxDiscountAmount',
+          'startDate', 'endDate', 'usageLimit', 'description', 'applicableProductIds',
+          'applicableCategories', 'updatedAt'
+        ]) &&
+        incoming().creatorVendorId == existing().creatorVendorId &&
+        incoming().creatorRole == existing().creatorRole &&
+        isValidCoupon(incoming())
+      );
+
+      allow delete: if isAdmin() || isVendorOwner(existing().creatorVendorId);
     }
 
     // 15. Merchant Dealer Applications
@@ -272,6 +301,10 @@ service cloud.firestore {
     }
 
     // 18. Global Settings Configuration
+    match /settings/shipping {
+      allow read, write: if isAdmin();
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -332,16 +365,21 @@ service cloud.firestore {
     }
 
     // 22. Marketplace Vendors
-    // Vendor doc id == the vendor owner's Firebase Auth uid (see
+    // Vendor doc id == the vendor owner's Firebase Auth uid or mapped ownerUid (see
     // isVendorOwner above). Vendors are onboarded via the
     // createVendorAccount Cloud Function (Admin SDK, bypasses rules) —
     // clients never create a vendor doc directly.
     match /vendors/{vendorId} {
       allow read: if isAdmin() || isVendorOwner(vendorId);
+      allow list: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor');
       allow create: if isAdmin();
       allow update: if isAdmin() ||
         (isVendorOwner(vendorId) &&
-         incoming().diff(existing()).affectedKeys().hasOnly(['phone', 'description', 'address', 'logo']));
+         incoming().diff(existing()).affectedKeys().hasOnly([
+           'storeName', 'businessName', 'ownerName', 'phone', 'description', 
+           'website', 'addresses', 'legal', 'notificationPreferences', 
+           'shippingPreferences', 'logo', 'updatedAt'
+         ]));
       allow delete: if isAdmin();
     }
 
@@ -349,6 +387,7 @@ service cloud.firestore {
     // settlement Cloud Functions touch this, via the Admin SDK.
     match /vendor_wallets/{vendorId} {
       allow read: if isAdmin() || isVendorOwner(vendorId);
+      allow list: if isAdmin() || (isSignedIn() && resource.data.vendorId == request.auth.uid);
       allow write: if isAdmin();
     }
 
@@ -356,5 +395,46 @@ service cloud.firestore {
     match /audit_logs/{logId} {
       allow read, write: if isAdmin();
     }
+
+    // 24. Shipments (Delhivery Logistics & Multi-Vendor Tracking)
+    match /shipments/{shipmentId} {
+      // Signed-in users can read shipments (or vendors can read where vendorId == request.auth.uid, admin can read all)
+      allow read: if isSignedIn();
+      // Client writes are restricted to authorized admins (automated updates occur via Cloud Functions / Admin SDK)
+      allow write: if isAdmin();
+    }
+
+    // 25. Field Operations Agents
+    match /agents/{agentId} {
+      // Admins and agents can read agent profiles
+      allow read: if isSignedIn();
+      // Only admins can create, modify permissions, or delete agents
+      allow write: if isAdmin();
+    }
+
+    // 26. Vendor Product Catalog Assignments
+    match /vendor_product_assignments/{assignmentId} {
+      // Public and customer queries can view catalog assignments
+      allow read: if true;
+      // Only admins can link/unlink catalogue products
+      allow write: if isAdmin();
+    }
+
+    // 27. Marketplace Financial Double-Entry Ledger (Zero-Trust)
+    match /financial_ledger/{entryId} {
+      // Only administrators can read the global ledger (or vendors can query where vendorId == request.auth.uid)
+      allow read: if isAdmin() || (isSignedIn() && resource.data.vendorId == request.auth.uid);
+      // Ledger writes are strictly Admin SDK / Cloud Functions only
+      allow write: if false;
+    }
+
+    // 28. Vendor Payouts & Settlement Batches
+    match /vendor_settlements/{settlementId} {
+      // Admins can read all settlement batches; vendors can read only their own settlement records
+      allow read: if isAdmin() || (isSignedIn() && resource.data.vendorId == request.auth.uid);
+      // Writes are restricted strictly to authorized admins or Cloud Functions / Admin SDK
+      allow write: if isAdmin();
+    }
   }
 }
+

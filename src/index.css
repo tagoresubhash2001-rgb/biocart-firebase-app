@@ -22,6 +22,36 @@
   --color-error: #A63A3A;
   --color-info: #2D5F7A;
   --color-accent: #B8924A;
+
+  /* Nature Green Theme Colors (Preserves contrast across buttons, badges, icons) */
+  --color-nature-50: #f0fdf4;
+  --color-nature-100: #dcfce7;
+  --color-nature-200: #bbf7d0;
+  --color-nature-300: #86efac;
+  --color-nature-400: #4ade80;
+  --color-nature-500: #22c55e;
+  --color-nature-600: #16a34a;
+  --color-nature-700: #15803d;
+  --color-nature-800: #166534;
+  --color-nature-900: #14532d;
+  --color-nature-950: #052e16;
+
+  /* Charcoal Neutral Colors */
+  --color-charcoal-400: #9ca3af;
+  --color-charcoal-500: #6b7280;
+  --color-charcoal-600: #4b5563;
+  --color-charcoal-700: #374151;
+  --color-charcoal-800: #1f2937;
+  --color-charcoal-900: #111827;
+  --color-charcoal-950: #030712;
+
+  /* Earth Amber/Warm Tones */
+  --color-earth-200: #fed7aa;
+  --color-earth-400: #fb923c;
+  --color-earth-500: #f97316;
+  --color-earth-700: #c2410c;
+  --color-earth-800: #9a3412;
+  --color-earth-900: #7c2d12;
 }
 
 /* Storefront theme — "Cyprus + Sand" (blueprint 5.1) */

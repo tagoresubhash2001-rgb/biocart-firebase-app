@@ -3,11 +3,17 @@ import { functions } from '../../config/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
-import { X, ShoppingBag, Trash2, ArrowRight, ShieldCheck, CreditCard, Sparkles, CheckCircle2, MapPin } from 'lucide-react';
+import { X, ShoppingBag, Trash2, ArrowRight, ShieldCheck, CreditCard, Sparkles, CheckCircle2, MapPin, Truck, AlertCircle, Check, RefreshCw } from 'lucide-react';
 import { AddressService } from '../../services/AddressService';
 import { AddressEntity } from '../../types/backend';
+import { useStoreSettings } from '../../hooks/useStoreSettings';
+import { ShippingService, PincodeCheckResult } from '../../services/ShippingService';
+import { CouponService, CouponValidationResult } from '../../services/CouponService';
+import { CouponEntity } from '../../types/backend';
+import { Tag } from 'lucide-react';
 
 export const CheckoutModal: React.FC = () => {
+  const { settings } = useStoreSettings();
   const {
     isCartOpen,
     setCartOpen,
@@ -35,7 +41,23 @@ export const CheckoutModal: React.FC = () => {
   const [shippingCity, setShippingCity] = useState('');
   const [shippingState, setShippingState] = useState('');
   const [shippingZip, setShippingZip] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'cod'>('upi');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('razorpay');
+
+  // B2B GST Invoice Request
+  const [requestGstInvoice, setRequestGstInvoice] = useState(false);
+  const [customerGstin, setCustomerGstin] = useState('');
+  const [customerBusinessName, setCustomerBusinessName] = useState('');
+
+  // Delhivery Pincode Serviceability State
+  const [pincodeStatus, setPincodeStatus] = useState<PincodeCheckResult | null>(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
+
+  // Coupon State
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponEntity | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState<number>(0);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.uid) {
@@ -74,23 +96,138 @@ export const CheckoutModal: React.FC = () => {
       setShippingZip(found.postalCode || '');
     }
   };
+
+  // Delhivery Live PIN Code Serviceability Check
+  useEffect(() => {
+    const cleanPin = shippingZip.replace(/\D/g, '');
+    if (cleanPin.length === 6) {
+      setCheckingPincode(true);
+      ShippingService.checkPincode(cleanPin)
+        .then((res) => {
+          setPincodeStatus(res);
+          if (res.city && !shippingCity) setShippingCity(res.city);
+          if (res.state && !shippingState) setShippingState(res.state);
+        })
+        .catch((err) => {
+          console.warn('Delhivery pincode check error:', err);
+        })
+        .finally(() => {
+          setCheckingPincode(false);
+        });
+    } else {
+      setPincodeStatus(null);
+    }
+  }, [shippingZip]);
   
   const [createdOrderId, setCreatedOrderId] = useState('');
 
+  // Authoritative Backend Quote State
+  const [authoritativeQuote, setAuthoritativeQuote] = useState<{
+    subtotal: number;
+    discountAmount: number;
+    taxAmount: number;
+    shippingAmount: number;
+    totalAmount: number;
+    freeShippingThreshold: number;
+  } | null>(null);
+  const [quotingOrder, setQuotingOrder] = useState(false);
+
+  useEffect(() => {
+    if (!isCartOpen || cart.length === 0) {
+      setAuthoritativeQuote(null);
+      return;
+    }
+
+    const payloadItems = cart.map(item => ({
+      productId: item.id,
+      quantity: item.quantityInCart || 1
+    }));
+
+    setQuotingOrder(true);
+    const quoteFn = httpsCallable<any, any>(functions, 'quoteOrder');
+    quoteFn({ items: payloadItems, couponCode: appliedCoupon?.code || undefined })
+      .then(res => {
+        if (res?.data) {
+          setAuthoritativeQuote(res.data);
+          if (res.data.discountAmount !== undefined) {
+            setCouponDiscount(res.data.discountAmount);
+          }
+        }
+      })
+      .catch(err => {
+        console.warn('Backend quoteOrder call error, falling back to local snapshot:', err);
+      })
+      .finally(() => {
+        setQuotingOrder(false);
+      });
+  }, [isCartOpen, cart, appliedCoupon?.code]);
+
   if (!isCartOpen) return null;
 
-  const subtotal = cart.reduce((sum, item) => sum + item.price * (item.quantityInCart || 0), 0);
-  const shippingFee = subtotal > 499 ? 0 : 50; // Free shipping over 499
-  const GST = Math.round(subtotal * 0.18); // 18% GST
-  const total = subtotal + shippingFee + GST;
+  const fallbackSubtotal = cart.reduce((sum, item) => sum + item.price * (item.quantityInCart || 0), 0);
+  const freeThreshold = authoritativeQuote?.freeShippingThreshold ?? (typeof settings.freeShippingThreshold === 'number' ? settings.freeShippingThreshold : 1999);
+  const shippingFee = authoritativeQuote?.shippingAmount ?? (fallbackSubtotal >= freeThreshold ? 0 : 99);
+  const couponDiscountVal = authoritativeQuote?.discountAmount ?? couponDiscount;
+  const taxableAmount = Math.max(0, (authoritativeQuote?.subtotal ?? fallbackSubtotal) - couponDiscountVal);
+  const GST = authoritativeQuote?.taxAmount ?? Math.round(taxableAmount * 0.05);
+  const subtotal = authoritativeQuote?.subtotal ?? fallbackSubtotal;
+  const total = authoritativeQuote?.totalAmount ?? (taxableAmount + shippingFee + GST);
+
+  const handleApplyCoupon = async () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) {
+      setCouponError('Please enter a coupon code.');
+      return;
+    }
+
+    try {
+      setValidatingCoupon(true);
+      setCouponError(null);
+
+      const cartItemsForValidation = cart.map(item => ({
+        product: item,
+        quantity: item.quantityInCart || 1
+      }));
+
+      const res = await CouponService.validateCartCoupon(code, cartItemsForValidation);
+      if (res.valid && res.coupon) {
+        setAppliedCoupon(res.coupon);
+        setCouponDiscount(res.discountAmount);
+        addToast(`Coupon "${code}" applied! You saved ₹${res.discountAmount}.`, 'success');
+      } else {
+        setCouponError(res.errorMessage || 'Invalid coupon code.');
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+      }
+    } catch (err: any) {
+      setCouponError(err?.message || 'Error validating coupon.');
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponInput('');
+    setCouponError(null);
+    addToast('Coupon removed.', 'info');
+  };
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!shippingName || !shippingPhone || !shippingAddress || !shippingZip) {
-      addToast('Please fill out all required fields', 'warning');
+    if (pincodeStatus && pincodeStatus.serviceable === false) {
+      addToast('The delivery pincode is not serviceable by our carrier network.', 'error');
       return;
     }
-    
+
+    if (paymentMethod === 'cod' && pincodeStatus && pincodeStatus.cod === false) {
+      addToast('Cash on Delivery (COD) is not available for this postal code. Please choose Razorpay / Online Payment.', 'error');
+      return;
+    }
+
     try {
       if (!user) {
         addToast('Please sign in or create an account to complete your checkout', 'warning');
@@ -101,7 +238,8 @@ export const CheckoutModal: React.FC = () => {
         userId: user.uid,
         customerId: (user as any)?.customerId || '',
         subtotal,
-        discountAmount: 0,
+        discountAmount: couponDiscount,
+        couponCode: appliedCoupon?.code || undefined,
         shippingAmount: shippingFee,
         taxAmount: GST,
         totalAmount: total,
@@ -137,7 +275,10 @@ export const CheckoutModal: React.FC = () => {
           items: functionCartItems,
           shippingAddress: orderData.shippingAddress,
           billingAddress: orderData.billingAddress,
-          paymentMethod
+          paymentMethod,
+          couponCode: appliedCoupon?.code || undefined,
+          customerGstin: requestGstInvoice ? customerGstin.trim().toUpperCase() : undefined,
+          customerBusinessName: requestGstInvoice ? customerBusinessName.trim() : undefined
         });
         if (resp?.data?.orderId) {
           orderId = resp.data.orderId;
@@ -299,12 +440,68 @@ export const CheckoutModal: React.FC = () => {
                       ))}
                     </div>
 
+                    {/* Coupon Input Section */}
+                    <div className="p-4 bg-slate-50 dark:bg-charcoal-800/40 rounded-2xl border border-slate-150 dark:border-white/5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Have a Promo or Store Coupon?</span>
+                      </div>
+                      {appliedCoupon ? (
+                        <div className="flex items-center justify-between p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-xs text-emerald-800 dark:text-emerald-300 uppercase">
+                              {appliedCoupon.code}
+                            </span>
+                            <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">
+                              (₹{couponDiscount} applied)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRemoveCoupon}
+                            className="text-xs text-rose-600 hover:text-rose-700 font-semibold cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="Enter coupon code (e.g. ORGANIC15)"
+                              value={couponInput}
+                              onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                              className="flex-grow px-3 py-2 bg-white dark:bg-charcoal-900 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-mono uppercase focus:outline-none focus:border-emerald-600"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleApplyCoupon}
+                              disabled={validatingCoupon}
+                              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                              {validatingCoupon ? 'Checking...' : 'Apply'}
+                            </button>
+                          </div>
+                          {couponError && (
+                            <p className="text-[11px] text-rose-600 font-medium">{couponError}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Order summary breakdown */}
                     <div className="p-5 bg-slate-50 dark:bg-charcoal-800/40 rounded-2xl border border-slate-150 dark:border-white/5 space-y-3 text-sm">
                       <div className="flex justify-between">
                         <span className="text-charcoal-500">Items Subtotal</span>
                         <span className="font-semibold text-charcoal-900 dark:text-white">₹{subtotal}</span>
                       </div>
+                      {couponDiscount > 0 && (
+                        <div className="flex justify-between text-emerald-600">
+                          <span className="font-medium">Coupon Discount</span>
+                          <span className="font-semibold">-₹{couponDiscount}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-charcoal-500">Shipping Delivery</span>
                         <span className="font-semibold text-charcoal-900 dark:text-white">
@@ -448,15 +645,90 @@ export const CheckoutModal: React.FC = () => {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-charcoal-600 dark:text-slate-300">PIN Code</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-charcoal-600 dark:text-slate-300">PIN Code</label>
+                        {checkingPincode && (
+                          <span className="text-[10px] text-nature-700 dark:text-nature-400 flex items-center gap-1 font-semibold">
+                            <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Verifying...
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         required
+                        maxLength={6}
+                        placeholder="6-digit PIN"
                         value={shippingZip}
-                        onChange={(e) => setShippingZip(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-950 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl focus:border-nature-600 focus:outline-none text-xs"
+                        onChange={(e) => setShippingZip(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-950 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl focus:border-nature-600 focus:outline-none text-xs font-mono"
                       />
                     </div>
+                  </div>
+
+                  {/* Delhivery Serviceability Badge */}
+                  {pincodeStatus && (
+                    <div
+                      className={`p-2.5 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                        pincodeStatus.serviceable
+                          ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900 dark:bg-emerald-950/20 dark:border-emerald-800/40 dark:text-emerald-300'
+                          : 'bg-amber-50/80 border-amber-200 text-amber-900 dark:bg-amber-950/20 dark:border-amber-800/40 dark:text-amber-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Truck className="w-4 h-4 flex-shrink-0" />
+                        <span className="font-semibold">
+                          {pincodeStatus.serviceable
+                            ? 'Delhivery Express Delivery Available'
+                            : 'Limited Logistics Coverage'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider">
+                        {pincodeStatus.serviceable
+                          ? `COD: ${pincodeStatus.cod ? 'YES' : 'NO'}`
+                          : 'Standard Post Only'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* GST Invoice Section (B2B Tax Credit) */}
+                  <div className="p-3 bg-slate-50 dark:bg-charcoal-800/60 rounded-xl border border-slate-200 dark:border-white/10 space-y-2 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer font-semibold text-charcoal-800 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={requestGstInvoice}
+                        onChange={(e) => setRequestGstInvoice(e.target.checked)}
+                        className="rounded text-nature-600 focus:ring-nature-500 h-4 w-4"
+                      />
+                      <span>I need a GST invoice for business tax credit</span>
+                    </label>
+
+                    {requestGstInvoice && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 dark:border-white/5">
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-500 mb-1">Business Name *</label>
+                          <input
+                            type="text"
+                            required={requestGstInvoice}
+                            placeholder="e.g. Green Earth Enterprises"
+                            value={customerBusinessName}
+                            onChange={(e) => setCustomerBusinessName(e.target.value)}
+                            className="w-full px-3 py-2 bg-white dark:bg-charcoal-900 border border-slate-300 dark:border-white/10 rounded-lg text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-500 mb-1">GSTIN Number *</label>
+                          <input
+                            type="text"
+                            required={requestGstInvoice}
+                            maxLength={15}
+                            placeholder="15-digit GSTIN (e.g. 36AAAAA0000A1Z5)"
+                            value={customerGstin}
+                            onChange={(e) => setCustomerGstin(e.target.value.toUpperCase())}
+                            className="w-full px-3 py-2 bg-white dark:bg-charcoal-900 border border-slate-300 dark:border-white/10 rounded-lg text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -465,30 +737,18 @@ export const CheckoutModal: React.FC = () => {
                   <h4 className="font-display font-bold text-sm uppercase tracking-wider text-charcoal-500 border-b border-slate-100 dark:border-white/5 pb-2">
                     Select Payment (Secure Sandbox)
                   </h4>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('upi')}
+                      onClick={() => setPaymentMethod('razorpay')}
                       className={`p-3 rounded-2xl border text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                        paymentMethod === 'upi'
-                          ? 'border-nature-700 bg-nature-50/50 dark:bg-nature-950/20 text-nature-800 dark:text-nature-400 font-bold'
-                          : 'border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-600'
-                      }`}
-                    >
-                      <Sparkles className="w-5 h-5 text-nature-700" />
-                      <span className="text-xs font-semibold">UPI Auto</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('card')}
-                      className={`p-3 rounded-2xl border text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                        paymentMethod === 'card'
+                        paymentMethod === 'razorpay'
                           ? 'border-nature-700 bg-nature-50/50 dark:bg-nature-950/20 text-nature-800 dark:text-nature-400 font-bold'
                           : 'border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-600'
                       }`}
                     >
                       <CreditCard className="w-5 h-5 text-nature-700" />
-                      <span className="text-xs font-semibold">Razorpay Card</span>
+                      <span className="text-xs font-semibold">Razorpay (UPI / Cards / NetBanking)</span>
                     </button>
                     <button
                       type="button"
@@ -500,7 +760,7 @@ export const CheckoutModal: React.FC = () => {
                       }`}
                     >
                       <ShoppingBag className="w-5 h-5 text-nature-700" />
-                      <span className="text-xs font-semibold">Cash / COD</span>
+                      <span className="text-xs font-semibold">Cash on Delivery (COD)</span>
                     </button>
                   </div>
                 </div>

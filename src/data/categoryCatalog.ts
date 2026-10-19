@@ -27,7 +27,7 @@ export const MASTER_CATEGORIES: MasterCategoryDef[] = [
     aliases: ['Potting Mix', 'Coir & Potting Mix', 'coir-potting-mix', 'potting-mix', 'cat-coir', 'cat-coir-potting-mix', 'cat-pot'],
     parentId: null,
     description: 'Triple-washed low-EC coco peat, perlite and breathable coir pots for optimal root aeration.',
-    image: '/assets/products/prod_cocopeat.png',
+    image: '/assets/products/prod_coco_peat.png',
     displayOrder: 2,
     isFeatured: true,
     active: true
@@ -53,7 +53,7 @@ export const MASTER_CATEGORIES: MasterCategoryDef[] = [
     aliases: ['Seeds', 'Organic Seeds', 'organic-seeds', 'seeds', 'cat-seeds', 'cat-organic-seeds'],
     parentId: null,
     description: 'Open-pollinated heirloom vegetable, herb, and flowering plant seeds.',
-    image: '/assets/products/prod_seaweed.png',
+    image: '/assets/products/prod_veg_seeds.png',
     displayOrder: 4,
     isFeatured: true,
     active: true
@@ -66,7 +66,7 @@ export const MASTER_CATEGORIES: MasterCategoryDef[] = [
     aliases: ['Gardening Accessories', 'Gardening Gear', 'gardening-gear', 'gardening-accessories', 'cat-acc', 'cat-gear', 'cat-gardening-gear'],
     parentId: null,
     description: 'Ergonomic stainless steel tools, jute grow bags, and precision garden sprayers.',
-    image: '/assets/products/prod_mycorrhiza.png',
+    image: '/assets/products/prod_hand_tools.png',
     displayOrder: 5,
     isFeatured: true,
     active: true
@@ -79,7 +79,7 @@ export const MASTER_CATEGORIES: MasterCategoryDef[] = [
     aliases: ['Healthy Living', 'healthy-living', 'cat-living', 'cat-life', 'cat-healthy-living'],
     parentId: null,
     description: 'Microgreen kits, herbal wellness products and urban sustainable living solutions.',
-    image: '/assets/products/prod_vermicompost.png',
+    image: '/assets/products/prod_herb_kit.png',
     displayOrder: 6,
     isFeatured: true,
     active: true
@@ -92,7 +92,7 @@ export const MASTER_CATEGORIES: MasterCategoryDef[] = [
     aliases: ['Microbial Inoculants', 'Microbial Inoculants & Bio-fertilizers', 'Bio-fertilizers', 'microbial-inoculants', 'cat-micro'],
     parentId: 'cat-fert',
     description: 'Beneficial mycorrhizae, azotobacter and rhizobium inoculants that stimulate root symbiosis.',
-    image: '/assets/products/prod_mycorrhiza.png',
+    image: '/assets/products/prod_soil_mix.png',
     displayOrder: 7,
     isFeatured: true,
     active: true
@@ -105,7 +105,7 @@ export const MASTER_CATEGORIES: MasterCategoryDef[] = [
     aliases: ['Soil Conditioners', 'Soil Conditioners & Amendments', 'Soil Amendments', 'soil-conditioners', 'cat-soil'],
     parentId: 'cat-coir',
     description: 'Biochar, humic acid, gypsum and natural mineral powders to revitalize depleted garden soils.',
-    image: '/assets/products/prod_cocopeat.png',
+    image: '/assets/products/prod_bone_meal.png',
     displayOrder: 8,
     isFeatured: false,
     active: true
@@ -118,7 +118,7 @@ export const MASTER_CATEGORIES: MasterCategoryDef[] = [
     aliases: ['Pest & Disease Control', 'Pest Control', 'Bio-pesticides', 'pest-disease-control', 'cat-pest'],
     parentId: 'cat-care',
     description: 'Biological insecticides, fungal disease treatments and non-toxic sticky barrier traps.',
-    image: '/assets/products/prod_neem_oil.png',
+    image: '/assets/products/prod_pesticide.png',
     displayOrder: 9,
     isFeatured: false,
     active: true

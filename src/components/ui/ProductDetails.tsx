@@ -49,11 +49,13 @@ export const ProductDetails: React.FC = () => {
     const unsub = AdminService.subscribeToProducts((list) => {
       if (list && list.length > 0) {
         setRealtimeProducts(list);
-      } else {
-        // Fallback to canonical seed catalog if remote database collection is empty
+      } else if (import.meta.env.VITE_USE_SEED_FALLBACK === 'true') {
+        // Fallback to canonical seed catalog only when explicitly configured
         import('../../data/seedData').then(m => {
           setRealtimeProducts(m.SEED_PRODUCTS || []);
         });
+      } else {
+        setRealtimeProducts([]);
       }
     });
     return () => unsub();
@@ -121,9 +123,11 @@ export const ProductDetails: React.FC = () => {
     );
   }
 
+  const safeProduct: Product = activeProductDetails;
+
   // Related products from canonical catalog with smart fallback
   const relatedProducts = React.useMemo(() => {
-    if (!product) return [];
+    if (!safeProduct) return [];
     
     // 1. Same-category active products (excluding current product)
     const sameCategory = realtimeProducts.filter(

@@ -63,3 +63,34 @@ export const useNotification = () => {
   }
   return context;
 };
+
+export const NotificationToasts: React.FC = () => {
+  const { notifications, dismissNotification } = useNotification();
+
+  return (
+    <div className="fixed top-24 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none" id="notification-toasts">
+      {notifications.map((item) => (
+        <div
+          key={item.id}
+          className={`pointer-events-auto flex items-start gap-3 p-4 rounded-2xl glass shadow-xl border border-white/20 dark:border-white/5 bg-white/95 dark:bg-slate-900/95 ${
+            item.type === 'error' ? 'border-l-4 border-l-red-500' : 
+            item.type === 'warning' ? 'border-l-4 border-l-amber-500' :
+            item.type === 'success' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-blue-500'
+          }`}
+        >
+          <div className="flex-grow">
+            <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed">
+              {item.message}
+            </p>
+          </div>
+          <button
+            onClick={() => dismissNotification(item.id)}
+            className="flex-shrink-0 text-slate-500 hover:text-slate-900 dark:hover:text-white p-0.5"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};

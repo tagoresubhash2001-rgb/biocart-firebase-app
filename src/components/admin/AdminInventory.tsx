@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { InventoryService } from '../../services/EnterpriseServices';
 import { InventoryEntity } from '../../types/backend';
 import { Search, Package, Save, X, Settings2 } from 'lucide-react';
+import { BioCartLoader } from '../ui/BioCartLoader';
 
 export const AdminInventory: React.FC = () => {
   const [inventory, setInventory] = useState<InventoryEntity[]>([]);
@@ -87,7 +88,7 @@ export const AdminInventory: React.FC = () => {
       <div className="flex-1 overflow-auto p-6 md:p-8">
         {isLoading ? (
           <div className="flex items-center justify-center h-40">
-            <div className="w-8 h-8 border-4 border-nature-700 border-t-transparent rounded-full animate-spin" />
+            <BioCartLoader message="Loading warehouse inventory balances..." size="sm" />
           </div>
         ) : (
           <div className="bg-white  rounded-2xl border border-slate-200  shadow-sm overflow-hidden">
@@ -171,11 +172,11 @@ export const AdminInventory: React.FC = () => {
               </form>
             </div>
             
-            <div className="p-6 border-t border-slate-200  bg-slate-50  flex justify-end gap-3">
-              <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-slate-600  font-semibold hover:bg-slate-200 :bg-white/10 rounded-lg transition-colors">
+            <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+              <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-slate-700 font-semibold hover:bg-slate-200 rounded-lg transition-colors">
                 Cancel
               </button>
-              <button form="inventory-form" type="submit" className="px-5 py-2 bg-nature-700 hover:bg-nature-800 text-white font-bold rounded-lg transition-colors flex items-center gap-2">
+              <button form="inventory-form" type="submit" className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 shadow-sm">
                 <Save className="w-4 h-4" /> Update
               </button>
             </div>

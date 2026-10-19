@@ -1,12 +1,12 @@
 import { AdminService } from './services/AdminService';
 
-import { NotificationProvider } from './contexts/NotificationContext';
+import { NotificationProvider, NotificationToasts } from './contexts/NotificationContext';
 import { LoadingProvider } from './contexts/LoadingContext';
 import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './contexts/AuthContext';
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useApp } from './context/AppContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { ToastContainer } from './components/ui/Toast';
 import { DynamicIslandNav } from './components/layout/DynamicIslandNav';
 import { FloatingSocials } from './components/ui/FloatingSocials';
@@ -16,6 +16,7 @@ import { ProductDetails } from './components/ui/ProductDetails';
 import { CheckoutModal } from './components/ui/CheckoutModal';
 import { SEOManager } from './components/ui/SEOManager';
 import { BioCartLogo } from './components/ui/BioCartLogo';
+import { BioCartLoader } from './components/ui/BioCartLoader';
 import { GenericCMSPage } from './pages/GenericCMSPage';
 
 const Home = lazy(() => import('./pages/Home').then(m => ({ default: m.Home })));
@@ -30,6 +31,8 @@ const NotFoundPage = lazy(() => import('./pages/Portals').then(m => ({ default: 
 const AdminConsole = lazy(() => import('./components/admin/AdminConsole'));
 const VendorConsole = lazy(() => import('./components/vendor/VendorConsole'));
 
+const Blogs = lazy(() => import('./pages/Blogs').then(m => ({ default: m.BlogsPage })));
+
 const AppContent: React.FC = () => {
   const { currentTab, subView } = useApp();
   const [appLoading, setAppLoading] = useState(true);
@@ -39,7 +42,7 @@ const AppContent: React.FC = () => {
   }, []);
 
   const renderContent = () => {
-    // admin and vendor routing temporarily deactivated
+    // Dynamic routing: renders specialized portals (AdminConsole, VendorConsole, Dashboard) or storefront views
     return (
       <AnimatePresence mode="wait">
         <motion.div
@@ -50,7 +53,7 @@ const AppContent: React.FC = () => {
           transition={{ duration: 0.3, ease: 'easeOut' }}
           className="flex-grow flex flex-col"
         >
-          <Suspense fallback={<div className="flex-grow flex items-center justify-center min-h-[50vh]"><div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" /></div>}>
+          <Suspense fallback={<div className="flex-grow flex items-center justify-center min-h-[50vh]"><BioCartLoader message="Loading content..." size="md" /></div>}>
             {(() => {
               
                 if (subView === 'admin' || currentTab === 'admin' as any) return <AdminConsole />;
@@ -70,6 +73,9 @@ const AppContent: React.FC = () => {
                   return <GenericCMSPage pageId="contact-us" />;
                 case 'shop': return <Shop />;
                 case 'product-details': return <ProductDetails />;
+                case 'blogs':
+                case 'blog':
+                  return <Blogs />;
                 default: 
                   return <GenericCMSPage pageId={currentTab} />;
               }
@@ -84,10 +90,7 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-white text-slate-900 font-body flex flex-col selection:bg-emerald-500/20">
       {appLoading && (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center transition-opacity duration-500" id="global-loader">
-          <BioCartLogo size="lg" className="mb-8 animate-pulse" />
-          <div className="w-48 h-1 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-600 rounded-full w-1/3 animate-[loading_1s_ease-in-out_infinite]" />
-          </div>
+          <BioCartLoader message="Welcome to BioCart — Healthy Organic Living" size="lg" />
         </div>
       )}
 
@@ -101,6 +104,7 @@ const AppContent: React.FC = () => {
 
       {subView !== 'admin' && subView !== 'vendor' && currentTab !== 'admin' && currentTab !== 'vendor' && <Footer />}
       <ToastContainer />
+      <NotificationToasts />
       <AuthModal />
       <CheckoutModal />
     </div>

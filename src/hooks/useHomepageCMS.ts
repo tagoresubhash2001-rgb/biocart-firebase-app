@@ -5,7 +5,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 export const defaultHomepageCMS = {
   hero: {
     badgeText: "Sindulis Agro Products Presents",
-    titleLine1: "BioCart – The Way of <br />",
+    titleLine1: "BioCart – The Way of",
     titleLine2: "Healthy, Organic",
     titleLine3: "Life",
     subtitle: "Indulge in premium organic living. Crafted carefully with certified zero-chemical formulations and 100% plastic-free commitments.",
@@ -39,7 +39,7 @@ export const defaultHomepageCMS = {
   },
   philosophy: {
     badge: "Our Ecological Vision",
-    title: "Promoting Plastic-Free, <br />Chemical-Free Indian Lifestyles",
+    title: "Promoting Plastic-Free, Chemical-Free Indian Lifestyles",
     description: "Sindulis Agro Products established BioCart to pioneer the circular economy. Traditional gardening consumables leak toxic PVC microplastics and chemical synthetic compounds directly into home-grown organic vegetables. Our fully biodegradable coir items decompose organically right inside your planters, building richer soil parameters instead of microplastic toxicities.",
     bullet1Title: "100% Clean Sourcing",
     bullet1Desc: "Washed and processed in our Guntur facility under strict low EC guidelines.",
@@ -128,7 +128,7 @@ export const defaultHomepageCMS = {
       {
         id: 'banner-hero-1',
         title: 'BioCart – The Way of Living Earth',
-        titleLine1: 'BioCart – The Way of <br />',
+        titleLine1: 'BioCart – The Way of',
         titleLine2: 'Healthy, Organic',
         titleLine3: 'Life',
         subtitle: 'Indulge in premium organic living. Crafted carefully with certified zero-chemical formulations and 100% plastic-free commitments.',
@@ -145,7 +145,7 @@ export const defaultHomepageCMS = {
       {
         id: 'banner-hero-2',
         title: '100% Certified Organic Farm Inputs',
-        titleLine1: 'Regenerative Agriculture <br />',
+        titleLine1: 'Regenerative Agriculture',
         titleLine2: 'Pure Organic',
         titleLine3: 'Inputs',
         subtitle: 'Direct from BioCart Verified Sustainable Producers & Bio-Labs across India.',
@@ -162,7 +162,7 @@ export const defaultHomepageCMS = {
       {
         id: 'banner-hero-3',
         title: 'Boost Soil Fertility Naturally',
-        titleLine1: 'Nurture Living Soil <br />',
+        titleLine1: 'Nurture Living Soil',
         titleLine2: 'Enrich Root',
         titleLine3: 'Microbiomes',
         subtitle: 'Double-screened vermicompost, mycorrhizae & low-EC coco peat for vibrant urban gardens.',

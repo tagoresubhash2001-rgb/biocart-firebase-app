@@ -18,7 +18,9 @@ import {
   ConfirmationResult,
   updatePassword,
   reauthenticateWithCredential,
-  EmailAuthProvider
+  EmailAuthProvider,
+  verifyBeforeUpdateEmail,
+  updateProfile
 } from 'firebase/auth';
 import { UserProfile, UserRole } from '../types/backend';
 import { UserService } from './UserService';
@@ -311,6 +313,54 @@ export class AuthService {
         await UserService.saveProfile(newProfile);
       } catch (e) { console.warn("Failed saving normal registration profile", e); }
       return user;
+    } catch (err) {
+      throw normalizeError(err);
+    }
+  }
+
+  /**
+   * Securely change login email address with reauthentication and verification
+   */
+  static async updateAdminEmail(currentPassword: string, newEmail: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('No administrator is currently authenticated.');
+    }
+    const cleanEmail = newEmail.trim().toLowerCase();
+    if (!cleanEmail || !/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+      throw new Error('Please enter a valid email address.');
+    }
+
+    try {
+      if (user.email && currentPassword) {
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(user, credential);
+      }
+      // Firebase Auth v9+ requires verifyBeforeUpdateEmail for secure email transitions
+      await verifyBeforeUpdateEmail(user, cleanEmail);
+    } catch (err) {
+      throw normalizeError(err);
+    }
+  }
+
+  /**
+   * Update administrator profile display metadata
+   */
+  static async updateAdminProfile(name: string, photoURL?: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('No administrator is currently authenticated.');
+    }
+    try {
+      await updateProfile(user, {
+        displayName: name.trim(),
+        ...(photoURL ? { photoURL: photoURL.trim() } : {})
+      });
+      await UserService.updateProfile(user.uid, {
+        name: name.trim(),
+        ...(photoURL ? { photoURL: photoURL.trim() } : {}),
+        updatedAt: new Date().toISOString()
+      });
     } catch (err) {
       throw normalizeError(err);
     }

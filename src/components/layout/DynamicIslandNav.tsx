@@ -63,6 +63,9 @@ export const DynamicIslandNav: React.FC = () => {
   const navLinks = useMemo(() => [
     { label: 'Home', tab: 'home' as const },
     { label: 'Shop', tab: 'shop' as const },
+    { label: 'About Us', tab: 'about-us' as const },
+    { label: 'Contact Us', tab: 'contact-us' as const },
+    { label: 'Blogs', tab: 'blogs' as const },
   ], []);
 
 
@@ -89,7 +92,7 @@ export const DynamicIslandNav: React.FC = () => {
     setSubView(null);
   }, [setTab, setSubView]);
 
-  const handleNavLinkClick = useCallback((tab: 'home' | 'about' | 'shop' | 'contact') => {
+  const handleNavLinkClick = useCallback((tab: 'home' | 'shop' | 'about-us' | 'contact-us' | 'blogs') => {
     setTab(tab);
     setSubView(null);
   }, [setTab, setSubView]);
@@ -109,7 +112,7 @@ export const DynamicIslandNav: React.FC = () => {
     setIsMobileMenuOpen(false);
   }, []);
 
-  const handleMobileNavLinkClick = useCallback((tab: 'home' | 'about' | 'shop' | 'contact') => {
+  const handleMobileNavLinkClick = useCallback((tab: 'home' | 'shop' | 'about-us' | 'contact-us' | 'blogs') => {
     handleNavLinkClick(tab);
     setIsMobileMenuOpen(false);
   }, [handleNavLinkClick]);

@@ -13,10 +13,14 @@ service firebase.storage {
     }
     
     function isVendorOwner(vendorId) {
-      return isSignedIn() && request.auth.token.email_verified == true && request.auth.uid == vendorId &&
+      return isSignedIn() && request.auth.token.email_verified == true &&
         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'vendor' &&
         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active' &&
-        firestore.get(/databases/(default)/documents/vendors/$(vendorId)).data.status in ['active', 'approved'];
+        firestore.get(/databases/(default)/documents/vendors/$(vendorId)).data.status in ['active', 'approved'] &&
+        (
+          request.auth.uid == vendorId ||
+          firestore.get(/databases/(default)/documents/vendors/$(vendorId)).data.ownerUid == request.auth.uid
+        );
     }
 
     function isValidImage() {

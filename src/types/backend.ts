@@ -3,7 +3,7 @@ import { z } from 'zod';
 // ==========================================
 // User Roles & Access Control
 // ==========================================
-export type UserRole = 'super_admin' | 'admin' | 'manager' | 'customer' | 'guest' | 'vendor';
+export type UserRole = 'super_admin' | 'admin' | 'manager' | 'customer' | 'guest' | 'vendor' | 'agent';
 
 export const USER_ROLES: Record<string, UserRole> = {
   SUPER_ADMIN: 'super_admin',
@@ -12,6 +12,7 @@ export const USER_ROLES: Record<string, UserRole> = {
   CUSTOMER: 'customer',
   GUEST: 'guest',
   VENDOR: 'vendor',
+  AGENT: 'agent',
 };
 
 // ==========================================
@@ -56,17 +57,19 @@ export interface UserProfile extends Partial<BaseEntity> {
   photoURL?: string;
   lastLoginAt?: string;
   customerId?: string; // BioCart Customer ID format: MMMNNNNYY (e.g. OCT000126)
+  vendorId?: string;
 }
 
 export const UserProfileSchema = z.object({
   uid: z.string().min(1, 'UID is required'),
   email: z.string().email('Invalid email address').or(z.literal('')).optional(),
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  role: z.enum(['super_admin', 'admin', 'manager', 'customer', 'guest', 'vendor'] as const),
+  role: z.enum(['super_admin', 'admin', 'manager', 'customer', 'guest', 'vendor', 'agent'] as const),
   phoneNumber: z.string().optional(),
   phone: z.string().optional(), // Compatibility alias
   location: z.string().optional(),
   customerId: z.string().optional(),
+  vendorId: z.string().optional(),
   status: z.enum(['active', 'suspended'] as const),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -282,7 +285,7 @@ export interface VendorOrderEntity extends BaseEntity {
   totalAmountPaise: number;
   commissionAmountPaise: number;
   vendorSettlementAmountPaise: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'placed' | 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   trackingNumber?: string;
   shippingCarrier?: string;
 }
@@ -487,6 +490,11 @@ export interface CouponEntity extends BaseEntity {
   endDate: string;
   usageLimit: number;
   usedCount: number;
+  creatorRole?: 'admin' | 'vendor';
+  creatorVendorId?: string;
+  applicableProductIds?: string[];
+  applicableCategories?: string[];
+  description?: string;
 }
 
 export const CouponEntitySchema = BaseEntitySchema.extend({
@@ -499,6 +507,11 @@ export const CouponEntitySchema = BaseEntitySchema.extend({
   endDate: z.string(),
   usageLimit: z.number().int().positive(),
   usedCount: z.number().int().nonnegative().default(0),
+  creatorRole: z.enum(['admin', 'vendor']).optional(),
+  creatorVendorId: z.string().optional(),
+  applicableProductIds: z.array(z.string()).optional(),
+  applicableCategories: z.array(z.string()).optional(),
+  description: z.string().optional(),
 });
 
 // ==========================================

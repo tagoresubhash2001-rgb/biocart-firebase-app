@@ -8,7 +8,7 @@ import { Product, CategoryItem } from '../types';
 import { usePageCMS } from '../hooks/usePageCMS';
 import { AdminService } from '../services/AdminService';
 import { SEED_PRODUCTS } from '../data/seedData';
-import { matchesCategoryFilter } from '../data/categoryCatalog';
+import { matchesCategoryFilter, MASTER_CATEGORIES } from '../data/categoryCatalog';
 import { 
   Search, SlidersHorizontal, Grid3X3, Grid2X2, ArrowUpDown, 
   AlertCircle
@@ -92,14 +92,19 @@ export const Shop: React.FC = () => {
         image: 'https://images.unsplash.com/photo-1592150621744-aca64f48394a?auto=format&fit=crop&w=300&h=300&q=80'
       }
     ];
-    const activeCats = realtimeCategories.filter(c => c.active !== false).map(c => ({
+    const sourceCats = realtimeCategories.length > 0 ? realtimeCategories : MASTER_CATEGORIES;
+    const activeCats = sourceCats.filter(c => c.active !== false).map(c => ({
       name: c.name,
-      image: c.image || '/assets/products/prod_vermicompost.png'
+      image: c.image || '/assets/products/prod_coco_peat.png'
     }));
     return [...defaultList, ...activeCats];
   }, [realtimeCategories]);
 
-  const allProducts = (realtimeProducts.length > 0 ? realtimeProducts : SEED_PRODUCTS).filter(p => p.active !== false && p.shopVisible !== false);
+  const allProducts = (
+    realtimeProducts.length > 0 
+      ? realtimeProducts 
+      : (import.meta.env.VITE_USE_SEED_FALLBACK === 'true' ? SEED_PRODUCTS : [])
+  ).filter(p => p.active !== false && p.shopVisible !== false);
 
 
   const filteredProducts = useMemo(() => {

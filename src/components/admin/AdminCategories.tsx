@@ -673,6 +673,30 @@ export const AdminCategories: React.FC = () => {
                     <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   </label>
                 </div>
+                {editingCategory.image && (
+                  <div className="mt-2.5 flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                    <img 
+                      src={editingCategory.image} 
+                      alt="Category preview" 
+                      className="w-14 h-14 rounded-lg object-cover border border-slate-200 bg-white"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/assets/products/prod_coco_peat.png';
+                      }}
+                    />
+                    <div className="flex-grow min-w-0">
+                      <p className="text-xs font-semibold text-slate-800 truncate">Image Preview</p>
+                      <p className="text-[10px] text-slate-500 font-mono truncate">{editingCategory.image}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCategory({ ...editingCategory, image: '' })}
+                      className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                      title="Remove image"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Description */}

@@ -38,6 +38,7 @@ export const AdminProducts: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -76,7 +77,7 @@ export const AdminProducts: React.FC = () => {
       category: categories[0]?.name || 'Organic Fertilizers',
       categoryId: categories[0]?.id || '',
       vendorId: vendors[0]?.id || 'biocart',
-      vendorName: vendors[0]?.businessName || 'BioCart Direct',
+      vendorName: vendors[0]?.storeName || 'BioCart Direct',
       price: 199,
       mrp: 299,
       sku: `BC-PROD-${Date.now().toString().slice(-6)}`,
@@ -179,11 +180,61 @@ export const AdminProducts: React.FC = () => {
     }
   };
 
+  const handleSyncCatalog = async () => {
+    try {
+      setIsSyncing(true);
+      const res = await AdminService.syncMasterCatalog(actor);
+      addToast(`Catalog synced: ${res.products} products, ${res.categories} categories`, 'success');
+    } catch (err: any) {
+      console.error('Failed to sync master catalog:', err);
+      addToast(err.message || 'Catalog synchronization failed', 'warning');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const [approvalTab, setApprovalTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+
+  const handleApproveProduct = async (product: Product) => {
+    try {
+      await AdminService.saveProduct({
+        ...product,
+        approvalStatus: 'approved',
+        active: true,
+        approvedAt: new Date().toISOString()
+      }, actor);
+      addToast(`Product "${product.name}" approved for public storefront`, 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'Failed to approve product', 'error');
+    }
+  };
+
+  const handleRejectProduct = async (product: Product) => {
+    const reason = window.prompt('Enter reason for rejecting this product:');
+    if (reason === null) return;
+    try {
+      await AdminService.saveProduct({
+        ...product,
+        approvalStatus: 'rejected',
+        active: false,
+        rejectionReason: reason || 'Does not meet catalog standards',
+        rejectedAt: new Date().toISOString()
+      }, actor);
+      addToast(`Product "${product.name}" marked as rejected`, 'info');
+    } catch (err: any) {
+      addToast(err?.message || 'Failed to reject product', 'error');
+    }
+  };
+
   const filteredProducts = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const currentApproval = (p.approvalStatus || 'approved').toLowerCase();
+    const matchesApproval = approvalTab === 'all' || currentApproval === approvalTab;
+    return matchesSearch && matchesCategory && matchesApproval;
   });
+
+  const pendingApprovalsCount = products.filter(p => (p.approvalStatus || '').toLowerCase() === 'pending').length;
 
   return (
     <div className="space-y-6">
@@ -197,12 +248,72 @@ export const AdminProducts: React.FC = () => {
           <p className="text-xs text-[#777777]">Real-time CRUD operations controlling customer shop catalog & homepage cards.</p>
         </div>
 
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncCatalog}
+            disabled={isSyncing}
+            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs rounded-xl border border-emerald-200 transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            title="Synchronize master catalog with Firestore"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Syncing...' : 'Sync Catalog'}
+          </button>
+          <button
+            onClick={handleOpenCreateModal}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-950/20 flex items-center gap-2 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Add New Product
+          </button>
+        </div>
+      </div>
+
+      {/* Approvals Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
-          onClick={handleOpenCreateModal}
-          className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-900 text-xs font-semibold rounded-xl shadow-lg shadow-emerald-950/50 flex items-center gap-2 transition-all"
+          onClick={() => setApprovalTab('all')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            approvalTab === 'all'
+              ? 'bg-slate-900 text-white'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          Add New Product
+          All Products ({products.length})
+        </button>
+        <button
+          onClick={() => setApprovalTab('pending')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            approvalTab === 'pending'
+              ? 'bg-amber-600 text-white'
+              : 'text-amber-700 bg-amber-50 hover:bg-amber-100'
+          }`}
+        >
+          <span>Pending Approvals</span>
+          {pendingApprovalsCount > 0 && (
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${approvalTab === 'pending' ? 'bg-white text-amber-700 font-extrabold' : 'bg-amber-600 text-white'}`}>
+              {pendingApprovalsCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setApprovalTab('approved')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            approvalTab === 'approved'
+              ? 'bg-emerald-700 text-white'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Approved
+        </button>
+        <button
+          onClick={() => setApprovalTab('rejected')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            approvalTab === 'rejected'
+              ? 'bg-rose-700 text-white'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          Rejected
         </button>
       </div>
 
@@ -280,9 +391,19 @@ export const AdminProducts: React.FC = () => {
                   <td colSpan={8} className="p-12 text-center text-[#777777]">
                     <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-xs font-bold text-slate-800 mb-0.5">No products found</p>
-                    <p className="text-[11px] text-[#777777]">
-                      {searchQuery ? `No products match "${searchQuery}".` : 'Click "Add New Product" to list an item.'}
+                    <p className="text-[11px] text-[#777777] mb-3">
+                      {searchQuery ? `No products match "${searchQuery}".` : 'Click "Add New Product" to list an item, or sync the canonical BioCart catalog.'}
                     </p>
+                    {!searchQuery && (
+                      <button
+                        onClick={handleSyncCatalog}
+                        disabled={isSyncing}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                        {isSyncing ? 'Syncing...' : 'Sync Master Catalog'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -342,6 +463,24 @@ export const AdminProducts: React.FC = () => {
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {(p.approvalStatus || '').toLowerCase() === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleApproveProduct(p)}
+                              title="Approve Product"
+                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold transition-all cursor-pointer"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectProduct(p)}
+                              title="Reject Product"
+                              className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold transition-all cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => handleOpenEditModal(p)}
                           className="p-1.5 text-slate-600 hover:text-emerald-400 hover:bg-slate-800 rounded-lg"
@@ -448,13 +587,13 @@ export const AdminProducts: React.FC = () => {
                       setEditingProduct({
                         ...editingProduct,
                         vendorId: e.target.value,
-                        vendorName: v?.businessName || 'BioCart Direct'
+                        vendorName: v?.storeName || 'BioCart Direct'
                       });
                     }}
                     className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-emerald-500"
                   >
                     {vendors.map((v) => (
-                      <option key={v.id} value={v.id}>{v.businessName}</option>
+                      <option key={v.id} value={v.id}>{v.storeName || v.id}</option>
                     ))}
                   </select>
                 </div>
@@ -514,6 +653,86 @@ export const AdminProducts: React.FC = () => {
                   className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-900"
                 />
               </div>
+
+              {/* Product SEO Management Section */}
+              <div className="p-4 bg-emerald-50/50 border border-emerald-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 border-b border-emerald-200/60 pb-2">
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                  <span>Product SEO & Google Search Snippet</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Custom SEO Title</label>
+                    <input
+                      type="text"
+                      value={editingProduct.seoTitle || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, seoTitle: e.target.value })}
+                      placeholder={`${editingProduct.name || 'Product Name'} | BioCart India`}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-xl text-slate-900 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Primary Target Keyword</label>
+                    <input
+                      type="text"
+                      value={editingProduct.targetKeyword || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, targetKeyword: e.target.value })}
+                      placeholder="e.g. buy vermicompost online india"
+                      className="w-full p-2 bg-white border border-slate-200 rounded-xl text-slate-900"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-700 font-semibold mb-1">Meta Description (Snippet)</label>
+                    <textarea
+                      rows={2}
+                      value={editingProduct.seoDescription || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, seoDescription: e.target.value })}
+                      placeholder="High-converting product description for Google search results (140-160 characters)..."
+                      className="w-full p-2 bg-white border border-slate-200 rounded-xl text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Primary Image Alt Text</label>
+                    <input
+                      type="text"
+                      value={editingProduct.imageAltText || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, imageAltText: e.target.value })}
+                      placeholder={editingProduct.name ? `${editingProduct.name} - Pure Organic BioCart` : 'Product image description'}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-xl text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">Canonical URL Override (Optional)</label>
+                    <input
+                      type="text"
+                      value={editingProduct.canonicalUrl || ''}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, canonicalUrl: e.target.value })}
+                      placeholder={`https://biocart.in/product-details?product=${editingProduct.id || ''}`}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-xl text-slate-900 font-mono text-[11px]"
+                    />
+                  </div>
+                </div>
+
+                {/* Live Google Search Preview */}
+                <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-0.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Google SERP Snippet Preview</span>
+                  <div className="text-blue-800 text-sm font-semibold truncate">
+                    {editingProduct.seoTitle || `${editingProduct.name || 'Product Name'} | BioCart India`}
+                  </div>
+                  <div className="text-emerald-800 text-[11px] font-mono">
+                    https://biocart.in/product-details?product={editingProduct.id || editingProduct.sku || 'id'}
+                  </div>
+                  <div className="text-slate-600 text-xs line-clamp-2">
+                    {editingProduct.seoDescription || editingProduct.shortDescription || editingProduct.description || 'Buy certified organic gardening inputs delivered across India from BioCart.'}
+                  </div>
+                </div>
+              </div>
+
 
               {/* Placement Toggles */}
               <div className="p-3 bg-white border border-slate-200 rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">

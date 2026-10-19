@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { UserService } from '../../services/UserService';
 import { UserProfile } from '../../types/backend';
 import { Search, Shield, User, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { BioCartLoader } from '../ui/BioCartLoader';
 
 export const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -62,7 +63,7 @@ export const AdminUsers: React.FC = () => {
       <div className="flex-1 overflow-auto p-6 md:p-8">
         {isLoading ? (
           <div className="flex items-center justify-center h-40">
-            <div className="w-8 h-8 border-4 border-nature-700 border-t-transparent rounded-full animate-spin" />
+            <BioCartLoader message="Loading platform registered users..." size="sm" />
           </div>
         ) : (
           <div className="bg-white  rounded-2xl border border-slate-200  shadow-sm overflow-hidden">

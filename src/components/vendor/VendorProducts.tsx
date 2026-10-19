@@ -133,13 +133,30 @@ export const VendorProducts: React.FC = () => {
     try {
       setIsSaving(true);
       const resolvedVendorId = vendorId || userProfile?.uid || firebaseUser?.uid || editingProduct.vendorId || 'biocart';
+      const isNew = !editingProduct.id;
       const productPayload = {
         ...editingProduct,
         vendorId: resolvedVendorId,
-        name: editingProduct.name.trim()
+        name: editingProduct.name.trim(),
+        source: editingProduct.source || 'vendor_created',
+        approvalStatus: editingProduct.approvalStatus || (isNew ? 'pending' : 'pending')
       };
-      await AdminService.saveProduct(productPayload, actor);
-      addToast(`Product "${productPayload.name}" saved successfully`, 'success');
+      if (!isNew && editingProduct.id) {
+        // Use submitProductChange Cloud Function for existing vendor products
+        const { httpsCallable } = await import('firebase/functions');
+        const { functions } = await import('../../config/firebase');
+        const submitChangeFn = httpsCallable<{ productId: string; updates: any }, any>(functions, 'submitProductChange');
+        await submitChangeFn({ productId: editingProduct.id, updates: productPayload });
+      } else {
+        await AdminService.saveProduct(productPayload, actor);
+      }
+
+      addToast(
+        isNew
+          ? `Product "${productPayload.name}" submitted for admin review`
+          : `Product "${productPayload.name}" updated and submitted for review`,
+        'success'
+      );
       setIsModalOpen(false);
       setEditingProduct(null);
     } catch (err: any) {
@@ -150,13 +167,14 @@ export const VendorProducts: React.FC = () => {
     }
   };
 
-  const handleDeleteProduct = async (id: string) => {
+  const handleArchiveProduct = async (id: string) => {
     try {
-      await AdminService.deleteProduct(id, actor);
-      addToast('Product deleted from Firestore', 'info');
+      // Soft-delete / Archive (active: false, archivedAt)
+      await AdminService.saveProduct({ id, active: false, archivedAt: new Date().toISOString() } as any, actor);
+      addToast('Product archived successfully', 'info');
       setDeleteConfirmId(null);
     } catch (err: any) {
-      addToast('Failed to delete product', 'warning');
+      addToast('Failed to archive product', 'warning');
     }
   };
 
@@ -253,6 +271,7 @@ export const VendorProducts: React.FC = () => {
                 <th className="p-3">Category</th>
                 <th className="p-3">Price / MRP</th>
                 <th className="p-3">Stock</th>
+                <th className="p-3 text-center">Review Status</th>
                 <th className="p-3 text-center">Placements</th>
                 <th className="p-3 text-center">Active</th>
                 <th className="p-3 text-right">Actions</th>
@@ -319,6 +338,17 @@ export const VendorProducts: React.FC = () => {
                         {p.stockStatus}
                       </span>
                     </td>
+                    <td className="p-3 text-center">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                        p.approvalStatus === 'approved' || (!p.approvalStatus && p.source !== 'vendor_created')
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : p.approvalStatus === 'rejected'
+                          ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
+                        {p.approvalStatus || 'Approved'}
+                      </span>
+                    </td>
                     <td className="p-3">
                       <div className="flex items-center justify-center gap-1">
                         <button
@@ -375,24 +405,24 @@ export const VendorProducts: React.FC = () => {
         </div>
       </div>
 
-      {/* Delete Modal */}
+      {/* Archive Modal */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-50 bg-white backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl max-w-sm w-full space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Delete Product?</h3>
-            <p className="text-xs text-[#777777]">This action will remove the product permanently from Firestore real-time database.</p>
+            <h3 className="text-base font-bold text-slate-900">Archive Product?</h3>
+            <p className="text-xs text-[#777777]">This product will be archived and hidden from the customer storefront.</p>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setDeleteConfirmId(null)}
-                className="px-3 py-1.5 bg-slate-800 text-slate-600 text-xs rounded-lg"
+                className="px-3 py-1.5 bg-slate-200 text-slate-700 text-xs rounded-lg"
               >
                 Cancel
               </button>
               <button
-                onClick={() => handleDeleteProduct(deleteConfirmId)}
-                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-slate-900 text-xs rounded-lg font-semibold"
+                onClick={() => handleArchiveProduct(deleteConfirmId)}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs rounded-lg font-semibold"
               >
-                Delete Now
+                Archive Product
               </button>
             </div>
           </div>

@@ -116,7 +116,7 @@ export const AuthModal: React.FC = () => {
         addToast('Please enter your email and password', 'warning');
         return;
       }
-      login(email, name || 'Tagore Subhash', password);
+      login(email, name, password);
     } else if (authModalMode === 'register') {
       if (!email || !name || !password) {
         addToast('Please fill all required fields, including password', 'warning');
@@ -426,7 +426,7 @@ export const AuthModal: React.FC = () => {
                       <input
                         type="text"
                         required
-                        placeholder="Tagore Subhash"
+                        placeholder="Your Full Name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-charcoal-800 text-charcoal-950 dark:text-white border border-slate-200/60 dark:border-white/10 rounded-xl focus:border-nature-600 focus:outline-none transition-colors text-sm"

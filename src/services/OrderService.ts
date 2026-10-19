@@ -122,7 +122,7 @@ export class OrderService {
           totalAmountPaise: vTotal,
           commissionAmountPaise: commissionAmountPaise,
           vendorSettlementAmountPaise: vendorSettlementAmountPaise,
-          status: 'pending'
+          status: 'placed'
         };
         
         batch.set(vendorOrderRef, vendorOrder);
@@ -156,11 +156,22 @@ export class OrderService {
       }
 
       // 5. Finalize Parent Order
-      const parentOrder: OrderEntity = {
+      const parentOrder: any = {
         ...EntityFactory.createBase(userId),
         id: parentOrderId,
         userId,
         orderNumber: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        status: 'placed',
+        orderStatus: 'placed',
+        statusHistory: [
+          {
+            status: 'placed',
+            at: new Date().toISOString(),
+            by: userId,
+            role: 'customer',
+            reason: 'Order placed by customer'
+          }
+        ],
         paymentMethod: paymentMethod,
         paymentStatus: 'pending',
         shippingAddressId: 'addr_1', // Mocked or created

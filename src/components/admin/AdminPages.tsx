@@ -64,21 +64,31 @@ export const AdminPages: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newSlug, setNewSlug] = useState('');
-  const [newCategory, setNewCategory] = useState<'Navigation' | 'Shop' | 'Support' | 'Legal' | 'Custom'>('Custom');
+  const [newCategory, setNewCategory] = useState<'Navigation' | 'Support' | 'Legal' | 'Custom'>('Custom');
   const [newTemplate, setNewTemplate] = useState<'standard' | 'homepage' | 'category' | 'legal' | 'custom'>('standard');
 
   useEffect(() => {
     setIsLoading(true);
     // 1. Subscribe to Firestore CMS pages
     const unsubPages = AdminService.subscribeToPages((firestorePages) => {
-      // Merge initial 23 pages with Firestore stored pages
+      // Filter out legacy shop category records from Firestore so they never pollute CMS pages
+      const validFirestorePages = firestorePages.filter((fp) => {
+        const id = fp.id || '';
+        const slug = fp.slug || '';
+        const isShopCat = fp.category === 'Shop' || 
+          id.startsWith('cat-') || 
+          ['organic-fertilizers', 'coir-potting-mix', 'plant-care-solutions', 'organic-seeds', 'gardening-gear', 'healthy-living', 'potting-mix', 'plant-care', 'seeds'].includes(slug);
+        return !isShopCat;
+      });
+
+      // Merge initial pages with Firestore stored pages
       const merged: CMSPage[] = INITIAL_CMS_PAGES.map((initial) => {
-        const found = firestorePages.find((fp) => fp.id === initial.id || fp.slug === initial.slug);
+        const found = validFirestorePages.find((fp) => fp.id === initial.id || fp.slug === initial.slug);
         return found ? { ...initial, ...found } : initial;
       });
 
       // Add any custom-created pages that don't exist in INITIAL_CMS_PAGES
-      firestorePages.forEach((fp) => {
+      validFirestorePages.forEach((fp) => {
         if (!merged.some((m) => m.id === fp.id)) {
           merged.push(fp as CMSPage);
         }
@@ -298,7 +308,7 @@ export const AdminPages: React.FC = () => {
               WordPress-Style Page CMS
             </span>
             <span className="text-xs text-slate-400 font-medium">
-              • 23 Canonical Store Pages + Custom Pages
+              • 17 Canonical Store Pages + Custom Pages
             </span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -343,7 +353,7 @@ export const AdminPages: React.FC = () => {
         <div className="flex items-center gap-2 flex-wrap">
           {/* Category Tabs */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
-            {['All', 'Navigation', 'Shop', 'Support', 'Legal', 'Custom'].map((cat) => (
+            {['All', 'Navigation', 'Support', 'Legal', 'Custom'].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setCategoryFilter(cat)}
