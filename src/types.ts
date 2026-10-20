@@ -180,6 +180,20 @@ export interface VendorEntity {
     totalRevenuePaise: number;
     totalCommissionPaise: number;
   };
+  orderThresholds?: {
+    minOrderValue?: number;
+    freeShippingThreshold?: number;
+    codMinValue?: number;
+    codMaxValue?: number;
+    codAvailable?: boolean;
+    useCustomThresholds?: boolean;
+  };
+  shippingPreferences?: {
+    handlingTimeDays?: number;
+    dispatchDays?: string;
+    returnAccepted?: boolean;
+    returnWindowDays?: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -311,6 +325,13 @@ export interface StoreSettings {
   maintenanceMode: boolean;
   promotionalRibbon: PromotionalRibbonConfig;
   financialPolicy?: FinancialPolicyConfig;
+  orderThresholds?: {
+    minOrderValue: number;
+    freeShippingThreshold: number;
+    codMinValue: number;
+    codMaxValue: number;
+    codAvailable: boolean;
+  };
   updatedAt?: string;
 }
 

@@ -1317,12 +1317,13 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       const fs = await import('node:fs');
       const settingsCode = fs.readFileSync('src/components/vendor/VendorSettings.tsx', 'utf8');
 
-      // 7 tabs present
-      assert.match(settingsCode, /'profile' \| 'security' \| 'notifications' \| 'shipping' \| 'financial' \| 'documents' \| 'support'/);
+      // Tabs present (including Order & Shipping Thresholds)
+      assert.match(settingsCode, /'profile' \| 'security' \| 'notifications' \| 'shipping' \| 'thresholds' \| 'financial' \| 'documents' \| 'support'/);
       assert.match(settingsCode, /Business Profile/);
       assert.match(settingsCode, /Account & Security/);
       assert.match(settingsCode, /Notifications/);
       assert.match(settingsCode, /Shipping & Fulfilment/);
+      assert.match(settingsCode, /Order & Shipping Thresholds/);
       assert.match(settingsCode, /Payout & Wallet/);
       assert.match(settingsCode, /Documents & Verification/);
       assert.match(settingsCode, /Help & Status/);
@@ -2235,6 +2236,61 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       for (let i = 1; i <= 20; i++) {
         assert.match(html, new RegExp(`<h3>${i}\\.`));
       }
+    });
+
+    it('7. verifies storefront homepage displays rounded pill category design with strictly category name', async () => {
+      const fs = await import('node:fs');
+      const homeCode = fs.readFileSync('src/pages/Home.tsx', 'utf-8');
+      assert.match(homeCode, /home-categories-track/);
+      assert.match(homeCode, /rounded-full/);
+      assert.match(homeCode, /cat\.name/);
+      // Ensure square card elements or thumbnail images were removed from category buttons
+      assert.ok(!homeCode.includes('<img src={cat.image}'), 'Category buttons should not display thumbnail images');
+    });
+
+    it('8. verifies Admin Dashboard includes RealTimeAnalyticsCharts with all 10 visual indicators', async () => {
+      const fs = await import('node:fs');
+      const adminDashCode = fs.readFileSync('src/components/admin/AdminDashboard.tsx', 'utf-8');
+      assert.match(adminDashCode, /<RealTimeAnalyticsCharts/);
+
+      const chartsCode = fs.readFileSync('src/components/admin/RealTimeAnalyticsCharts.tsx', 'utf-8');
+      assert.match(chartsCode, /Time-Based Marketplace Performance/);
+      assert.match(chartsCode, /Order Status Distribution/);
+      assert.match(chartsCode, /Payment Inflow Distribution/);
+      assert.match(chartsCode, /Category Sales & Contribution/);
+      assert.match(chartsCode, /Vendor Sales Contribution/);
+      assert.match(chartsCode, /Product Velocity & Top Performers/);
+      assert.match(chartsCode, /Commission vs Vendor Split/);
+    });
+
+    it('9. verifies vendor order and shipping thresholds precedence and UI controls', async () => {
+      const fs = await import('node:fs');
+      const vendorSettingsCode = fs.readFileSync('src/components/vendor/VendorSettings.tsx', 'utf-8');
+      assert.match(vendorSettingsCode, /Order & Shipping Thresholds/);
+      assert.match(vendorSettingsCode, /useCustomThresholds/);
+      assert.match(vendorSettingsCode, /minOrderValue/);
+      assert.match(vendorSettingsCode, /freeShippingThreshold/);
+      assert.match(vendorSettingsCode, /codMinValue/);
+      assert.match(vendorSettingsCode, /codMaxValue/);
+      assert.match(vendorSettingsCode, /Reset to Universal Defaults/);
+
+      const adminSettingsCode = fs.readFileSync('src/components/admin/AdminSettings.tsx', 'utf-8');
+      assert.match(adminSettingsCode, /Universal Order, COD & Shipping Thresholds/);
+
+      const checkoutCode = fs.readFileSync('src/components/ui/CheckoutModal.tsx', 'utf-8');
+      assert.match(checkoutCode, /isBelowMinOrder/);
+      assert.match(checkoutCode, /isCodEligible/);
+    });
+
+    it('10. verifies prominent View Dashboard action in Vendor Drawer and Admin Vendors', async () => {
+      const fs = await import('node:fs');
+      const drawerCode = fs.readFileSync('src/components/admin/VendorDetailsDrawer.tsx', 'utf-8');
+      assert.match(drawerCode, /onViewDashboard/);
+      assert.match(drawerCode, /View Dashboard/);
+
+      const vendorsCode = fs.readFileSync('src/components/admin/AdminVendors.tsx', 'utf-8');
+      assert.match(vendorsCode, /VendorIndividualDashboardModal/);
+      assert.match(vendorsCode, /dashboardVendor/);
     });
   });
 });

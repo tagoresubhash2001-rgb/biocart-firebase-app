@@ -81,6 +81,14 @@ export const VendorOnboardingModal: React.FC<VendorOnboardingModalProps> = ({
       accountNumber: vendor?.settlement?.accountNumber || '',
       ifscCode: vendor?.settlement?.ifscCode || '',
       accountType: vendor?.settlement?.accountType || 'current'
+    },
+    orderThresholds: vendor?.orderThresholds || {
+      useCustomThresholds: false,
+      minOrderValue: 199,
+      freeShippingThreshold: 499,
+      codMinValue: 299,
+      codMaxValue: 5000,
+      codAvailable: true
     }
   });
 
@@ -135,6 +143,14 @@ export const VendorOnboardingModal: React.FC<VendorOnboardingModalProps> = ({
           accountNumber: vendor?.settlement?.accountNumber || '',
           ifscCode: vendor?.settlement?.ifscCode || '',
           accountType: vendor?.settlement?.accountType || 'current'
+        },
+        orderThresholds: vendor?.orderThresholds || {
+          useCustomThresholds: false,
+          minOrderValue: 199,
+          freeShippingThreshold: 499,
+          codMinValue: 299,
+          codMaxValue: 5000,
+          codAvailable: true
         }
       });
     }
@@ -612,6 +628,100 @@ export const VendorOnboardingModal: React.FC<VendorOnboardingModalProps> = ({
                     className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono"
                   />
                 </div>
+              </div>
+
+              {/* Order & Shipping Threshold Overrides */}
+              <div className="pt-4 border-t border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider">Order & Shipping Threshold Overrides</h4>
+                    <p className="text-[11px] text-slate-500">Enable custom limits or let vendor inherit universal platform defaults.</p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formData.orderThresholds?.useCustomThresholds)}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        orderThresholds: {
+                          ...(formData.orderThresholds || { minOrderValue: 199, freeShippingThreshold: 499, codMinValue: 299, codMaxValue: 5000, codAvailable: true }),
+                          useCustomThresholds: e.target.checked
+                        }
+                      })}
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                    />
+                    <span>Custom Overrides</span>
+                  </label>
+                </div>
+
+                {formData.orderThresholds?.useCustomThresholds && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Min Order Value (₹)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={formData.orderThresholds?.minOrderValue ?? 199}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          orderThresholds: {
+                            ...formData.orderThresholds!,
+                            minOrderValue: Number(e.target.value)
+                          }
+                        })}
+                        className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Free Shipping (₹)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={formData.orderThresholds?.freeShippingThreshold ?? 499}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          orderThresholds: {
+                            ...formData.orderThresholds!,
+                            freeShippingThreshold: Number(e.target.value)
+                          }
+                        })}
+                        className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-emerald-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">COD Min Value (₹)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={formData.orderThresholds?.codMinValue ?? 299}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          orderThresholds: {
+                            ...formData.orderThresholds!,
+                            codMinValue: Number(e.target.value)
+                          }
+                        })}
+                        className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">COD Max Cap (₹)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={formData.orderThresholds?.codMaxValue ?? 5000}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          orderThresholds: {
+                            ...formData.orderThresholds!,
+                            codMaxValue: Number(e.target.value)
+                          }
+                        })}
+                        className="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

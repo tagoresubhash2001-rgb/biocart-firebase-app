@@ -258,14 +258,18 @@ exports.createOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (
             settingsDoc = await transaction.get(db.collection('settings').doc('main'));
         }
         let shippingFeePaise = 9900; // Rs. 99 in paise
-        let freeShippingThresholdPaise = 199900; // Rs. 1999 in paise
+        let freeShippingThresholdPaise = 49900; // Baseline ₹499
         let financialPolicy = financialEngine_1.DEFAULT_FINANCIAL_POLICY;
         if (settingsDoc.exists) {
             const settingsData = settingsDoc.data();
             if (settingsData.shippingFee !== undefined) {
                 shippingFeePaise = Math.round(Number(settingsData.shippingFee) * 100);
             }
-            if (settingsData.freeShippingThreshold !== undefined) {
+            const orderThresh = settingsData.orderThresholds;
+            if (orderThresh && orderThresh.freeShippingThreshold !== undefined) {
+                freeShippingThresholdPaise = Math.round(Number(orderThresh.freeShippingThreshold) * 100);
+            }
+            else if (settingsData.freeShippingThreshold !== undefined) {
                 freeShippingThresholdPaise = Math.round(Number(settingsData.freeShippingThreshold) * 100);
             }
             if (settingsData.financialPolicy) {
@@ -273,6 +277,14 @@ exports.createOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (
                     ...financialEngine_1.DEFAULT_FINANCIAL_POLICY,
                     ...settingsData.financialPolicy
                 };
+            }
+        }
+        // Precedence: Single-vendor cart with active custom override takes precedence
+        if (vendorIdsArr.length === 1) {
+            const vInfo = vendorMap.get(vendorIdsArr[0]);
+            const vThresh = vInfo?.orderThresholds;
+            if (vThresh && vThresh.useCustomThresholds && vThresh.freeShippingThreshold !== undefined && vThresh.freeShippingThreshold !== null) {
+                freeShippingThresholdPaise = Math.round(Number(vThresh.freeShippingThreshold) * 100);
             }
         }
         const shippingPaise = subtotal >= freeShippingThresholdPaise ? 0 : shippingFeePaise;
@@ -878,16 +890,57 @@ exports.quoteOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (r
         settingsDoc = await db.collection('settings').doc('main').get();
     }
     let shippingFeePaise = 9900;
-    let freeShippingThresholdPaise = 199900;
+    let freeShippingThresholdPaise = 49900; // Baseline ₹499
+    let minOrderValuePaise = 19900; // Baseline ₹199
+    let codMinValuePaise = 29900; // Baseline ₹299
+    let codMaxValuePaise = 500000; // Baseline ₹5,000
+    let codAvailable = true;
     let financialPolicy = financialEngine_1.DEFAULT_FINANCIAL_POLICY;
     if (settingsDoc.exists) {
         const sData = settingsDoc.data();
         if (sData.shippingFee !== undefined)
             shippingFeePaise = Math.round(Number(sData.shippingFee) * 100);
-        if (sData.freeShippingThreshold !== undefined)
+        const orderThresh = sData.orderThresholds;
+        if (orderThresh) {
+            if (orderThresh.freeShippingThreshold !== undefined)
+                freeShippingThresholdPaise = Math.round(Number(orderThresh.freeShippingThreshold) * 100);
+            if (orderThresh.minOrderValue !== undefined)
+                minOrderValuePaise = Math.round(Number(orderThresh.minOrderValue) * 100);
+            if (orderThresh.codMinValue !== undefined)
+                codMinValuePaise = Math.round(Number(orderThresh.codMinValue) * 100);
+            if (orderThresh.codMaxValue !== undefined)
+                codMaxValuePaise = Math.round(Number(orderThresh.codMaxValue) * 100);
+            if (orderThresh.codAvailable !== undefined)
+                codAvailable = Boolean(orderThresh.codAvailable);
+        }
+        else if (sData.freeShippingThreshold !== undefined) {
             freeShippingThresholdPaise = Math.round(Number(sData.freeShippingThreshold) * 100);
+        }
         if (sData.financialPolicy)
             financialPolicy = { ...financialEngine_1.DEFAULT_FINANCIAL_POLICY, ...sData.financialPolicy };
+    }
+    // Precedence Rule: Check if a single primary vendor cart or vendor overrides apply
+    // If vendor has useCustomThresholds === true, vendor overrides take precedence
+    if (vendorIdsArr.length === 1) {
+        const vInfo = vendorMap.get(vendorIdsArr[0]);
+        const vThresh = vInfo?.orderThresholds;
+        if (vThresh && vThresh.useCustomThresholds) {
+            if (vThresh.freeShippingThreshold !== undefined && vThresh.freeShippingThreshold !== null) {
+                freeShippingThresholdPaise = Math.round(Number(vThresh.freeShippingThreshold) * 100);
+            }
+            if (vThresh.minOrderValue !== undefined && vThresh.minOrderValue !== null) {
+                minOrderValuePaise = Math.round(Number(vThresh.minOrderValue) * 100);
+            }
+            if (vThresh.codMinValue !== undefined && vThresh.codMinValue !== null) {
+                codMinValuePaise = Math.round(Number(vThresh.codMinValue) * 100);
+            }
+            if (vThresh.codMaxValue !== undefined && vThresh.codMaxValue !== null) {
+                codMaxValuePaise = Math.round(Number(vThresh.codMaxValue) * 100);
+            }
+            if (vThresh.codAvailable !== undefined) {
+                codAvailable = Boolean(vThresh.codAvailable);
+            }
+        }
     }
     const shippingPaise = subtotal >= freeShippingThresholdPaise ? 0 : shippingFeePaise;
     const vendorInputsArray = Array.from(vendorInputsMap.values());
@@ -903,7 +956,11 @@ exports.quoteOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (r
         shippingAmountPaise: calculation.shippingPaise,
         totalAmount: calculation.grandTotalPaise / 100,
         totalAmountPaise: calculation.grandTotalPaise,
-        freeShippingThreshold: freeShippingThresholdPaise / 100
+        freeShippingThreshold: freeShippingThresholdPaise / 100,
+        minOrderValue: minOrderValuePaise / 100,
+        codMinValue: codMinValuePaise / 100,
+        codMaxValue: codMaxValuePaise / 100,
+        codAvailable
     };
 });
 exports.updateVendorEmail = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (request) => {

@@ -23,13 +23,15 @@ interface VendorDetailsDrawerProps {
   onClose: () => void;
   vendor: VendorItem;
   onEdit: () => void;
+  onViewDashboard?: () => void;
 }
 
 export const VendorDetailsDrawer: React.FC<VendorDetailsDrawerProps> = ({
   isOpen,
   onClose,
   vendor,
-  onEdit
+  onEdit,
+  onViewDashboard
 }) => {
   if (!isOpen) return null;
 
@@ -209,16 +211,30 @@ export const VendorDetailsDrawer: React.FC<VendorDetailsDrawerProps> = ({
           >
             Close
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onEdit();
-            }}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-          >
-            <Edit3 className="w-3.5 h-3.5" /> Edit Full Details
-          </button>
+          <div className="flex items-center gap-2">
+            {onViewDashboard && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onViewDashboard();
+                }}
+                className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              >
+                <Store className="w-3.5 h-3.5 text-emerald-700" /> View Dashboard
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onEdit();
+              }}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" /> Edit Full Details
+            </button>
+          </div>
         </div>
       </div>
     </div>

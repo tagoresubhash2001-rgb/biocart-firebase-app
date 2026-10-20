@@ -378,7 +378,7 @@ service cloud.firestore {
          incoming().diff(existing()).affectedKeys().hasOnly([
            'storeName', 'businessName', 'ownerName', 'phone', 'description', 
            'website', 'addresses', 'legal', 'notificationPreferences', 
-           'shippingPreferences', 'logo', 'updatedAt'
+           'shippingPreferences', 'orderThresholds', 'logo', 'updatedAt'
          ]));
       allow delete: if isAdmin();
     }

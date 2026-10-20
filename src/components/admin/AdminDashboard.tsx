@@ -30,6 +30,7 @@ import {
   DateRangePreset,
   MarketplaceFinancialSummary
 } from '../../services/AnalyticsService';
+import { RealTimeAnalyticsCharts } from './RealTimeAnalyticsCharts';
 
 interface AdminDashboardProps {
   onNavigate: (section: AdminSection) => void;
@@ -407,6 +408,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           </div>
         </div>
       </div>
+
+      {/* Authoritative Real-Time Analytics Charts */}
+      <RealTimeAnalyticsCharts
+        orders={filteredOrders}
+        categories={categories}
+        products={products}
+        vendors={vendors}
+        financialSummary={financialSummary}
+        dateRange={dateRange}
+      />
 
       {/* Action Alerts & Summary Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

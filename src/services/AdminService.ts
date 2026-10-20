@@ -56,6 +56,13 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
     settlementDayOfWeek: 2, // Tuesday
     payoutHoldPeriodDays: 3,
     minimumPayoutPaise: 50000 // Rs. 500
+  },
+  orderThresholds: {
+    minOrderValue: 199,
+    freeShippingThreshold: 499,
+    codMinValue: 299,
+    codMaxValue: 5000,
+    codAvailable: true
   }
 };
 

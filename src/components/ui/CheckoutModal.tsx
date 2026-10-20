@@ -3,7 +3,7 @@ import { functions } from '../../config/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
-import { X, ShoppingBag, Trash2, ArrowRight, ShieldCheck, CreditCard, Sparkles, CheckCircle2, MapPin, Truck, AlertCircle, Check, RefreshCw } from 'lucide-react';
+import { X, ShoppingBag, Trash2, ArrowRight, ShieldCheck, CreditCard, Sparkles, CheckCircle2, MapPin, Truck, AlertCircle, Check, RefreshCw, AlertTriangle } from 'lucide-react';
 import { AddressService } from '../../services/AddressService';
 import { AddressEntity } from '../../types/backend';
 import { useStoreSettings } from '../../hooks/useStoreSettings';
@@ -129,6 +129,10 @@ export const CheckoutModal: React.FC = () => {
     shippingAmount: number;
     totalAmount: number;
     freeShippingThreshold: number;
+    minOrderValue?: number;
+    codMinValue?: number;
+    codMaxValue?: number;
+    codAvailable?: boolean;
   } | null>(null);
   const [quotingOrder, setQuotingOrder] = useState(false);
 
@@ -165,13 +169,21 @@ export const CheckoutModal: React.FC = () => {
   if (!isCartOpen) return null;
 
   const fallbackSubtotal = cart.reduce((sum, item) => sum + item.price * (item.quantityInCart || 0), 0);
-  const freeThreshold = authoritativeQuote?.freeShippingThreshold ?? (typeof settings.freeShippingThreshold === 'number' ? settings.freeShippingThreshold : 1999);
+  const freeThreshold = authoritativeQuote?.freeShippingThreshold ?? (settings.orderThresholds?.freeShippingThreshold ?? (typeof settings.freeShippingThreshold === 'number' ? settings.freeShippingThreshold : 499));
+  const minOrderReq = authoritativeQuote?.minOrderValue ?? (settings.orderThresholds?.minOrderValue ?? 199);
+  const codMinVal = authoritativeQuote?.codMinValue ?? (settings.orderThresholds?.codMinValue ?? 299);
+  const codMaxVal = authoritativeQuote?.codMaxValue ?? (settings.orderThresholds?.codMaxValue ?? 5000);
+  const codAllowedGlobal = authoritativeQuote?.codAvailable ?? (settings.orderThresholds?.codAvailable !== false);
+
   const shippingFee = authoritativeQuote?.shippingAmount ?? (fallbackSubtotal >= freeThreshold ? 0 : 99);
   const couponDiscountVal = authoritativeQuote?.discountAmount ?? couponDiscount;
   const taxableAmount = Math.max(0, (authoritativeQuote?.subtotal ?? fallbackSubtotal) - couponDiscountVal);
   const GST = authoritativeQuote?.taxAmount ?? Math.round(taxableAmount * 0.05);
   const subtotal = authoritativeQuote?.subtotal ?? fallbackSubtotal;
   const total = authoritativeQuote?.totalAmount ?? (taxableAmount + shippingFee + GST);
+
+  const isBelowMinOrder = subtotal < minOrderReq;
+  const isCodEligible = codAllowedGlobal && total >= codMinVal && total <= codMaxVal;
 
   const handleApplyCoupon = async () => {
     const code = couponInput.trim().toUpperCase();
@@ -519,11 +531,23 @@ export const CheckoutModal: React.FC = () => {
                       </div>
                     </div>
 
+                    {isBelowMinOrder && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                        <span>Minimum order requirement of ₹{minOrderReq} is not met (Current Subtotal: ₹{subtotal}).</span>
+                      </div>
+                    )}
+
                     <button
+                      disabled={isBelowMinOrder}
                       onClick={() => setStep('checkout')}
-                      className="w-full flex items-center justify-center gap-2 py-4 bg-nature-700 hover:bg-nature-800 text-white rounded-xl font-medium shadow-md transition-all cursor-pointer hover:scale-105 active:scale-95 transition-all duration-300 ease-out shadow-md hover:shadow-nature-700/30"
+                      className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-medium shadow-md transition-all ${
+                        isBelowMinOrder
+                          ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                          : 'bg-nature-700 hover:bg-nature-800 text-white cursor-pointer hover:scale-105 active:scale-95 duration-300 ease-out shadow-nature-700/30'
+                      }`}
                     >
-                      <span>Proceed to Secure Checkout</span>
+                      <span>{isBelowMinOrder ? `Add ₹${minOrderReq - subtotal} more to checkout` : 'Proceed to Secure Checkout'}</span>
                       <ArrowRight className="w-4.5 h-4.5" />
                     </button>
                   </div>
@@ -752,15 +776,29 @@ export const CheckoutModal: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('cod')}
-                      className={`p-3 rounded-2xl border text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                        paymentMethod === 'cod'
-                          ? 'border-nature-700 bg-nature-50/50 dark:bg-nature-950/20 text-nature-800 dark:text-nature-400 font-bold'
-                          : 'border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-600'
+                      disabled={!isCodEligible}
+                      onClick={() => {
+                        if (isCodEligible) setPaymentMethod('cod');
+                      }}
+                      className={`p-3 rounded-2xl border text-center flex flex-col items-center gap-1 transition-all ${
+                        !isCodEligible
+                          ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-60'
+                          : paymentMethod === 'cod'
+                          ? 'border-nature-700 bg-nature-50/50 dark:bg-nature-950/20 text-nature-800 dark:text-nature-400 font-bold cursor-pointer'
+                          : 'border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-600 cursor-pointer'
                       }`}
                     >
                       <ShoppingBag className="w-5 h-5 text-nature-700" />
                       <span className="text-xs font-semibold">Cash on Delivery (COD)</span>
+                      {!isCodEligible && (
+                        <span className="text-[10px] text-slate-500 font-normal">
+                          {!codAllowedGlobal 
+                            ? 'Disabled for this order' 
+                            : total < codMinVal 
+                            ? `Min order ₹${codMinVal}` 
+                            : `Max order ₹${codMaxVal}`}
+                        </span>
+                      )}
                     </button>
                   </div>
                 </div>

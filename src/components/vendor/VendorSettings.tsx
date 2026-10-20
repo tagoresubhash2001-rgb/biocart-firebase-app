@@ -28,13 +28,14 @@ import {
   Lock,
   Mail,
   Phone,
-  Image as ImageIcon
+  Image as ImageIcon,
+  SlidersHorizontal
 } from 'lucide-react';
 import { BioCartLoader } from '../ui/BioCartLoader';
 
 import { normalizeVendorSettings, buildVendorUpdatePayload, VendorSettingsFormModel } from '../../utils/vendorMapping';
 
-type SettingsTab = 'profile' | 'security' | 'notifications' | 'shipping' | 'financial' | 'documents' | 'support';
+type SettingsTab = 'profile' | 'security' | 'notifications' | 'shipping' | 'thresholds' | 'financial' | 'documents' | 'support';
 
 export const VendorSettings: React.FC = () => {
   const { vendorId, loading: vendorLoading, refetch: refetchVendor } = useVendor();
@@ -85,6 +86,14 @@ export const VendorSettings: React.FC = () => {
   const [returnAccepted, setReturnAccepted] = useState(true);
   const [returnWindowDays, setReturnWindowDays] = useState(7);
 
+  // Order & Shipping Thresholds State (Vendor Custom Overrides vs Platform Defaults)
+  const [useCustomThresholds, setUseCustomThresholds] = useState(false);
+  const [minOrderValue, setMinOrderValue] = useState<number | undefined>(undefined);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number | undefined>(undefined);
+  const [codMinValue, setCodMinValue] = useState<number | undefined>(undefined);
+  const [codMaxValue, setCodMaxValue] = useState<number | undefined>(undefined);
+  const [codAvailable, setCodAvailable] = useState(true);
+
   // Fetch and hydrate vendor data mapping using the normalization layer
   const fetchVendor = async (forceOverwrite: boolean = false) => {
     if (!vendorId) return;
@@ -130,6 +139,13 @@ export const VendorSettings: React.FC = () => {
           setDispatchDays(norm.dispatchDays);
           setReturnAccepted(norm.returnAccepted);
           setReturnWindowDays(norm.returnWindowDays);
+
+          setUseCustomThresholds(norm.useCustomThresholds);
+          setMinOrderValue(norm.minOrderValue);
+          setFreeShippingThreshold(norm.freeShippingThreshold);
+          setCodMinValue(norm.codMinValue);
+          setCodMaxValue(norm.codMaxValue);
+          setCodAvailable(norm.codAvailable);
 
           setIsDirty(false);
         }
@@ -243,6 +259,12 @@ export const VendorSettings: React.FC = () => {
         dispatchDays,
         returnAccepted,
         returnWindowDays: Number(returnWindowDays) || 7,
+        useCustomThresholds,
+        minOrderValue: minOrderValue !== undefined && minOrderValue !== null ? Number(minOrderValue) : undefined,
+        freeShippingThreshold: freeShippingThreshold !== undefined && freeShippingThreshold !== null ? Number(freeShippingThreshold) : undefined,
+        codMinValue: codMinValue !== undefined && codMinValue !== null ? Number(codMinValue) : undefined,
+        codMaxValue: codMaxValue !== undefined && codMaxValue !== null ? Number(codMaxValue) : undefined,
+        codAvailable,
         notifyOrders,
         notifyLowStock,
         notifySettlements,
@@ -358,6 +380,7 @@ export const VendorSettings: React.FC = () => {
     { id: 'security', label: 'Account & Security', icon: ShieldCheck },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'shipping', label: 'Shipping & Fulfilment', icon: Truck },
+    { id: 'thresholds', label: 'Order & Shipping Thresholds', icon: SlidersHorizontal },
     { id: 'financial', label: 'Payout & Wallet', icon: Wallet },
     { id: 'documents', label: 'Documents & Verification', icon: FileText },
     { id: 'support', label: 'Help & Status', icon: HelpCircle },
@@ -964,6 +987,206 @@ export const VendorSettings: React.FC = () => {
             >
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Fulfilment Settings
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* TAB: Order & Shipping Thresholds (Vendor Custom Overrides vs Universal Platform Defaults) */}
+      {activeTab === 'thresholds' && (
+        <form onSubmit={handleSaveProfile} className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+          <div className="border-b border-slate-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <SlidersHorizontal className="w-5 h-5 text-emerald-600" />
+                Order & Shipping Thresholds
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Configure custom order value and shipping limits for products fulfilled from your store.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold font-mono ${
+                useCustomThresholds
+                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+              }`}>
+                {useCustomThresholds ? 'Custom Overrides Active' : 'Inherited from Platform Defaults'}
+              </span>
+            </div>
+          </div>
+
+          {/* Mode Switch: Inherited vs Custom Overrides */}
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useCustomThresholds}
+                  onChange={(e) => {
+                    setUseCustomThresholds(e.target.checked);
+                    if (e.target.checked) {
+                      if (minOrderValue === undefined) setMinOrderValue(199);
+                      if (freeShippingThreshold === undefined) setFreeShippingThreshold(499);
+                      if (codMinValue === undefined) setCodMinValue(299);
+                      if (codMaxValue === undefined) setCodMaxValue(5000);
+                    }
+                  }}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                />
+                <div>
+                  <span className="text-xs font-bold text-slate-900">Enable Custom Vendor Threshold Overrides</span>
+                  <p className="text-[11px] text-slate-500">
+                    When disabled, your catalog automatically inherits universal store defaults set by BioCart platform administration.
+                  </p>
+                </div>
+              </label>
+
+              {useCustomThresholds && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseCustomThresholds(false);
+                    setMinOrderValue(undefined);
+                    setFreeShippingThreshold(undefined);
+                    setCodMinValue(undefined);
+                    setCodMaxValue(undefined);
+                    setCodAvailable(true);
+                    addToast('Reset to universal platform defaults. Click "Save Threshold Settings" to apply.', 'info');
+                  }}
+                  className="text-xs text-rose-600 hover:text-rose-700 font-semibold cursor-pointer underline whitespace-nowrap"
+                >
+                  Reset to Universal Defaults
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Threshold Inputs Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-2xl">
+            {/* Minimum Order Value */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-700">Minimum Order Value (₹)</label>
+                {!useCustomThresholds && (
+                  <span className="text-[10px] text-slate-400 font-medium">Platform Default: ₹199</span>
+                )}
+              </div>
+              <input
+                type="number"
+                min={0}
+                max={50000}
+                disabled={!useCustomThresholds}
+                value={useCustomThresholds ? (minOrderValue ?? 199) : 199}
+                onChange={(e) => setMinOrderValue(Number(e.target.value))}
+                className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border transition-colors ${
+                  useCustomThresholds
+                    ? 'bg-slate-50 border-slate-300 text-slate-900 focus:outline-none focus:border-emerald-500'
+                    : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              />
+              <p className="text-[10px] text-slate-500 mt-1">Minimum subtotal required to purchase your products.</p>
+            </div>
+
+            {/* Free Shipping Threshold */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-700">Free Shipping Threshold (₹)</label>
+                {!useCustomThresholds && (
+                  <span className="text-[10px] text-slate-400 font-medium">Platform Default: ₹499</span>
+                )}
+              </div>
+              <input
+                type="number"
+                min={0}
+                max={100000}
+                disabled={!useCustomThresholds}
+                value={useCustomThresholds ? (freeShippingThreshold ?? 499) : 499}
+                onChange={(e) => setFreeShippingThreshold(Number(e.target.value))}
+                className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border transition-colors ${
+                  useCustomThresholds
+                    ? 'bg-slate-50 border-slate-300 text-emerald-700 focus:outline-none focus:border-emerald-500'
+                    : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              />
+              <p className="text-[10px] text-slate-500 mt-1">Orders above this threshold qualify for free shipping.</p>
+            </div>
+
+            {/* Cash on Delivery Availability */}
+            <div className="sm:col-span-2 pt-2">
+              <label className="flex items-center gap-3 p-3.5 rounded-2xl border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer">
+                <input
+                  type="checkbox"
+                  disabled={!useCustomThresholds}
+                  checked={useCustomThresholds ? codAvailable : true}
+                  onChange={(e) => setCodAvailable(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4 disabled:opacity-50"
+                />
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Enable Cash on Delivery (COD) for My Store</p>
+                  <p className="text-[11px] text-slate-500">Allow customers to pay via COD for items fulfilled by your warehouse.</p>
+                </div>
+              </label>
+            </div>
+
+            {/* COD Minimum Value */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-700">COD Minimum Order Value (₹)</label>
+                {!useCustomThresholds && (
+                  <span className="text-[10px] text-slate-400 font-medium">Platform Default: ₹299</span>
+                )}
+              </div>
+              <input
+                type="number"
+                min={0}
+                max={10000}
+                disabled={!useCustomThresholds || !codAvailable}
+                value={useCustomThresholds ? (codMinValue ?? 299) : 299}
+                onChange={(e) => setCodMinValue(Number(e.target.value))}
+                className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border transition-colors ${
+                  useCustomThresholds && codAvailable
+                    ? 'bg-slate-50 border-slate-300 text-slate-900 focus:outline-none focus:border-emerald-500'
+                    : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              />
+              <p className="text-[10px] text-slate-500 mt-1">Minimum cart value required to use Cash on Delivery.</p>
+            </div>
+
+            {/* COD Maximum Value */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-700">COD Maximum Cap (₹)</label>
+                {!useCustomThresholds && (
+                  <span className="text-[10px] text-slate-400 font-medium">Platform Default: ₹5,000</span>
+                )}
+              </div>
+              <input
+                type="number"
+                min={500}
+                max={100000}
+                disabled={!useCustomThresholds || !codAvailable}
+                value={useCustomThresholds ? (codMaxValue ?? 5000) : 5000}
+                onChange={(e) => setCodMaxValue(Number(e.target.value))}
+                className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold border transition-colors ${
+                  useCustomThresholds && codAvailable
+                    ? 'bg-slate-50 border-slate-300 text-slate-900 focus:outline-none focus:border-emerald-500'
+                    : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              />
+              <p className="text-[10px] text-slate-500 mt-1">Maximum cap to minimize courier return-to-origin (RTO) risk.</p>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-200 flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-2 cursor-pointer"
+            >
+              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save Threshold Settings
             </button>
           </div>
         </form>

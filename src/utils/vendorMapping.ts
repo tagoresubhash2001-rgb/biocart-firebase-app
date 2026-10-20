@@ -42,6 +42,14 @@ export interface VendorSettingsFormModel {
   returnAccepted: boolean;
   returnWindowDays: number;
 
+  // Order & Shipping Thresholds (Vendor Custom Overrides)
+  useCustomThresholds: boolean;
+  minOrderValue?: number;
+  freeShippingThreshold?: number;
+  codMinValue?: number;
+  codMaxValue?: number;
+  codAvailable: boolean;
+
   // Notification Preferences
   notifyOrders: boolean;
   notifyLowStock: boolean;
@@ -178,6 +186,12 @@ export function normalizeVendorSettings(
     dispatchDays,
     returnAccepted,
     returnWindowDays,
+    useCustomThresholds: Boolean(d.orderThresholds?.useCustomThresholds),
+    minOrderValue: d.orderThresholds?.minOrderValue,
+    freeShippingThreshold: d.orderThresholds?.freeShippingThreshold,
+    codMinValue: d.orderThresholds?.codMinValue,
+    codMaxValue: d.orderThresholds?.codMaxValue,
+    codAvailable: d.orderThresholds?.codAvailable !== false,
     notifyOrders,
     notifyLowStock,
     notifySettlements,
@@ -280,6 +294,14 @@ export function buildVendorUpdatePayload(
     legal,
     notificationPreferences,
     shippingPreferences,
+    orderThresholds: {
+      useCustomThresholds: Boolean(model.useCustomThresholds),
+      minOrderValue: model.minOrderValue !== undefined ? Number(model.minOrderValue) : null,
+      freeShippingThreshold: model.freeShippingThreshold !== undefined ? Number(model.freeShippingThreshold) : null,
+      codMinValue: model.codMinValue !== undefined ? Number(model.codMinValue) : null,
+      codMaxValue: model.codMaxValue !== undefined ? Number(model.codMaxValue) : null,
+      codAvailable: Boolean(model.codAvailable)
+    },
     updatedAt: new Date().toISOString()
   };
 }

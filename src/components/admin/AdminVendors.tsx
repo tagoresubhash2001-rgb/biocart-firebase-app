@@ -374,6 +374,11 @@ export const AdminVendors: React.FC = () => {
             setDetailVendor(null);
             handleOpenEditModal(v);
           }}
+          onViewDashboard={() => {
+            const v = detailVendor;
+            setDetailVendor(null);
+            setDashboardVendor(v);
+          }}
         />
       )}
 

@@ -526,45 +526,29 @@ export const Home: React.FC = () => {
             tabIndex={0}
             role="region"
             aria-label="Product categories horizontal list"
-            className="flex flex-row flex-nowrap overflow-x-auto scroll-smooth gap-4 md:gap-5 pb-4 pt-1 px-1 touch-pan-x snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" 
+            className="flex flex-row flex-nowrap overflow-x-auto scroll-smooth gap-2.5 sm:gap-3.5 pb-2 pt-1 px-1 touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden items-center" 
             id="home-categories-track"
           >
-            {(realtimeCategories.length > 0 ? realtimeCategories : MASTER_CATEGORIES).filter(c => c.active !== false && c.isFeatured !== false).map(c => ({
-              name: c.name,
-              displayName: c.name,
-              image: c.image || '/assets/products/prod_coco_peat.png',
-              description: c.description
-            })).map((cat, idx) => (
-              <motion.div
-                key={cat.name}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ type: 'spring', stiffness: 120, damping: 15, delay: idx * 0.05 }}
-                onClick={() => {
-                  setSelectedCategory(cat.name);
-                  setTab('shop');
-                }}
-                className="flex-shrink-0 w-44 sm:w-48 md:w-52 snap-start flex flex-col items-center text-center p-4 bg-[#FDFBD4] dark:bg-charcoal-800/10 border border-slate-100 dark:border-white/5 rounded-3xl cursor-pointer group hover:bg-emerald-50/20 dark:hover:bg-[#FDFBD4]/10 transition-all duration-300 shadow-sm hover:shadow-md"
-                id={`home-cat-card-${cat.name.replace(/\s+/g, '-').toLowerCase()}`}
-              >
-                <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-2 border-slate-200 dark:border-white/10 group-hover:border-emerald-500 group-hover:ring-4 group-hover:ring-emerald-100 dark:group-hover:ring-emerald-950/40 transition-all duration-300 shadow-sm">
-                  <img 
-                    src={cat.image} 
-                    alt={cat.displayName}
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
-                </div>
-                <h4 className="font-display font-bold text-xs sm:text-sm text-charcoal-900 dark:text-white mt-3.5 flex items-center justify-center gap-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  <span>{cat.displayName}</span>
-                </h4>
-                <p className="text-[10px] sm:text-[11px] text-charcoal-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
-                  {cat.description}
-                </p>
-              </motion.div>
-            ))}
+            {(realtimeCategories.length > 0 ? realtimeCategories : MASTER_CATEGORIES)
+              .filter(c => c.active !== false && c.isFeatured !== false)
+              .map((cat, idx) => (
+                <motion.button
+                  key={cat.id || cat.name}
+                  initial={{ opacity: 0, y: 8 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ type: 'spring', stiffness: 140, damping: 16, delay: idx * 0.03 }}
+                  onClick={() => {
+                    setSelectedCategory(cat.name);
+                    setTab('shop');
+                  }}
+                  className="shrink-0 px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-white dark:bg-charcoal-800 border border-emerald-200 dark:border-emerald-800/40 text-emerald-950 dark:text-emerald-100 font-semibold text-xs sm:text-sm tracking-wide shadow-sm hover:shadow-md hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white hover:border-emerald-600 dark:hover:border-emerald-600 active:scale-95 transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                  id={`home-cat-pill-${cat.name.replace(/\s+/g, '-').toLowerCase()}`}
+                  aria-label={`View ${cat.name} category`}
+                >
+                  {cat.name}
+                </motion.button>
+              ))}
           </div>
         </div>
       </section>

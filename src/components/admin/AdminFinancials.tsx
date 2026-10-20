@@ -248,6 +248,8 @@ export const AdminFinancials: React.FC = () => {
               orders={filteredOrders}
               categories={categories}
               products={products}
+              vendors={vendors}
+              financialSummary={financialSummary}
               dateRange={dateRange}
             />
           )}
