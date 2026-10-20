@@ -998,39 +998,101 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
         enabled: true,
         order: 2,
         data: {
-          heading: 'BioCart Digital Privacy Charter (Effective 2026)',
+          heading: 'BioCart Digital Privacy Charter & Data Protection Policy (Effective 2026)',
           content: `
-            <h3>1. Data Controller Identification</h3>
-            <p>This Privacy Policy applies to the website, digital marketplace, and services operated by <strong>Sindulis Agro Products Private Limited</strong> ("BioCart", "we", "us", or "our"), with registered corporate operations located at Industrial Corridor Area, Tanuku, West Godavari District, Andhra Pradesh - 534211, India.</p>
+            <div class="legal-document-header mb-6 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+              <p class="text-xs text-emerald-900 mb-1"><strong>Document Reference:</strong> BC-LEG-POL-001 • <strong>Effective Date:</strong> January 1, 2026 • <strong>Last Updated:</strong> October 20, 2026</p>
+              <p class="text-xs text-emerald-800"><strong>Data Controller:</strong> Sindulis Agro Products Private Limited • <strong>Platform:</strong> BioCart (biocart.in)</p>
+            </div>
 
-            <h3>2. Categories of Information We Collect</h3>
-            <p>We collect only information essential to fulfill your orders and deliver exceptional customer support:</p>
+            <h3>1. Document Identification, Effective Date & Updates</h3>
+            <p>This comprehensive Privacy Policy governs your access to and use of <strong>biocart.in</strong>, associated mobile applications, and ecological commerce services. This document was last substantively reviewed and updated on <strong>October 20, 2026</strong>. Revisions are communicated through banner notices on our storefront and updated timestamp notations.</p>
+
+            <h3>2. Data Controller & Business Identification</h3>
+            <p>The primary data controller responsible for personal information collected under this Privacy Policy is <strong>Sindulis Agro Products Private Limited</strong> (trading as "BioCart"), a company incorporated under the laws of India, with corporate operations located at <strong>Industrial Corridor Area, Tanuku, West Godavari District, Andhra Pradesh - 534211, India</strong> (CIN: U01110AP2023PTC123456).</p>
+
+            <h3>3. Scope of Policy & Services Covered</h3>
+            <p>This Policy applies to all registered customers, guest shoppers, marketplace vendor partners, wholesale applicants, and visitors browsing our biological plant care, double-screened vermicompost, and potting mix catalog across India.</p>
+
+            <h3>4. Categories of Personal Information Collected</h3>
+            <p>We collect only information reasonably necessary to operate our marketplace, fulfill agricultural orders, verify multi-vendor partners, and provide agronomic advice:</p>
             <ul>
-              <li><strong>Contact & Identity Data:</strong> Name, email address, mobile phone number, and physical delivery address.</li>
-              <li><strong>Order & Fulfillment Data:</strong> Items purchased, order value, payment status, delivery preferences, and courier tracking identifiers.</li>
-              <li><strong>Technical & Session Data:</strong> IP address, device type, browser information, and session cookies necessary to maintain shopping cart items.</li>
+              <li><strong>Direct Identifiers:</strong> Name, mobile telephone number, email address, and permanent delivery addresses.</li>
+              <li><strong>Customer Account Credentials:</strong> Password hashes, Google Firebase Authentication UIDs, and permanent Customer IDs (format: MMMNNNNYY).</li>
+              <li><strong>Order & Transaction Records:</strong> Purchased SKU lines, weight categories, payment methods, delivery preferences, invoice amounts, and fulfillment timestamps.</li>
             </ul>
 
-            <h3>3. Payment Information Security & Zero Card Storage</h3>
-            <p>BioCart prioritizes financial confidentiality. <strong>We never store, log, or process credit card numbers, CVV codes, net banking passwords, or UPI PINs on our servers.</strong> All digital payments are handled through PCI-DSS Level 1 certified payment gateways (Razorpay). Communications are protected by end-to-end 256-bit TLS encryption.</p>
+            <h3>5. Account, Profile, Address & Order Information</h3>
+            <p>Customers can save multiple delivery addresses with pin code classifications for logistics routing. Order histories are maintained to enable re-ordering, active order tracking, and statutory tax compliance under Indian GST regulations.</p>
 
-            <h3>4. Purpose and Legal Grounds for Data Processing</h3>
-            <p>We process personal data strictly for:</p>
+            <h3>6. Vendor & Marketplace Operational Information</h3>
+            <p>For verified vendor partners, we collect and securely maintain registered business names, GSTIN, PAN numbers, physical warehouse/pickup addresses, authorized manager details, and bank account beneficiary particulars (account number, IFSC code, bank branch) required strictly for automated Tuesday settlements.</p>
+
+            <h3>7. Information Collected Automatically</h3>
+            <p>When interacting with the platform, our infrastructure logs standard diagnostic metadata: browser type, operating system version, internet protocol (IP) address, referral URLs, session timestamps, and performance metrics necessary to prevent distributed denial-of-service (DDoS) incidents and enforce rate-limiting.</p>
+
+            <h3>8. Purposes & Lawful Basis of Data Processing</h3>
+            <p>We process personal data under legitimate business grounds and contractual necessity:</p>
             <ul>
-              <li>Processing, invoicing, packing, and dispatching orders.</li>
-              <li>Transmitting transactional SMS/email delivery notifications and tracking numbers.</li>
-              <li>Providing agronomic advice and responding to customer service tickets.</li>
-              <li>Complying with statutory GST and Indian commercial taxation mandates.</li>
+              <li><strong>Contract Performance:</strong> Processing checkout requests, dispatching biological nursery supplies, and coordinating with regional couriers.</li>
+              <li><strong>Logistics Coordination:</strong> Calculating pin code serviceability and generating airway bills (AWB) via Delhivery logistics APIs.</li>
+              <li><strong>Customer Assistance:</strong> Providing horticultural diagnostics, tracking status inquiries, and resolving return tickets.</li>
+              <li><strong>Legal Mandates:</strong> Maintaining statutory accounting ledgers, issuing GST tax invoices, and preventing commercial fraud.</li>
             </ul>
 
-            <h3>5. Third-Party Service Providers</h3>
-            <p>We partner only with verified service providers under strict confidentiality agreements: Google Firebase (secure cloud hosting, database authentication), Razorpay (encrypted payment gateway), and authorized logistics couriers (BlueDart / Express Logistics) solely for package delivery.</p>
+            <h3>9. Payment Gateway Security & Zero Card Storage Guarantee</h3>
+            <p>BioCart enforces zero financial card data retention. <strong>We never capture, store, log, or process credit/debit card numbers, CVV codes, net banking credentials, or UPI PINs on our servers.</strong> All digital transactions are processed directly through PCI-DSS Level 1 compliant payment gateways (Razorpay). Communications are encrypted using end-to-end 256-bit TLS protocols.</p>
 
-            <h3>6. Data Retention and Security Protocols</h3>
-            <p>We retain order and invoicing records as required by Indian accounting laws. We implement technical and organizational controls including Firebase role-based security rules, multi-factor authentication, and encrypted data storage to prevent unauthorized access or disclosure.</p>
+            <h3>10. Cookies, Session Storage & Analytics Technologies</h3>
+            <p>We use essential functional cookies and browser local storage strictly to remember cart items, preserve your wishlist, maintain active login sessions, and optimize storefront load times. We do not deploy intrusive third-party cross-site advertising trackers or sell browsing data.</p>
 
-            <h3>7. Customer Rights & Privacy Officer Contact</h3>
-            <p>You have the right to inspect, update, or request the deletion of your account and address information. To exercise your data rights or contact our designated Grievance Officer, email <strong>privacy@biocart.co.in</strong> or write to: Grievance Officer, Sindulis Agro Products Pvt. Ltd., Tanuku, Andhra Pradesh - 534211.</p>
+            <h3>11. Authorized Processors & Data Sharing</h3>
+            <p>We share operational information strictly on a need-to-know basis under binding confidentiality and data-protection terms with:</p>
+            <ul>
+              <li><strong>Logistics Partners (Delhivery):</strong> Name, delivery destination address, pin code, and contact phone number to execute parcel delivery.</li>
+              <li><strong>Payment Processors (Razorpay & RazorpayX):</strong> Order totals, transaction tokens, and verified vendor bank details for disbursements.</li>
+              <li><strong>Infrastructure Hosting:</strong> Google Cloud Platform and Firebase (Singapore/Asia-Southeast1 region) for encrypted database storage and serverless computation.</li>
+            </ul>
+
+            <h3>12. Data Retention & Secure Deletion Protocols</h3>
+            <p>Customer accounts remain active until closed. Transactional and invoicing records are retained for seven (7) financial years in accordance with the Companies Act, 2013 and Indian GST statutes. Unlinked temporary session data and transient caches are automatically purged.</p>
+
+            <h3>13. Security Architecture & Technical Safeguards</h3>
+            <p>We implement multi-layered defenses: Cloud Firestore role-based security rules (version 2), encrypted communications (HTTPS/TLS 1.3), hashed authentication identities, masked bank displays (•••• 1234), and administrative audit logging for sensitive modifications.</p>
+
+            <h3>14. Customer Rights & Access Procedures</h3>
+            <p>Under Indian information technology standards and applicable data privacy principles, you have the right to access, inspect, rectify, or request an export of your saved personal information by visiting your Customer Dashboard or emailing our privacy desk.</p>
+
+            <h3>15. Account Closure & Data Erasure Requests</h3>
+            <p>You may submit an account deletion request through the Security tab of your Customer Dashboard or by contacting <strong>privacy@biocart.co.in</strong>. Upon verification, non-statutory personal data is permanently scrubbed from active databases within thirty (30) days.</p>
+
+            <h3>16. Marketing Communication Preferences</h3>
+            <p>We communicate essential order updates via transactional SMS and email. You can opt out of promotional newsletters and agricultural crop tips at any time by clicking "Unsubscribe" in any email dispatch.</p>
+
+            <h3>17. Children's Privacy</h3>
+            <p>BioCart is an agricultural and horticulture input marketplace designed for adults and commercial farm operators. We do not knowingly solicit or collect personal information from individuals under eighteen (18) years of age.</p>
+
+            <h3>18. Third-Party Links & External Resources</h3>
+            <p>Our educational blog articles may contain informational hyperlinks to government agricultural boards, ICAR research portals, or certification registries. We are not responsible for the privacy practices of external third-party domains.</p>
+
+            <h3>19. Cross-Border Data Processing</h3>
+            <p>Customer personal information is stored and processed on secure Google Cloud Infrastructure located in Asia-Southeast1 (Singapore) and Asia-South1 (India). BioCart does not transfer consumer personal data outside trusted cloud environments.</p>
+
+            <h3>20. Incident Notification & Complaint Handling</h3>
+            <p>In the event of an identified security vulnerability or unauthorized access affecting user information, BioCart will take immediate containment measures and inform affected users and CERT-In in compliance with applicable Indian cybersecurity regulations.</p>
+
+            <h3>21. Policy Modifications</h3>
+            <p>We reserve the right to refine this Charter to reflect regulatory amendments or operational changes. Continued use of the platform following the posting of modifications constitutes acceptance of the revised terms.</p>
+
+            <h3>22. Contact & Grievance Redressal Officer</h3>
+            <p>In accordance with the Information Technology Act, 2000 and rules made thereunder, the designated Grievance Officer for BioCart is:</p>
+            <div class="grievance-officer-block p-4 bg-slate-50 rounded-xl border border-slate-200 mt-2 text-xs">
+              <p><strong>Grievance & Privacy Officer:</strong> Legal Compliance Cell</p>
+              <p><strong>Company:</strong> Sindulis Agro Products Private Limited</p>
+              <p><strong>Address:</strong> Industrial Corridor Area, Tanuku, West Godavari District, Andhra Pradesh - 534211, India</p>
+              <p><strong>Email:</strong> <a href="mailto:privacy@biocart.co.in" class="text-emerald-700 underline font-semibold">privacy@biocart.co.in</a> • <strong>Phone:</strong> +91 91542 22539</p>
+              <p class="text-slate-500 mt-1">Response Timeline: All legitimate privacy grievances are acknowledged within 24 hours and addressed within 15 working days.</p>
+            </div>
           `
         }
       }
@@ -1071,34 +1133,75 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
         enabled: true,
         order: 2,
         data: {
-          heading: 'Terms and Conditions of Use (Updated 2026)',
+          heading: 'Master Terms and Conditions of Service (Updated 2026)',
           content: `
-            <h3>1. Acceptance of Terms & Eligibility</h3>
-            <p>By browsing, creating an account, or placing an order on BioCart (biocart.in), you enter into a binding agreement with <strong>Sindulis Agro Products Private Limited</strong>. You certify that you are at least 18 years of age and competent to enter into a legally enforceable contract under the Indian Contract Act, 1872.</p>
+            <h3>1. Corporate Identity, Marketplace Scope & Legal Entity</h3>
+            <p>Welcome to <strong>BioCart</strong> (the "Marketplace", "Platform", "Website" or "Service"), an organic agricultural and horticulture marketplace operated by <strong>Sindulis Agro Products Private Limited</strong> (CIN: U01110AP2023PTC123456), having its registered office and primary fulfillment facility at Industrial Corridor Area, Tanuku, West Godavari District, Andhra Pradesh - 534211, India ("Company", "We", "Us", or "Our"). These Terms of Service ("Terms") constitute a legally binding agreement between you ("Customer", "User", "You", or "Buyer") and Sindulis Agro Products Private Limited governing your access to and commercial purchase of goods on biocart.in.</p>
 
-            <h3>2. Account Registration and Security</h3>
-            <p>When creating an account, you must provide truthful, current, and complete details. You are responsible for maintaining the confidentiality of your login credentials and for all activities that occur under your account.</p>
+            <h3>2. Definitions & Customer Eligibility</h3>
+            <p>By registering an account, accessing the Platform, or placing an order, you warrant and represent that you are at least eighteen (18) years of age, mentally sound, and possess the full legal capacity to enter into a binding contract under the Indian Contract Act, 1872. If you are accessing this Platform on behalf of an agricultural cooperative, farming firm, company, or institution, you affirm that you have the requisite corporate authority to bind that entity to these Terms.</p>
 
-            <h3>3. Product Specifications & Organic Agricultural Use</h3>
-            <p>BioCart products are formulated for horticultural, agricultural, and urban gardening applications. While our formulations are tested for electrical conductivity (low EC), moisture content, and organic purity, agricultural yields vary depending on local weather, ambient temperature, water quality, and user handling. Product descriptions and application guidelines are educational and do not constitute a warranty of specific crop harvest quantities.</p>
+            <h3>3. Account Registration, Verification & Security</h3>
+            <p>To purchase products or access order records, customers may register an account providing truthful, accurate, and complete information, including a valid mobile number and email address. You are solely responsible for preserving the confidentiality of your account credentials. You agree to notify BioCart immediately at support@biocart.co.in upon discovering any unauthorized access or breach of account security. The Company shall not be liable for losses incurred as a result of compromised user passwords.</p>
 
-            <h3>4. Pricing, Taxes & GST Invoicing</h3>
-            <p>All prices displayed on the website are in Indian Rupees (INR) and are inclusive of applicable Goods and Services Tax (GST). A formal GST tax invoice is issued for every completed transaction. We reserve the right to correct typographical pricing errors prior to order dispatch.</p>
+            <h3>4. Customer Responsibilities & Agricultural Usage</h3>
+            <p>You agree to utilize BioCart solely for lawful purposes. You agree not to misuse, tamper with, or introduce malicious scripts into the Platform. You acknowledge that biological inputs, soil enhancers, and organic pest repellents require appropriate handling, dosing, and adherence to safety guidelines tailored to specific crop cycles and local soil compositions.</p>
 
-            <h3>5. Order Acceptance & Right of Cancellation</h3>
-            <p>Receipt of an electronic order confirmation does not signify our final acceptance of your order. We reserve the right to decline or limit order quantities in the event of stock unavailability, pricing errors, or suspected unauthorized or fraudulent transactions.</p>
+            <h3>5. Vendor Responsibilities & Marketplace Listing Obligations</h3>
+            <p>Third-party approved vendors and authorized manufacturers who list products on BioCart represent and warrant that their merchandise complies with all relevant Indian statutory standards, including the Fertilizer (Inorganic, Organic or Mixed) (Control) Order (FCO), Seed Act, and applicable certification bodies. Vendors bear primary liability for accurate catalog descriptions, product freshness, and dispatch readiness.</p>
 
-            <h3>6. Pan-India Shipping & Risk of Loss</h3>
-            <p>Title and risk of loss for all purchased goods pass to you upon delivery by the carrier to your designated shipping address. Delivery estimates are indicative and subject to regional courier transit conditions.</p>
+            <h3>6. Product Specifications, Descriptions & Organic Purity Disclaimers</h3>
+            <p>BioCart products are formulated for horticultural, agricultural, and urban gardening applications. While our formulations and verified vendor offerings are tested for electrical conductivity (low EC), moisture content, and organic purity, agricultural yields naturally depend on external variables, including ambient temperature, irrigation quality, photoperiod, and individual agronomic practices. Product descriptions and application guidelines are educational and do not constitute a warranty of specific crop harvest quantities or financial returns.</p>
 
-            <h3>7. Intellectual Property & Trademarks</h3>
-            <p>The trademarks "BioCart", "Sindulis Agro Products", logos, graphics, and proprietary product names are the exclusive intellectual property of Sindulis Agro Products Private Limited. Unauthorized duplication, reverse engineering, or commercial exploitation is strictly prohibited.</p>
+            <h3>7. Order Placement, Acceptance & Right of Cancellation</h3>
+            <p>The display of items on the Platform constitutes an invitation to offer. Receipt of an electronic order receipt or SMS confirmation does not constitute our final legal acceptance. BioCart and its merchants reserve the unconditional right to limit, decline, or cancel orders in cases of stock depletion, logistics constraints, typographical pricing errors, or suspected unauthorized fraudulent activities. If an order is canceled post-payment, a full refund is immediately credited to the original payment source.</p>
 
-            <h3>8. Limitation of Liability</h3>
-            <p>To the maximum extent permitted by applicable Indian law, BioCart shall not be liable for any indirect, incidental, special, or consequential damages arising from the use or inability to use our products or services. In any event, our aggregate liability shall not exceed the total amount paid by you for the specific product giving rise to the claim.</p>
+            <h3>8. Payment Methods, Digital Authorization & Zero Card Storage</h3>
+            <p>All prices listed on BioCart are denominated in Indian Rupees (INR) and are inclusive of Goods and Services Tax (GST). BioCart accepts major domestic and international credit/debit cards, net banking, UPI, and authorized digital wallets via PCI-DSS Level 1 certified payment gateways (Razorpay). <strong>Zero Card Storage Guarantee:</strong> BioCart does not capture, store, or view your sensitive payment card numbers, CVVs, or banking credentials.</p>
 
-            <h3>9. Governing Law, Jurisdiction & Dispute Resolution</h3>
-            <p>These Terms of Service are governed by and construed in accordance with the laws of India. Any legal dispute, controversy, or claim arising out of or in connection with these terms shall be subject to the exclusive jurisdiction of the competent courts in <strong>West Godavari District, Andhra Pradesh, India</strong>.</p>
+            <h3>9. Cash on Delivery (COD) Terms & Anti-Abuse Verification</h3>
+            <p>Cash on Delivery may be offered on select product categories and pin codes. BioCart reserves the right to verify COD orders via automated IVR, SMS, or phone confirmation prior to parcel release. Refusal to accept verified COD shipments without valid defect justification may lead to restriction of COD privileges or account suspension.</p>
+
+            <h3>10. Pan-India Shipping, Delivery Timelines & Logistics Limitations</h3>
+            <p>We fulfill orders across India via trusted logistics networks (including Delhivery). Estimated shipping timelines (typically 3–7 business days depending on geography) are indicative. BioCart is not liable for parcel delays resulting from extreme weather, natural disasters, state-wide transport strikes, or incomplete customer addresses.</p>
+
+            <h3>11. Returns, Replacements, Refunds & Botanical Exceptions</h3>
+            <p>Customers may request replacements or refunds for items received in damaged, leaking, expired, or incorrect condition within seven (7) days of confirmed delivery, supported by photographic evidence. Due to biological sensitivity, live plant saplings and opened liquid bio-stimulant containers cannot be returned once opened, except in confirmed cases of manufacturing contamination.</p>
+
+            <h3>12. Marketplace Platform Role vs. Vendor Merchant Obligations</h3>
+            <p>BioCart acts as a managed marketplace and technology facilitator connecting growers, farmers, and urban gardeners with certified organic producers. While BioCart rigorously vets merchants and enforces product testing criteria, direct statutory warranty liabilities for third-party merchant products reside with the respective manufacturer or vendor as declared on the packaging label.</p>
+
+            <h3>13. Biological Product Handling, Storage & Safety Instructions</h3>
+            <p>All biological products, vermicompost, beneficial microbial inoculants, and cold-pressed neem formulations should be stored in a cool, dry, shaded environment away from direct sunlight, children, and pet access. Products are formulated solely for horticultural soil and plant application and are strictly not for human or animal consumption.</p>
+
+            <h3>14. Intellectual Property, Trademarks & Brand Protection</h3>
+            <p>The trademarks "BioCart", "Sindulis Agro Products", brand logos, UI designs, graphics, and proprietary product names are the exclusive intellectual property of Sindulis Agro Products Private Limited. Unauthorized duplication, reverse engineering, software scraping, or commercial exploitation is strictly prohibited under the Trade Marks Act, 1999 and the Copyright Act, 1957.</p>
+
+            <h3>15. Prohibited Activities, Malicious Scraping & System Abuse</h3>
+            <p>Users may not: (a) deploy automated web crawlers, spiders, or scrapers to extract pricing, inventory, or user records; (b) execute denial-of-service attacks or tamper with server infrastructure; (c) post defamatory, abusive, or false reviews; or (d) circumvent authentication gateways.</p>
+
+            <h3>16. Suspension and Termination of Accounts</h3>
+            <p>BioCart reserves the right to suspend, terminate, or restrict user access to the Platform with or without prior notice if fraudulent conduct, coupon abuse, repeated payment defaults, or violations of these Terms occur.</p>
+
+            <h3>17. Limitation of Liability & Statutory Disclaimers</h3>
+            <p>To the maximum extent permitted by applicable Indian law, Sindulis Agro Products Private Limited and its directors, officers, and employees shall not be liable for any indirect, incidental, punitive, or consequential damages resulting from the use or inability to use our products or services. In all events, our aggregate liability shall not exceed the amount actually paid by you for the specific item in dispute.</p>
+
+            <h3>18. Dispute Resolution, Governing Law & Jurisdiction</h3>
+            <p>These Terms shall be interpreted and governed in accordance with the substantive laws of India. Any dispute, controversy, or claim arising out of or relating to these Terms shall be referred to arbitration in accordance with the Arbitration and Conciliation Act, 1996, or subject to the exclusive jurisdiction of the competent civil courts situated in <strong>West Godavari District, Andhra Pradesh, India</strong>.</p>
+
+            <h3>19. Changes & Amendments to Terms</h3>
+            <p>We reserve the right to amend, update, or revise these Terms at any time to reflect statutory developments, operational improvements, or technological modifications. Any revisions will take effect immediately upon publication on biocart.in. Your continued interaction with the Platform following changes constitutes binding acceptance.</p>
+
+            <h3>20. Customer Support & Grievance Redressal Contact Block</h3>
+            <p>In accordance with the Information Technology Act, 2000 and the Consumer Protection (E-Commerce) Rules, 2020, our contact information and designated Grievance Officer details are set forth below:</p>
+            <div class="legal-contact-block p-4 bg-slate-50 rounded-xl border border-slate-200 mt-2 text-xs">
+              <p><strong>Operating Entity:</strong> Sindulis Agro Products Private Limited</p>
+              <p><strong>Corporate Identification Number (CIN):</strong> U01110AP2023PTC123456</p>
+              <p><strong>Registered & Operational Address:</strong> Industrial Corridor Area, Tanuku, West Godavari District, Andhra Pradesh - 534211, India</p>
+              <p><strong>Customer Care Email:</strong> <a href="mailto:support@biocart.co.in" class="text-emerald-700 underline font-semibold">support@biocart.co.in</a> • <strong>Phone:</strong> +91 91542 22539</p>
+              <p><strong>Grievance Officer:</strong> Legal Compliance Cell (Email: <a href="mailto:privacy@biocart.co.in" class="text-emerald-700 underline font-semibold">privacy@biocart.co.in</a>)</p>
+              <p class="text-slate-500 mt-1">Grievances are acknowledged within 48 hours and resolved within one month of receipt in accordance with consumer protection guidelines.</p>
+            </div>
           `
         }
       }

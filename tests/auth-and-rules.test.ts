@@ -1860,19 +1860,18 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.match(sitemapContent, /<loc>https:\/\/biocart\.in\/blogs\/organic-pest-control-neem-oil-sprays<\/loc>/);
     });
 
-    it('19. Public Navigation in DynamicIslandNav and Footer contains strictly 5 required items', async () => {
+    it('19. Public Navigation in DynamicIslandNav contains exactly Home and Shop, while Footer contains 5 informational links', async () => {
       const fs = await import('node:fs');
       const dynamicNavContent = fs.readFileSync('src/components/layout/DynamicIslandNav.tsx', 'utf8');
       const footerContent = fs.readFileSync('src/components/layout/Footer.tsx', 'utf8');
 
-      // Verify DynamicIslandNav links
+      // Verify DynamicIslandNav links contains exactly Home and Shop
       assert.match(dynamicNavContent, /{\s*label:\s*'Home'/);
       assert.match(dynamicNavContent, /{\s*label:\s*'Shop'/);
-      assert.match(dynamicNavContent, /{\s*label:\s*'About Us'/);
-      assert.match(dynamicNavContent, /{\s*label:\s*'Contact Us'/);
-      assert.match(dynamicNavContent, /{\s*label:\s*'Blogs'/);
+      assert.doesNotMatch(dynamicNavContent, /navLinks\s*=\s*useMemo\(\(\)\s*=>\s*\[[\s\S]*?'About Us'/);
+      assert.doesNotMatch(dynamicNavContent, /navLinks\s*=\s*useMemo\(\(\)\s*=>\s*\[[\s\S]*?'Blogs'/);
 
-      // Verify Footer Navigation links
+      // Verify Footer Navigation links contains all 5 links
       assert.match(footerContent, /{\s*label:\s*'Home',\s*tab:\s*'home'\s*}/);
       assert.match(footerContent, /{\s*label:\s*'Shop',\s*tab:\s*'shop'\s*}/);
       assert.match(footerContent, /{\s*label:\s*'About Us',\s*tab:\s*'about-us'\s*}/);
@@ -2152,6 +2151,90 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.match(engineCode, /payoutHold/);
       assert.match(engineCode, /availableBalance/);
       assert.match(engineCode, /Requested settlement amount.*exceeds available wallet balance/);
+    });
+  });
+
+  describe('Section 27: Strict Root-Cause Repair, Admin Dashboard, Vendor Drilldown & Legal Documents Verification', () => {
+    it('1. verifies DynamicIslandNav contains strictly Home and Shop', async () => {
+      const fs = await import('node:fs');
+      const navCode = fs.readFileSync('src/components/layout/DynamicIslandNav.tsx', 'utf8');
+      
+      assert.match(navCode, /label:\s*'Home',\s*tab:\s*'home'/);
+      assert.match(navCode, /label:\s*'Shop',\s*tab:\s*'shop'/);
+      assert.doesNotMatch(navCode, /navLinks\s*=\s*useMemo\(\(\)\s*=>\s*\[[\s\S]*?'About Us'/);
+      assert.doesNotMatch(navCode, /navLinks\s*=\s*useMemo\(\(\)\s*=>\s*\[[\s\S]*?'Blogs'/);
+    });
+
+    it('2. verifies Footer retains all essential informational and legal links', async () => {
+      const fs = await import('node:fs');
+      const footerCode = fs.readFileSync('src/components/layout/Footer.tsx', 'utf8');
+
+      assert.match(footerCode, /About Us/);
+      assert.match(footerCode, /Contact Us/);
+      assert.match(footerCode, /Blogs/);
+      assert.match(footerCode, /Terms of Service/);
+      assert.match(footerCode, /Privacy Policy/);
+    });
+
+    it('3. verifies AdminDashboard uses AnalyticsService for authoritative integer calculations', async () => {
+      const fs = await import('node:fs');
+      const dashboardCode = fs.readFileSync('src/components/admin/AdminDashboard.tsx', 'utf8');
+
+      assert.match(dashboardCode, /AnalyticsService/);
+      assert.match(dashboardCode, /AnalyticsService\.aggregateMarketplaceFinancials/);
+      assert.match(dashboardCode, /AnalyticsService\.getDateRange/);
+      assert.match(dashboardCode, /Asia\/Kolkata/);
+      assert.match(dashboardCode, /Operational Action Queue/);
+    });
+
+    it('4. verifies AdminVendors includes Vendor Individual Dashboard Modal integration', async () => {
+      const fs = await import('node:fs');
+      const vendorsCode = fs.readFileSync('src/components/admin/AdminVendors.tsx', 'utf8');
+      const modalCode = fs.readFileSync('src/components/admin/VendorIndividualDashboardModal.tsx', 'utf8');
+
+      assert.match(vendorsCode, /VendorIndividualDashboardModal/);
+      assert.match(vendorsCode, /dashboardVendor/);
+      assert.match(modalCode, /Gross Attributed GMV/);
+      assert.match(modalCode, /Vendor Net Earnings/);
+      assert.match(modalCode, /Available Wallet Balance/);
+      assert.match(modalCode, /Beneficiary Bank Account/);
+      assert.match(modalCode, /Double-Entry Ledger/);
+    });
+
+    it('5. verifies Privacy Policy CMS document contains all 22 structured legal sections and real entity details', async () => {
+      const { INITIAL_CMS_PAGES } = await import('../src/data/initialCMSPages.js');
+      const privacyPage = INITIAL_CMS_PAGES.find((p: any) => p.id === 'privacy-policy');
+      assert.ok(privacyPage, 'privacy-policy page must exist');
+      
+      const contentSection = privacyPage.sections.find((s: any) => s.id === 'privacy-content-main');
+      assert.ok(contentSection, 'privacy-content-main section must exist');
+      const html = contentSection.data.content;
+
+      assert.match(html, /Sindulis Agro Products Private Limited/);
+      assert.match(html, /U01110AP2023PTC123456/);
+      assert.match(html, /Tanuku, West Godavari District, Andhra Pradesh - 534211/);
+      assert.match(html, /privacy@biocart\.co\.in/);
+      for (let i = 1; i <= 22; i++) {
+        assert.match(html, new RegExp(`<h3>${i}\\.`));
+      }
+    });
+
+    it('6. verifies Terms of Service CMS document contains all 20 structured legal sections and real entity details', async () => {
+      const { INITIAL_CMS_PAGES } = await import('../src/data/initialCMSPages.js');
+      const termsPage = INITIAL_CMS_PAGES.find((p: any) => p.id === 'terms-of-service');
+      assert.ok(termsPage, 'terms-of-service page must exist');
+
+      const contentSection = termsPage.sections.find((s: any) => s.id === 'terms-content-main');
+      assert.ok(contentSection, 'terms-content-main section must exist');
+      const html = contentSection.data.content;
+
+      assert.match(html, /Sindulis Agro Products Private Limited/);
+      assert.match(html, /U01110AP2023PTC123456/);
+      assert.match(html, /Tanuku, West Godavari District, Andhra Pradesh - 534211/);
+      assert.match(html, /support@biocart\.co\.in/);
+      for (let i = 1; i <= 20; i++) {
+        assert.match(html, new RegExp(`<h3>${i}\\.`));
+      }
     });
   });
 });

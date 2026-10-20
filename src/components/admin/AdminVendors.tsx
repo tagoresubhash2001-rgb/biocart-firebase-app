@@ -18,12 +18,14 @@ import {
   KeyRound,
   Copy,
   PackagePlus,
-  Eye
+  Eye,
+  LayoutDashboard
 } from 'lucide-react';
 
 import { VendorOnboardingModal } from './VendorOnboardingModal';
 import { VendorCatalogueAssignmentModal } from './VendorCatalogueAssignmentModal';
 import { VendorDetailsDrawer } from './VendorDetailsDrawer';
+import { VendorIndividualDashboardModal } from './VendorIndividualDashboardModal';
 import { BioCartLoading } from '../ui/BioCartLoading';
 
 const functions = getFunctions(app, 'asia-southeast1');
@@ -45,6 +47,7 @@ export const AdminVendors: React.FC = () => {
   // Modal & Drawer State
   const [assignmentVendor, setAssignmentVendor] = useState<VendorItem | null>(null);
   const [detailVendor, setDetailVendor] = useState<VendorItem | null>(null);
+  const [dashboardVendor, setDashboardVendor] = useState<VendorItem | null>(null);
 
   useEffect(() => {
     return AdminService.subscribeToVendors((list) => setVendors(list));
@@ -308,6 +311,14 @@ export const AdminVendors: React.FC = () => {
                 >
                   <PackagePlus className="w-3.5 h-3.5 text-emerald-600" /> Products
                 </button>
+
+                <button
+                  onClick={() => setDashboardVendor(v)}
+                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                  title="View individual revenue, order analytics & wallet drill-down"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5 text-emerald-700" /> Dashboard
+                </button>
               </div>
 
               <div className="flex items-center gap-1">
@@ -363,6 +374,15 @@ export const AdminVendors: React.FC = () => {
             setDetailVendor(null);
             handleOpenEditModal(v);
           }}
+        />
+      )}
+
+      {/* Individual Vendor Drill-down Dashboard */}
+      {dashboardVendor && (
+        <VendorIndividualDashboardModal
+          isOpen={!!dashboardVendor}
+          onClose={() => setDashboardVendor(null)}
+          vendor={dashboardVendor}
         />
       )}
     </div>
