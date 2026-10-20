@@ -173,6 +173,7 @@ export interface VendorEntity {
     accountNumber?: string;
     ifscCode?: string;
     accountType?: string;
+    beneficiaryName?: string;
   };
   counters?: {
     totalOrders: number;

@@ -29,7 +29,8 @@ import {
   HelpCircle,
   Truck,
   UserCheck,
-  Banknote
+  Banknote,
+  DollarSign
 } from 'lucide-react';
 
 export type AdminSection =

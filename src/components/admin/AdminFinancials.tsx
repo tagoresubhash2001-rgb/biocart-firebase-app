@@ -15,6 +15,7 @@ import { AdminService } from '../../services/AdminService';
 import {
   AnalyticsService,
   DateRange,
+  DateRangePreset,
   MarketplaceFinancialSummary,
   VendorFinancialSummary
 } from '../../services/AnalyticsService';
@@ -24,9 +25,7 @@ import { RealTimeAnalyticsCharts } from './RealTimeAnalyticsCharts';
 
 export const AdminFinancials: React.FC = () => {
   // Global Date-Range State
-  const [dateRangeType, setDateRangeType] = useState<
-    'today' | 'yesterday' | 'this_week' | 'prev_week' | 'this_month' | 'prev_month' | 'this_year' | 'prev_year' | 'custom'
-  >('this_month');
+  const [dateRangeType, setDateRangeType] = useState<DateRangePreset>('this_month');
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'overview' | 'vendors' | 'analytics'>('overview');
@@ -98,7 +97,7 @@ export const AdminFinancials: React.FC = () => {
   }, []);
 
   // Compute Current Date Range
-  const dateRange: DateRange = AnalyticsService.getDateRange(
+  const { current: dateRange } = AnalyticsService.getDateRange(
     dateRangeType,
     customStart ? new Date(customStart) : undefined,
     customEnd ? new Date(customEnd) : undefined
@@ -107,7 +106,7 @@ export const AdminFinancials: React.FC = () => {
   // Filter Orders by Date Range
   const filteredOrders = orders.filter((o) => {
     const rawDate = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || o.date || 0);
-    return rawDate >= dateRange.startDate && rawDate <= dateRange.endDate;
+    return rawDate >= dateRange.start && rawDate <= dateRange.end;
   });
 
   // Calculate 15 Marketplace Financial Metrics
@@ -156,11 +155,11 @@ export const AdminFinancials: React.FC = () => {
                 <option value="today">Today</option>
                 <option value="yesterday">Yesterday</option>
                 <option value="this_week">This Week</option>
-                <option value="prev_week">Previous Week</option>
+                <option value="previous_week">Previous Week</option>
                 <option value="this_month">This Month</option>
-                <option value="prev_month">Previous Month</option>
+                <option value="previous_month">Previous Month</option>
                 <option value="this_year">This Year</option>
-                <option value="prev_year">Previous Year</option>
+                <option value="previous_year">Previous Year</option>
                 <option value="custom">Custom Date Range</option>
               </select>
             </div>

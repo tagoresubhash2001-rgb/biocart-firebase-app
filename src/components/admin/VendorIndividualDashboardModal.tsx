@@ -619,7 +619,7 @@ export const VendorIndividualDashboardModal: React.FC<VendorIndividualDashboardM
       <InitiateSettlementModal
         isOpen={showSettlementModal}
         onClose={() => setShowSettlementModal(false)}
-        vendorSummary={summary}
+        vendor={summary}
         onSubmit={handleManualSettlementSubmit}
       />
     </div>
