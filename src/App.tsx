@@ -67,10 +67,10 @@ const AppContent: React.FC = () => {
                 case 'home': return <Home />;
                 case 'about':
                 case 'about-us':
-                  return <GenericCMSPage pageId="about-us" />;
+                  return <About />;
                 case 'contact':
                 case 'contact-us':
-                  return <GenericCMSPage pageId="contact-us" />;
+                  return <Contact />;
                 case 'shop': return <Shop />;
                 case 'product-details': return <ProductDetails />;
                 case 'blogs':
