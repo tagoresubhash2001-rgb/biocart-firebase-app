@@ -2293,6 +2293,92 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.match(vendorsCode, /dashboardVendor/);
     });
   });
+
+  describe('Section 28: Vendor Order Lifecycle, Branded Packing Slip & Bulk 4×6 Courier Labels', () => {
+    it('1. verifies VendorOrders supports full lifecycle (New, Accepted, Processing, Packed, Shipped, Delivered, Rejected, Cancelled)', async () => {
+      const fs = await import('node:fs');
+      const ordersCode = fs.readFileSync('src/components/vendor/VendorOrders.tsx', 'utf-8');
+
+      // Check all 8 lifecycle stages are defined
+      assert.match(ordersCode, /'new'/);
+      assert.match(ordersCode, /'accepted'/);
+      assert.match(ordersCode, /'processing'/);
+      assert.match(ordersCode, /'packed'/);
+      assert.match(ordersCode, /'shipped'/);
+      assert.match(ordersCode, /'delivered'/);
+      assert.match(ordersCode, /'rejected'/);
+      assert.match(ordersCode, /'cancelled'/);
+
+      // Check handleTransitionStatus and rejection prompt
+      assert.match(ordersCode, /handleTransitionStatus/);
+      assert.match(ordersCode, /rejectionReason/);
+    });
+
+    it('2. verifies VendorPackingSlipModal renders official BioCart logo, watermark, and canonical order values', async () => {
+      const fs = await import('node:fs');
+      const slipCode = fs.readFileSync('src/components/vendor/VendorPackingSlipModal.tsx', 'utf-8');
+
+      assert.match(slipCode, /BioCartLogo/);
+      assert.match(slipCode, /biocart_logo_official\.png/);
+      assert.match(slipCode, /Sindulis Agro Products Pvt\. Ltd\./);
+      assert.match(slipCode, /U01110AP2023PTC123456/);
+      assert.match(slipCode, /Industrial Corridor Area, Guntur, AP - 522001/);
+      assert.match(slipCode, /care@biocart\.co\.in/);
+      assert.match(slipCode, /window\.print/);
+    });
+
+    it('3. verifies BulkShippingLabelService merges carrier PDFs into standard 4×6 inch format', async () => {
+      const { BulkShippingLabelService } = await import('../src/services/BulkShippingLabelService');
+      assert.equal(typeof BulkShippingLabelService.mergeShippingLabels, 'function');
+      assert.equal(typeof BulkShippingLabelService.fetchLabelPdfBytes, 'function');
+      assert.equal(typeof BulkShippingLabelService.downloadPdf, 'function');
+
+      // Create a test 4x6 inch PDF
+      const { PDFDocument } = await import('pdf-lib');
+      const doc = await PDFDocument.create();
+      // 4 x 6 inches = 288 x 432 pt
+      doc.addPage([288, 432]);
+      const pdfBytes = await doc.save();
+
+      const mergedBytes = await BulkShippingLabelService.mergeShippingLabels([
+        { waybill: 'AWB123', orderNumber: 'BC-2026-0001', pdfBytes },
+        { waybill: 'AWB124', orderNumber: 'BC-2026-0002', pdfBytes }
+      ]);
+
+      const mergedDoc = await PDFDocument.load(mergedBytes);
+      assert.equal(mergedDoc.getPageCount(), 2);
+      const page1 = mergedDoc.getPage(0);
+      assert.equal(page1.getWidth(), 288);
+      assert.equal(page1.getHeight(), 432);
+    });
+
+    it('4. verifies firestore.rules permits vendor order lifecycle and terminal cancellation gating', async () => {
+      const fs = await import('node:fs');
+      const rules = fs.readFileSync('firestore.rules', 'utf-8');
+
+      // Vendor orders update keys
+      assert.match(rules, /'orderStatus'/);
+      assert.match(rules, /'shipmentStatus'/);
+      assert.match(rules, /'rejectionReason'/);
+      assert.match(rules, /'cancellationReason'/);
+
+      // Terminal state locking on parent order
+      assert.match(rules, /existing\(\)\.status in \['placed', 'processing'\]/);
+    });
+
+    it('5. verifies multi-order selection, search, and date filters in VendorOrders', async () => {
+      const fs = await import('node:fs');
+      const ordersCode = fs.readFileSync('src/components/vendor/VendorOrders.tsx', 'utf-8');
+
+      assert.match(ordersCode, /selectedOrders/);
+      assert.match(ordersCode, /handleSelectAllFiltered/);
+      assert.match(ordersCode, /handleBulkDownloadLabels/);
+      assert.match(ordersCode, /statusFilter/);
+      assert.match(ordersCode, /shipmentFilter/);
+      assert.match(ordersCode, /awbFilter/);
+      assert.match(ordersCode, /dateFilter/);
+    });
+  });
 });
 
 

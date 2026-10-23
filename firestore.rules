@@ -187,7 +187,7 @@ service cloud.firestore {
       allow update: if isVerifiedAccount() && (
         isAdmin() ||
         (isOwner(existing().userId) &&
-         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes']) &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'orderStatus', 'notes', 'cancellationReason', 'updatedAt']) &&
          existing().status in ['placed', 'processing']) // Terminal state locking
       );
       allow delete: if isAdmin();
@@ -199,8 +199,13 @@ service cloud.firestore {
       // which bypasses these rules entirely).
       match /vendor_orders/{vendorId} {
         allow read: if isAdmin() || isVendorOwner(vendorId);
-        allow update: if isVendorOwner(vendorId) &&
-          incoming().diff(existing()).affectedKeys().hasOnly(['shipmentStatus', 'trackingNumber']);
+        allow update: if isAdmin() || (
+          isVendorOwner(vendorId) &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'orderStatus', 'status', 'shipmentStatus', 'trackingNumber', 
+            'carrier', 'rejectionReason', 'cancellationReason', 'notes', 'updatedAt'
+          ])
+        );
         allow write: if isAdmin();
       }
     }
