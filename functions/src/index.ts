@@ -1718,15 +1718,14 @@ export const updateVendorCommercials = onCall({ region: 'asia-southeast1' }, asy
 });
 
 // ==========================================================
+// ==========================================================
 // Marketplace Financial Settlement Engine
 // ==========================================================
+export { cashfreePayoutWebhook, cashfreePayoutWebhook as razorpayPayoutWebhook } from './cashfreePayouts';
 export {
   tuesdayVendorSettlement,
   triggerManualSettlement,
   processOrderRefund,
   releasePendingEarnings,
-  retryVendorPayout,
-  razorpayPayoutWebhook
+  retryVendorPayout
 } from './settlementEngine';
-
-

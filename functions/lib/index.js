@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.razorpayPayoutWebhook = exports.retryVendorPayout = exports.releasePendingEarnings = exports.processOrderRefund = exports.triggerManualSettlement = exports.tuesdayVendorSettlement = exports.updateVendorCommercials = exports.cancelEkartShipment = exports.getEkartLabel = exports.trackEkartShipment = exports.createEkartShipment = exports.checkEkartPincode = exports.cashfreePaymentWebhook = exports.verifyCashfreePayment = exports.createCashfreeOrder = exports.uploadMediaAsset = exports.generateInvoicePDF = exports.reconcileVendorAccount = exports.updateVendorEmail = exports.quoteOrder = exports.submitProductChange = exports.cancelOrder = exports.allocateCustomerId = exports.clearMustChangePassword = exports.createVendorAccount = exports.provisionBioCartOwner = exports.createOrder = void 0;
+exports.retryVendorPayout = exports.releasePendingEarnings = exports.processOrderRefund = exports.triggerManualSettlement = exports.tuesdayVendorSettlement = exports.razorpayPayoutWebhook = exports.cashfreePayoutWebhook = exports.updateVendorCommercials = exports.cancelEkartShipment = exports.getEkartLabel = exports.trackEkartShipment = exports.createEkartShipment = exports.checkEkartPincode = exports.cashfreePaymentWebhook = exports.verifyCashfreePayment = exports.createCashfreeOrder = exports.uploadMediaAsset = exports.generateInvoicePDF = exports.reconcileVendorAccount = exports.updateVendorEmail = exports.quoteOrder = exports.submitProductChange = exports.cancelOrder = exports.allocateCustomerId = exports.clearMustChangePassword = exports.createVendorAccount = exports.provisionBioCartOwner = exports.createOrder = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
@@ -1485,12 +1485,15 @@ exports.updateVendorCommercials = (0, https_1.onCall)({ region: 'asia-southeast1
     };
 });
 // ==========================================================
+// ==========================================================
 // Marketplace Financial Settlement Engine
 // ==========================================================
+var cashfreePayouts_1 = require("./cashfreePayouts");
+Object.defineProperty(exports, "cashfreePayoutWebhook", { enumerable: true, get: function () { return cashfreePayouts_1.cashfreePayoutWebhook; } });
+Object.defineProperty(exports, "razorpayPayoutWebhook", { enumerable: true, get: function () { return cashfreePayouts_1.cashfreePayoutWebhook; } });
 var settlementEngine_1 = require("./settlementEngine");
 Object.defineProperty(exports, "tuesdayVendorSettlement", { enumerable: true, get: function () { return settlementEngine_1.tuesdayVendorSettlement; } });
 Object.defineProperty(exports, "triggerManualSettlement", { enumerable: true, get: function () { return settlementEngine_1.triggerManualSettlement; } });
 Object.defineProperty(exports, "processOrderRefund", { enumerable: true, get: function () { return settlementEngine_1.processOrderRefund; } });
 Object.defineProperty(exports, "releasePendingEarnings", { enumerable: true, get: function () { return settlementEngine_1.releasePendingEarnings; } });
 Object.defineProperty(exports, "retryVendorPayout", { enumerable: true, get: function () { return settlementEngine_1.retryVendorPayout; } });
-Object.defineProperty(exports, "razorpayPayoutWebhook", { enumerable: true, get: function () { return settlementEngine_1.razorpayPayoutWebhook; } });
