@@ -6,7 +6,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import * as PDFDocument from 'pdfkit';
-import { calculateAuthoritativeOrder, DEFAULT_FINANCIAL_POLICY, FinancialPolicy } from './financialEngine';
+import { calculateAuthoritativeOrder, DEFAULT_FINANCIAL_POLICY, LOCKED_MARKETPLACE_POLICY, FinancialPolicy } from './financialEngine';
 
 admin.initializeApp();
 
@@ -143,7 +143,7 @@ export const createOrder = onCall({ region: 'asia-southeast1' }, async (request)
       if (!vendorInputsMap.has(vendorId)) {
         const vInfo = vendorMap.get(vendorId) || {};
         const commissionBps = vInfo.commission?.baseRateBps 
-          ?? Math.round(Number(vInfo.commissionRate ?? vInfo.commissionPercent ?? 10) * 100);
+          ?? Math.round(Number(vInfo.commissionRate ?? vInfo.commissionPercent ?? 20) * 100);
         vendorInputsMap.set(vendorId, {
           vendorId,
           vendorStoreName: vInfo.storeName || vInfo.businessName || vendorId,
@@ -270,8 +270,8 @@ export const createOrder = onCall({ region: 'asia-southeast1' }, async (request)
     }
 
     let shippingFeePaise = 9900; // Rs. 99 in paise
-    let freeShippingThresholdPaise = 49900; // Baseline ₹499
-    let financialPolicy: FinancialPolicy = DEFAULT_FINANCIAL_POLICY;
+    let freeShippingThresholdPaise = 149900; // Baseline ₹1,499 (Free shipping at ₹1,499 and above)
+    let financialPolicy: FinancialPolicy = LOCKED_MARKETPLACE_POLICY;
 
     if (settingsDoc.exists) {
       const settingsData = settingsDoc.data()!;
@@ -920,7 +920,7 @@ export const quoteOrder = onCall({ region: 'asia-southeast1' }, async (request) 
     if (!vendorInputsMap.has(vendorId)) {
       const vInfo = vendorMap.get(vendorId) || {};
       const commissionBps = vInfo.commission?.baseRateBps 
-        ?? Math.round(Number(vInfo.commissionRate ?? vInfo.commissionPercent ?? 10) * 100);
+        ?? Math.round(Number(vInfo.commissionRate ?? vInfo.commissionPercent ?? 20) * 100);
       vendorInputsMap.set(vendorId, {
         vendorId,
         vendorStoreName: vInfo.storeName || vInfo.businessName || vendorId,
@@ -1015,12 +1015,12 @@ export const quoteOrder = onCall({ region: 'asia-southeast1' }, async (request) 
   }
 
   let shippingFeePaise = 9900;
-  let freeShippingThresholdPaise = 49900; // Baseline ₹499
-  let minOrderValuePaise = 19900; // Baseline ₹199
+  let freeShippingThresholdPaise = 149900; // Baseline ₹1,499 (Free shipping at ₹1,499 and above)
+  let minOrderValuePaise = 0; // No minimum order restriction: orders of any positive amount allowed
   let codMinValuePaise = 29900; // Baseline ₹299
   let codMaxValuePaise = 500000; // Baseline ₹5,000
   let codAvailable = true;
-  let financialPolicy = DEFAULT_FINANCIAL_POLICY;
+  let financialPolicy = LOCKED_MARKETPLACE_POLICY;
 
   if (settingsDoc.exists) {
     const sData = settingsDoc.data()!;

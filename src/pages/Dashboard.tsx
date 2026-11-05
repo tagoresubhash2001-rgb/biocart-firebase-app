@@ -1210,7 +1210,7 @@ export const Dashboard: React.FC = () => {
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex gap-3 text-xs text-emerald-800">
                 <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-700" />
                 <p className="leading-relaxed">
-                  Your BioCart Eco Membership is currently active. Enjoy free carbon-neutral shipping on any purchase above ₹499 and priority dispatch from our Guntur processing units.
+                  Your BioCart Eco Membership is currently active. Enjoy free carbon-neutral shipping on any purchase of ₹1,499 and above and priority dispatch from our Guntur processing units.
                 </p>
               </div>
 

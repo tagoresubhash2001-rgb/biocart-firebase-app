@@ -190,8 +190,8 @@ export const CheckoutModal: React.FC = () => {
   if (!isCartOpen) return null;
 
   const fallbackSubtotal = cart.reduce((sum, item) => sum + item.price * (item.quantityInCart || 0), 0);
-  const freeThreshold = authoritativeQuote?.freeShippingThreshold ?? (settings.orderThresholds?.freeShippingThreshold ?? (typeof settings.freeShippingThreshold === 'number' ? settings.freeShippingThreshold : 499));
-  const minOrderReq = authoritativeQuote?.minOrderValue ?? (settings.orderThresholds?.minOrderValue ?? 199);
+  const freeThreshold = authoritativeQuote?.freeShippingThreshold ?? (settings.orderThresholds?.freeShippingThreshold ?? (typeof settings.freeShippingThreshold === 'number' ? settings.freeShippingThreshold : 1499));
+  const minOrderReq = authoritativeQuote?.minOrderValue ?? (settings.orderThresholds?.minOrderValue ?? 0);
   const codMinVal = authoritativeQuote?.codMinValue ?? (settings.orderThresholds?.codMinValue ?? 299);
   const codMaxVal = authoritativeQuote?.codMaxValue ?? (settings.orderThresholds?.codMaxValue ?? 5000);
   const codAllowedGlobal = authoritativeQuote?.codAvailable ?? (settings.orderThresholds?.codAvailable !== false);
@@ -199,11 +199,12 @@ export const CheckoutModal: React.FC = () => {
   const shippingFee = authoritativeQuote?.shippingAmount ?? (fallbackSubtotal >= freeThreshold ? 0 : 99);
   const couponDiscountVal = authoritativeQuote?.discountAmount ?? couponDiscount;
   const taxableAmount = Math.max(0, (authoritativeQuote?.subtotal ?? fallbackSubtotal) - couponDiscountVal);
-  const GST = authoritativeQuote?.taxAmount ?? Math.round(taxableAmount * 0.05);
+  // Locked Business Rule: Product MRP is inclusive of applicable taxes. Never add GST on top of product MRP.
+  const GST = 0;
   const subtotal = authoritativeQuote?.subtotal ?? fallbackSubtotal;
-  const total = authoritativeQuote?.totalAmount ?? (taxableAmount + shippingFee + GST);
+  const total = authoritativeQuote?.totalAmount ?? (taxableAmount + shippingFee);
 
-  const isBelowMinOrder = subtotal < minOrderReq;
+  const isBelowMinOrder = minOrderReq > 0 && subtotal < minOrderReq;
   const isCodEligible = codAllowedGlobal && total >= codMinVal && total <= codMaxVal;
 
   const handleApplyCoupon = async () => {
@@ -596,8 +597,8 @@ export const CheckoutModal: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-charcoal-500">GST (18%)</span>
-                        <span className="font-semibold text-charcoal-900 dark:text-white">₹{GST}</span>
+                        <span className="text-charcoal-500">Applicable Taxes (GST)</span>
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Included in MRP (₹0)</span>
                       </div>
                       <div className="h-[1px] bg-slate-200 dark:bg-white/10 my-1" />
                       <div className="flex justify-between text-base font-bold">

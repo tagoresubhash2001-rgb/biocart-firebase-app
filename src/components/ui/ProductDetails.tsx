@@ -438,7 +438,7 @@ export const ProductDetails: React.FC = () => {
               ) : null}
             </div>
             <p className="text-[11px] text-slate-500">
-              Inclusive of all taxes. Free shipping on orders above ₹499.
+              Inclusive of all taxes. Free shipping on orders of ₹1,499 and above.
             </p>
           </div>
 

@@ -147,7 +147,7 @@ exports.createOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (
             if (!vendorInputsMap.has(vendorId)) {
                 const vInfo = vendorMap.get(vendorId) || {};
                 const commissionBps = vInfo.commission?.baseRateBps
-                    ?? Math.round(Number(vInfo.commissionRate ?? vInfo.commissionPercent ?? 10) * 100);
+                    ?? Math.round(Number(vInfo.commissionRate ?? vInfo.commissionPercent ?? 20) * 100);
                 vendorInputsMap.set(vendorId, {
                     vendorId,
                     vendorStoreName: vInfo.storeName || vInfo.businessName || vendorId,
@@ -258,8 +258,8 @@ exports.createOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (
             settingsDoc = await transaction.get(db.collection('settings').doc('main'));
         }
         let shippingFeePaise = 9900; // Rs. 99 in paise
-        let freeShippingThresholdPaise = 49900; // Baseline ₹499
-        let financialPolicy = financialEngine_1.DEFAULT_FINANCIAL_POLICY;
+        let freeShippingThresholdPaise = 149900; // Baseline ₹1,499 (Free shipping at ₹1,499 and above)
+        let financialPolicy = financialEngine_1.LOCKED_MARKETPLACE_POLICY;
         if (settingsDoc.exists) {
             const settingsData = settingsDoc.data();
             if (settingsData.shippingFee !== undefined) {
@@ -798,7 +798,7 @@ exports.quoteOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (r
         if (!vendorInputsMap.has(vendorId)) {
             const vInfo = vendorMap.get(vendorId) || {};
             const commissionBps = vInfo.commission?.baseRateBps
-                ?? Math.round(Number(vInfo.commissionRate ?? vInfo.commissionPercent ?? 10) * 100);
+                ?? Math.round(Number(vInfo.commissionRate ?? vInfo.commissionPercent ?? 20) * 100);
             vendorInputsMap.set(vendorId, {
                 vendorId,
                 vendorStoreName: vInfo.storeName || vInfo.businessName || vendorId,
@@ -890,12 +890,12 @@ exports.quoteOrder = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (r
         settingsDoc = await db.collection('settings').doc('main').get();
     }
     let shippingFeePaise = 9900;
-    let freeShippingThresholdPaise = 49900; // Baseline ₹499
-    let minOrderValuePaise = 19900; // Baseline ₹199
+    let freeShippingThresholdPaise = 149900; // Baseline ₹1,499 (Free shipping at ₹1,499 and above)
+    let minOrderValuePaise = 0; // No minimum order restriction: orders of any positive amount allowed
     let codMinValuePaise = 29900; // Baseline ₹299
     let codMaxValuePaise = 500000; // Baseline ₹5,000
     let codAvailable = true;
-    let financialPolicy = financialEngine_1.DEFAULT_FINANCIAL_POLICY;
+    let financialPolicy = financialEngine_1.LOCKED_MARKETPLACE_POLICY;
     if (settingsDoc.exists) {
         const sData = settingsDoc.data();
         if (sData.shippingFee !== undefined)

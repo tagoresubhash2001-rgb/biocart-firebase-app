@@ -25,6 +25,7 @@ export interface FinancialPolicy {
   settlementDayOfWeek: number; // 2 = Tuesday
   payoutHoldPeriodDays: number; // e.g. 3 days after delivery
   minimumPayoutPaise: number; // e.g. 50000 = Rs. 500
+  taxInclusivePricing?: boolean; // When true, product prices include GST; no GST added on top
 }
 
 export const DEFAULT_FINANCIAL_POLICY: FinancialPolicy = {
@@ -37,7 +38,22 @@ export const DEFAULT_FINANCIAL_POLICY: FinancialPolicy = {
   couponFundingPolicy: 'strict_creator_funded',
   settlementDayOfWeek: 2,
   payoutHoldPeriodDays: 3,
-  minimumPayoutPaise: 50000
+  minimumPayoutPaise: 50000,
+  taxInclusivePricing: false
+};
+
+export const LOCKED_MARKETPLACE_POLICY: FinancialPolicy = {
+  policyVersion: 'v2.0-locked',
+  commissionBasis: 'gross_merchandise_value',
+  gatewayFeeRateBps: 0,
+  gatewayFeeFlatPaise: 0,
+  gatewayFeeTaxRateBps: 0,
+  commissionGstRateBps: 0,
+  couponFundingPolicy: 'strict_creator_funded',
+  settlementDayOfWeek: 2,
+  payoutHoldPeriodDays: 3,
+  minimumPayoutPaise: 50000,
+  taxInclusivePricing: true
 };
 
 export interface CouponAllocationInput {
@@ -146,7 +162,7 @@ export function calculateAuthoritativeOrder(
       vendorStoreName: v.vendorStoreName || v.vendorId,
       commissionRateBps: v.commissionRateBps !== undefined 
         ? v.commissionRateBps 
-        : Math.round((v.commissionRatePercent ?? 10) * 100),
+        : (v.commissionRatePercent !== undefined ? Math.round(v.commissionRatePercent * 100) : (policy.taxInclusivePricing ? 2000 : 1000)),
       isGstRegistered: !!v.isGstRegistered,
       gstin: v.gstin || '',
       subtotalPaise: vendorSubtotal,
@@ -156,7 +172,12 @@ export function calculateAuthoritativeOrder(
   });
 
   const totalDiscountPaise = coupon?.discountPaise || 0;
-  const grandTotalPaise = Math.max(0, subtotalPaise - totalDiscountPaise) + totalTaxPaise + shippingPaise;
+  // Locked Business Rule: Product MRP is inclusive of applicable taxes.
+  // When taxInclusivePricing is enabled (default), never add GST on top of product MRP.
+  // If legacy policy specifies taxInclusivePricing === false, statutory tax is added on top.
+  const isTaxInclusive = policy.taxInclusivePricing !== false;
+  const addedTaxPaise = isTaxInclusive ? 0 : totalTaxPaise;
+  const grandTotalPaise = Math.max(0, subtotalPaise - totalDiscountPaise) + addedTaxPaise + shippingPaise;
 
   let totalGatewayFeePaise = 0;
   let totalGatewayFeeGstPaise = 0;

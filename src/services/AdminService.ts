@@ -37,8 +37,8 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
     linkedin: 'https://linkedin.com/company/biocart'
   },
   currency: '₹',
-  freeShippingThreshold: 499,
-  defaultCommission: 10,
+  freeShippingThreshold: 1499,
+  defaultCommission: 20,
   maintenanceMode: false,
   promotionalRibbon: {
     enabled: true,
@@ -47,19 +47,19 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
     ctaLink: '#shop'
   },
   financialPolicy: {
-    commissionBasis: 'net_after_gateway_fee',
-    gatewayFeeRateBps: 200, // 2.0% Razorpay / Payment Gateway fee
+    commissionBasis: 'gross_merchandise_value',
+    gatewayFeeRateBps: 0,
     gatewayFeeFlatPaise: 0,
-    gatewayFeeTaxRateBps: 1800, // 18% GST on Gateway fee
-    commissionGstRateBps: 1800, // 18% GST on Commission
+    gatewayFeeTaxRateBps: 0,
+    commissionGstRateBps: 0,
     couponFunding: 'platform',
     settlementDayOfWeek: 2, // Tuesday
     payoutHoldPeriodDays: 3,
     minimumPayoutPaise: 50000 // Rs. 500
   },
   orderThresholds: {
-    minOrderValue: 199,
-    freeShippingThreshold: 499,
+    minOrderValue: 0,
+    freeShippingThreshold: 1499,
     codMinValue: 299,
     codMaxValue: 5000,
     codAvailable: true
@@ -1012,7 +1012,7 @@ export class AdminService {
             bannerType: 'hero',
             active: true,
             promotionalLabel: 'MICROBIAL POWER',
-            ribbonText: 'FREE SHIPPING OVER ₹499',
+            ribbonText: 'FREE SHIPPING ON ₹1,499+',
             ctaText: 'Shop Organic Inputs'
           }
         ];
