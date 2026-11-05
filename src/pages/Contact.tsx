@@ -235,7 +235,7 @@ export const Contact: React.FC = () => {
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +91 91542 22539"
+                    placeholder="e.g. +91 949080479"
                     className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm text-stone-900 focus:outline-none focus:border-emerald-600 focus:bg-white transition-colors"
                   />
                 </div>
@@ -332,14 +332,14 @@ export const Contact: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="font-serif font-bold text-lg text-stone-900">Registered HQ & Processing Facility</h4>
-                  <span className="text-[11px] font-mono text-emerald-700 font-semibold uppercase">Sindulis Agro Products Pvt. Ltd.</span>
+                  <span className="text-[11px] font-mono text-emerald-700 font-semibold uppercase">SINDULIS INNOVATIVE SOLUTIONS</span>
                 </div>
               </div>
               <div className="text-xs sm:text-sm text-stone-600 leading-relaxed pl-1">
-                <p className="font-medium text-stone-800">Industrial Corridor Area, Guntur District</p>
-                <p>Andhra Pradesh - 522001, India.</p>
+                <p className="font-medium text-stone-800">Tirupati</p>
+                <p>Andhra Pradesh - 517507, India.</p>
                 <p className="text-[11px] text-stone-400 mt-2">
-                  CIN: U01110AP2023PTC123456 • Operating Mon–Sat: 9:00 AM – 6:00 PM IST
+                  Udyam: UDYAM-AP-23-0104910 • Operating Mon–Sat: 9:00 AM – 6:00 PM IST
                 </p>
               </div>
             </div>
@@ -358,18 +358,18 @@ export const Contact: React.FC = () => {
               
               <div className="space-y-3 pt-1">
                 <a 
-                  href="tel:+918632244556"
+                  href="tel:+91949080479"
                   className="flex items-center justify-between p-3 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-800 text-xs sm:text-sm font-semibold transition-colors border border-stone-200/60"
                 >
                   <span className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-emerald-700" />
-                    +91 863 2244 556
+                    +91 949080479
                   </span>
                   <span className="text-[10px] uppercase font-bold text-emerald-700">Call Now</span>
                 </a>
 
                 <a 
-                  href="https://wa.me/918632244556"
+                  href="https://wa.me/91949080479"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100/70 text-emerald-950 text-xs sm:text-sm font-semibold transition-colors border border-emerald-200"
@@ -398,8 +398,8 @@ export const Contact: React.FC = () => {
               <div className="space-y-2 text-xs sm:text-sm text-stone-600 pl-1">
                 <div className="flex items-center justify-between py-1.5 border-b border-stone-100">
                   <span>Customer Support:</span>
-                  <a href="mailto:care@biocart.co.in" className="font-semibold text-emerald-800 hover:underline">
-                    care@biocart.co.in
+                  <a href="mailto:biocart.2025@gmail.com" className="font-semibold text-emerald-800 hover:underline">
+                    biocart.2025@gmail.com
                   </a>
                 </div>
                 <div className="flex items-center justify-between py-1.5 border-b border-stone-100">

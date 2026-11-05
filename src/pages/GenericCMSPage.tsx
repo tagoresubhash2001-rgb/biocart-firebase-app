@@ -395,7 +395,7 @@ const OrderTrackerBlock: React.FC<{ sectionData?: any }> = ({ sectionData }) => 
                   Contact Support Desk
                 </button>
                 <a
-                  href="mailto:care@biocart.co.in"
+                  href="mailto:biocart.2025@gmail.com"
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-all inline-flex items-center gap-1.5"
                 >
                   <Mail className="w-3.5 h-3.5" />
@@ -697,7 +697,7 @@ const DealerLocatorBlock: React.FC<{ sectionData?: any }> = ({ sectionData }) =>
       address: 'Sindulis Agro Farms, Industrial Corridor, Tanuku, West Godavari District',
       state: 'Andhra Pradesh',
       pin: '534211',
-      phone: '+91 91542 22539',
+      phone: '+91 949080479',
       hours: 'Mon - Sat: 8:00 AM - 6:30 PM',
       services: ['Direct Pallet Sourcing', 'Raw Coir Bales', 'Low-EC Testing Lab']
     },
@@ -707,7 +707,7 @@ const DealerLocatorBlock: React.FC<{ sectionData?: any }> = ({ sectionData }) =>
       type: 'Regional Distribution Hub',
       address: 'Plot 18, Commercial Agro Logistics Park, Autonagar, Guntur',
       state: 'Andhra Pradesh',
-      pin: '522001',
+      pin: '517507',
       phone: '+91 863 2244 556',
       hours: 'Mon - Sat: 9:00 AM - 6:00 PM',
       services: ['Wholesale Nursery Plugs', 'Double-Screened Vermicompost']

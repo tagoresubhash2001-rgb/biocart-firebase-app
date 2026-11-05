@@ -2211,10 +2211,10 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.ok(contentSection, 'privacy-content-main section must exist');
       const html = contentSection.data.content;
 
-      assert.match(html, /Sindulis Agro Products Private Limited/);
-      assert.match(html, /U01110AP2023PTC123456/);
-      assert.match(html, /Tanuku, West Godavari District, Andhra Pradesh - 534211/);
-      assert.match(html, /privacy@biocart\.co\.in/);
+      assert.match(html, /SINDULIS INNOVATIVE SOLUTIONS/);
+      assert.match(html, /UDYAM-AP-23-0104910/);
+      assert.match(html, /Tirupati, Andhra Pradesh - 517507/);
+      assert.match(html, /biocart\.2025@gmail\.com/);
       for (let i = 1; i <= 22; i++) {
         assert.match(html, new RegExp(`<h3>${i}\\.`));
       }
@@ -2229,23 +2229,27 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.ok(contentSection, 'terms-content-main section must exist');
       const html = contentSection.data.content;
 
-      assert.match(html, /Sindulis Agro Products Private Limited/);
-      assert.match(html, /U01110AP2023PTC123456/);
-      assert.match(html, /Tanuku, West Godavari District, Andhra Pradesh - 534211/);
-      assert.match(html, /support@biocart\.co\.in/);
+      assert.match(html, /SINDULIS INNOVATIVE SOLUTIONS/);
+      assert.match(html, /UDYAM-AP-23-0104910/);
+      assert.match(html, /Tirupati, Andhra Pradesh - 517507/);
+      assert.match(html, /biocart\.2025@gmail\.com/);
       for (let i = 1; i <= 20; i++) {
         assert.match(html, new RegExp(`<h3>${i}\\.`));
       }
     });
 
-    it('7. verifies storefront homepage displays rounded pill category design with strictly category name', async () => {
+    it('7. verifies storefront homepage displays circular category image design with category name underneath', async () => {
       const fs = await import('node:fs');
       const homeCode = fs.readFileSync('src/pages/Home.tsx', 'utf-8');
       assert.match(homeCode, /home-categories-track/);
-      assert.match(homeCode, /rounded-full/);
-      assert.match(homeCode, /cat\.name/);
-      // Ensure square card elements or thumbnail images were removed from category buttons
-      assert.ok(!homeCode.includes('<img src={cat.image}'), 'Category buttons should not display thumbnail images');
+      assert.match(homeCode, /CategoryCircularNav/);
+
+      // Verify shared circular category component implementation
+      const navCode = fs.readFileSync('src/components/ui/CategoryCircularNav.tsx', 'utf-8');
+      assert.match(navCode, /rounded-full/);
+      assert.match(navCode, /cat\.name/);
+      assert.match(navCode, /cat\.image/);
+      assert.match(navCode, /rounded-full overflow-hidden/);
     });
 
     it('8. verifies Admin Dashboard includes RealTimeAnalyticsCharts with all 10 visual indicators', async () => {
@@ -2320,10 +2324,10 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
 
       assert.match(slipCode, /BioCartLogo/);
       assert.match(slipCode, /biocart_logo_official\.png/);
-      assert.match(slipCode, /Sindulis Agro Products Pvt\. Ltd\./);
-      assert.match(slipCode, /U01110AP2023PTC123456/);
-      assert.match(slipCode, /Industrial Corridor Area, Guntur, AP - 522001/);
-      assert.match(slipCode, /care@biocart\.co\.in/);
+      assert.match(slipCode, /SINDULIS INNOVATIVE SOLUTIONS/);
+      assert.match(slipCode, /UDYAM-AP-23-0104910/);
+      assert.match(slipCode, /Tirupati, Andhra Pradesh – 517507/);
+      assert.match(slipCode, /biocart\.2025@gmail\.com/);
       assert.match(slipCode, /window\.print/);
     });
 

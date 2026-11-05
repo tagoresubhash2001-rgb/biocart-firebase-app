@@ -101,11 +101,7 @@ export const Home: React.FC = () => {
     };
   }, []);
 
-  const activeProducts = (
-    realtimeProducts.length > 0 
-      ? realtimeProducts 
-      : (import.meta.env.VITE_USE_SEED_FALLBACK === 'true' ? SEED_PRODUCTS : [])
-  ).filter(p => p.active !== false && p.homepageVisible !== false);
+  const activeProducts = (realtimeProducts.length > 0 ? realtimeProducts : SEED_PRODUCTS).filter(p => p.active !== false && p.homepageVisible !== false);
 
 
   const getExactlyNine = (filterFn?: (p: Product) => boolean, seedOffset: number = 0): Product[] => {
@@ -519,36 +515,24 @@ export const Home: React.FC = () => {
           </div>
         </div>
 
-        {/* Horizontal non-wrapping scroller track */}
+        {/* Horizontal non-wrapping scroller track with Shared CategoryCircularNav */}
         <div className="relative group/categoryTrack">
           <div 
             ref={categoryScrollRef}
-            tabIndex={0}
-            role="region"
-            aria-label="Product categories horizontal list"
-            className="flex flex-row flex-nowrap overflow-x-auto scroll-smooth gap-2.5 sm:gap-3.5 pb-2 pt-1 px-1 touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden items-center" 
             id="home-categories-track"
+            className="flex-row flex-nowrap overflow-x-auto snap-x snap-mandatory"
           >
-            {(realtimeCategories.length > 0 ? realtimeCategories : MASTER_CATEGORIES)
-              .filter(c => c.active !== false && c.isFeatured !== false)
-              .map((cat, idx) => (
-                <motion.button
-                  key={cat.id || cat.name}
-                  initial={{ opacity: 0, y: 8 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ type: 'spring', stiffness: 140, damping: 16, delay: idx * 0.03 }}
-                  onClick={() => {
-                    setSelectedCategory(cat.name);
-                    setTab('shop');
-                  }}
-                  className="shrink-0 px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-white dark:bg-charcoal-800 border border-emerald-200 dark:border-emerald-800/40 text-emerald-950 dark:text-emerald-100 font-semibold text-xs sm:text-sm tracking-wide shadow-sm hover:shadow-md hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 dark:hover:text-white hover:border-emerald-600 dark:hover:border-emerald-600 active:scale-95 transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                  id={`home-cat-pill-${cat.name.replace(/\s+/g, '-').toLowerCase()}`}
-                  aria-label={`View ${cat.name} category`}
-                >
-                  {cat.name}
-                </motion.button>
-              ))}
+            <CategoryCircularNav
+              categories={(realtimeCategories.length > 0 ? realtimeCategories : MASTER_CATEGORIES).filter(c => c.active !== false && c.isFeatured !== false)}
+              selectedCategory=""
+              onSelectCategory={(catName) => {
+                setSelectedCategory(catName);
+                setTab('shop');
+              }}
+              showAllOption={false}
+              idPrefix="home-categories"
+              className="gap-6 sm:gap-8"
+            />
           </div>
         </div>
       </section>

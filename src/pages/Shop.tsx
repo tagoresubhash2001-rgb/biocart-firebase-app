@@ -9,6 +9,7 @@ import { usePageCMS } from '../hooks/usePageCMS';
 import { AdminService } from '../services/AdminService';
 import { SEED_PRODUCTS } from '../data/seedData';
 import { matchesCategoryFilter, MASTER_CATEGORIES } from '../data/categoryCatalog';
+import { CategoryCircularNav } from '../components/ui/CategoryCircularNav';
 import { 
   Search, SlidersHorizontal, Grid3X3, Grid2X2, ArrowUpDown, 
   AlertCircle
@@ -100,11 +101,7 @@ export const Shop: React.FC = () => {
     return [...defaultList, ...activeCats];
   }, [realtimeCategories]);
 
-  const allProducts = (
-    realtimeProducts.length > 0 
-      ? realtimeProducts 
-      : (import.meta.env.VITE_USE_SEED_FALLBACK === 'true' ? SEED_PRODUCTS : [])
-  ).filter(p => p.active !== false && p.shopVisible !== false);
+  const allProducts = (realtimeProducts.length > 0 ? realtimeProducts : SEED_PRODUCTS).filter(p => p.active !== false && p.shopVisible !== false);
 
 
   const filteredProducts = useMemo(() => {
@@ -217,7 +214,7 @@ export const Shop: React.FC = () => {
         </div>
       </section>
 
-      {/* Premium Circular Category Cards (inspired by OrganicBazar) */}
+      {/* Premium Circular Category Cards (Shared Component) */}
       <section className="max-w-7xl mx-auto px-6 pt-6" id="circular-categories-section">
         <div className="flex flex-col items-center space-y-4">
           <div className="text-center space-y-1">
@@ -228,52 +225,15 @@ export const Shop: React.FC = () => {
               Select a category to filter organic products
             </p>
           </div>
-          <div 
-            className="flex items-center gap-6 md:gap-8 overflow-x-auto py-4 px-2 w-full justify-start md:justify-center scrollbar-none snap-x"
-            id="circular-categories-scroll"
-          >
-            {categoriesList.map((cat) => {
-              const isActive = selectedCategory.toLowerCase() === cat.name.toLowerCase();
-              return (
-                <button
-                  key={cat.name}
-                  onClick={() => setSelectedCategory(cat.name)}
-                  className="flex flex-col items-center space-y-3 cursor-pointer group snap-center focus:outline-none flex-shrink-0"
-                  id={`circular-cat-${cat.name.replace(/\s+/g, '-').toLowerCase()}`}
-                >
-                  <motion.div
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.95 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                    className={`relative w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-2 transition-all duration-300 shadow-sm ${
-                      isActive 
-                        ? 'border-emerald-600 ring-4 ring-emerald-100 dark:ring-emerald-950/40 scale-105' 
-                        : 'border-slate-150 dark:border-white/10 group-hover:border-emerald-400'
-                    }`}
-                  >
-                    <img 
-                      src={cat.image} 
-                      alt={cat.name} 
-                      className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
-                        isActive ? 'brightness-100' : 'brightness-90 group-hover:brightness-100'
-                      }`}
-                    />
-                    {isActive && (
-                      <div className="absolute inset-0 bg-emerald-900/10 dark:bg-[#FDFBD4]/20 backdrop-blur-[0.5px]" />
-                    )}
-                  </motion.div>
-                  <span 
-                    className={`text-xs font-semibold tracking-tight transition-colors duration-200 ${
-                      isActive 
-                        ? 'text-emerald-700 dark:text-emerald-400 font-bold scale-105' 
-                        : 'text-charcoal-600 dark:text-slate-400 group-hover:text-emerald-600'
-                    }`}
-                  >
-                    {cat.name}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="w-full flex justify-center py-2" id="circular-categories-scroll">
+            <CategoryCircularNav
+              categories={realtimeCategories.length > 0 ? realtimeCategories : MASTER_CATEGORIES}
+              selectedCategory={selectedCategory}
+              onSelectCategory={(catName) => setSelectedCategory(catName)}
+              showAllOption={true}
+              idPrefix="shop-cat"
+              className="justify-start md:justify-center"
+            />
           </div>
         </div>
       </section>

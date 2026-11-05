@@ -245,7 +245,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
         enabled: true,
         order: 1,
         data: {
-          badgeText: 'About Sindulis Agro Products',
+          badgeText: 'About SINDULIS INNOVATIVE SOLUTIONS',
           titleLine1: 'Rooted in Purity, Driven by Science',
           subtitle: 'From local Andhra farms to nationwide ecological horticulture, discover why BioCart is the trusted standard for living soil.'
         }
@@ -295,7 +295,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             {
               name: 'Prashanthi Pallapothula',
               role: 'Founder & CEO — Product R&D & Design',
-              company: 'Sindulis Agro Products Pvt. Ltd.',
+              company: 'SINDULIS INNOVATIVE SOLUTIONS',
               bio: 'Drawing on her studies in biotechnology and organic soil physics, Prashanthi leads product formulation, coir aeration research, and biodegradable packaging aesthetics.',
               quote: 'Sustainable living is a refinement of how we interact with the biosphere, starting with our living soil.',
               imageUrl: '/assets/founder_prashanthi.jpg'
@@ -303,7 +303,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             {
               name: 'Tagore Subhash Maguluri',
               role: 'Co-Founder & COO — Platforms & Supply Chains',
-              company: 'Sindulis Agro Products Pvt. Ltd.',
+              company: 'SINDULIS INNOVATIVE SOLUTIONS',
               bio: 'With a background in logistics engineering and digital platform scalability, Tagore scaled Sindulis from regional production into an all-India zero-emissions distribution network.',
               quote: 'Scaling ecology is a logistics and supply chain challenge. By combining software precision with authentic agricultural inputs, we solve it.',
               imageUrl: '/assets/founder_tagore.jpg'
@@ -319,7 +319,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
         order: 6,
         data: {
           milestones: [
-            { year: '2023', title: 'The Inception', desc: 'Sindulis Agro Products was registered with the core philosophy of promoting zero-chemical and zero-plastic home gardening.' },
+            { year: '2023', title: 'The Inception', desc: 'SINDULIS INNOVATIVE SOLUTIONS was registered with the core philosophy of promoting zero-chemical and zero-plastic home gardening.' },
             { year: '2024', title: 'Research & Operations', desc: 'Established state-of-the-art coir processing and organic composting operations in Andhra Pradesh.' },
             { year: '2025', title: 'Direct-To-Consumer Launch', desc: 'Introduced BioCart in major metropolitan areas, providing premium biodegradable alternatives to plastic containers.' },
             { year: '2026', title: 'All-India Scale & Global Export', desc: 'Scaling to all-India availability while launching global export variants representing premium Indian organic agriculture.' }
@@ -388,7 +388,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
         order: 3,
         data: {
           title: 'Corporate Office & Primary Processing Plant',
-          content: '<p><strong>Headquarters:</strong> Sindulis Agro Products Pvt. Ltd., Industrial Corridor Area, Guntur District, Andhra Pradesh - 522001, India.</p><p><strong>Telephone Helpdesk:</strong> +91 863 2244 556 (Mon - Sat | 9:00 AM - 6:00 PM IST)</p><p><strong>Email Correspondence:</strong> General: care@biocart.co.in | Founders: contact@sindulis.com</p><p><strong>WhatsApp Support:</strong> +91 863 2244 556 (Rapid Response Team)</p>'
+          content: '<p><strong>Headquarters:</strong> SINDULIS INNOVATIVE SOLUTIONS, Tirupati, Andhra Pradesh – 517507, India.</p><p><strong>Telephone Helpdesk:</strong> +91 949080479 (Mon - Sat | 9:00 AM - 6:00 PM IST)</p><p><strong>Email Correspondence:</strong> General: biocart.2025@gmail.com | Founders: biocart.2025@gmail.com</p><p><strong>WhatsApp Support:</strong> +91 949080479 (Rapid Response Team)</p>'
         }
       },
       {
@@ -474,7 +474,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
           features: [
             { title: '24-Hour Dispatch', desc: 'Standard consumer orders leave our Andhra and Karnataka facilities within 24 business hours.' },
             { title: 'Certified Agronomists', desc: 'Complimentary technical guidance on application dosages, EC levels, and organic pest remedies.' },
-            { title: 'Direct Care Desk', desc: 'Reach our team directly at care@biocart.co.in or call +91 91542 22539 (Mon–Sat 9AM–6PM IST).' }
+            { title: 'Direct Care Desk', desc: 'Reach our team directly at biocart.2025@gmail.com or call +91 949080479 (Mon–Sat 9AM–6PM IST).' }
           ]
         }
       },
@@ -505,7 +505,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             },
             {
               q: 'What is your return and refund policy for damaged parcels?',
-              a: 'We offer a 7-day transit damage replacement or refund guarantee. If your package arrives damaged or leaking, take photos of the outer carton with the shipping label and the damaged items, and submit a ticket to care@biocart.co.in within 7 days of delivery. Verified claims receive a 100% free replacement or direct bank refund within 5–7 business days.'
+              a: 'We offer a 7-day transit damage replacement or refund guarantee. If your package arrives damaged or leaking, take photos of the outer carton with the shipping label and the damaged items, and submit a ticket to biocart.2025@gmail.com within 7 days of delivery. Verified claims receive a 100% free replacement or direct bank refund within 5–7 business days.'
             },
             {
               q: 'How should I store organic vermicompost and liquid bio-fertilizers?',
@@ -573,7 +573,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
           features: [
             { title: 'Automated SMS Alerts', desc: 'Receive real-time courier AWB links as soon as your parcel is scanned at the dispatch terminal.' },
             { title: '100% Plastic-Free Packaging', desc: 'Heavy-duty corrugated boxes sealed with natural starch water-activated tape for zero plastic transit.' },
-            { title: 'Priority Dispatch Support', desc: 'Need urgent delivery acceleration? Contact our logistics desk at care@biocart.co.in or +91 91542 22539.' }
+            { title: 'Priority Dispatch Support', desc: 'Need urgent delivery acceleration? Contact our logistics desk at biocart.2025@gmail.com or +91 949080479.' }
           ]
         }
       }
@@ -648,7 +648,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             <p>In accordance with our ecological charter, BioCart uses zero non-biodegradable single-use plastic films. All parcels are packaged in FSC-certified corrugated boxes, cushioned with recycled paper shreds or natural coir fiber, and sealed using water-activated starch paper tape.</p>
 
             <h3>5. Handling In-Transit Delays & Damaged Parcels</h3>
-            <p>While our logistics partners maintain a 98.7% on-time delivery record, adverse weather or regional restrictions can occasionally cause delays. If a parcel arrives with severe external crushing or product leakage, please sign the delivery receipt as "Damaged upon receipt" and notify us within 7 days at <strong>care@biocart.co.in</strong> with photos for an immediate replacement.</p>
+            <p>While our logistics partners maintain a 98.7% on-time delivery record, adverse weather or regional restrictions can occasionally cause delays. If a parcel arrives with severe external crushing or product leakage, please sign the delivery receipt as "Damaged upon receipt" and notify us within 7 days at <strong>biocart.2025@gmail.com</strong> with photos for an immediate replacement.</p>
 
             <h3>6. Export Consignments & Commercial Freight</h3>
             <p>International and containerized export freight (FCL coir peat blocks, high-density grow bags) originates from Port of Chennai or Krishnapatnam Port. All export consignments include mandatory Phytosanitary Inspection Certificates and Certificates of Origin issued by government agricultural authorities.</p>
@@ -718,7 +718,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             </ul>
 
             <h3>2. How to Submit a Claim</h3>
-            <p>To report an issue, please email <strong>care@biocart.co.in</strong> or WhatsApp <strong>+91 91542 22539</strong> within <strong>7 calendar days</strong> of receiving your parcel. Please include:</p>
+            <p>To report an issue, please email <strong>biocart.2025@gmail.com</strong> or WhatsApp <strong>+91 949080479</strong> within <strong>7 calendar days</strong> of receiving your parcel. Please include:</p>
             <ul>
               <li>Your BioCart 10-digit Order Number (e.g. ORD-2026-XXXXX).</li>
               <li>Clear photographs of the outer carton showing the shipping label and barcode.</li>
@@ -975,7 +975,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
     updatedAt: new Date().toISOString(),
     publishedAt: new Date().toISOString(),
     seo: {
-      title: 'Privacy Policy | BioCart (Sindulis Agro Products)',
+      title: 'Privacy Policy | BioCart (SINDULIS INNOVATIVE SOLUTIONS)',
       description: 'Review how BioCart collects, uses, and safeguards customer data in compliance with Indian Information Technology regulations.'
     },
     sections: [
@@ -988,7 +988,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
         data: {
           badgeText: 'Legal & Data Governance',
           titleLine1: 'Privacy & Data Protection Policy',
-          subtitle: 'Sindulis Agro Products Pvt. Ltd. is committed to ethical data handling and zero-compromise customer security.'
+          subtitle: 'SINDULIS INNOVATIVE SOLUTIONS is committed to ethical data handling and zero-compromise customer security.'
         }
       },
       {
@@ -1002,14 +1002,14 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
           content: `
             <div class="legal-document-header mb-6 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
               <p class="text-xs text-emerald-900 mb-1"><strong>Document Reference:</strong> BC-LEG-POL-001 • <strong>Effective Date:</strong> January 1, 2026 • <strong>Last Updated:</strong> October 20, 2026</p>
-              <p class="text-xs text-emerald-800"><strong>Data Controller:</strong> Sindulis Agro Products Private Limited • <strong>Platform:</strong> BioCart (biocart.in)</p>
+              <p class="text-xs text-emerald-800"><strong>Data Controller:</strong> SINDULIS INNOVATIVE SOLUTIONS • <strong>Platform:</strong> BioCart (biocart.in)</p>
             </div>
 
             <h3>1. Document Identification, Effective Date & Updates</h3>
             <p>This comprehensive Privacy Policy governs your access to and use of <strong>biocart.in</strong>, associated mobile applications, and ecological commerce services. This document was last substantively reviewed and updated on <strong>October 20, 2026</strong>. Revisions are communicated through banner notices on our storefront and updated timestamp notations.</p>
 
             <h3>2. Data Controller & Business Identification</h3>
-            <p>The primary data controller responsible for personal information collected under this Privacy Policy is <strong>Sindulis Agro Products Private Limited</strong> (trading as "BioCart"), a company incorporated under the laws of India, with corporate operations located at <strong>Industrial Corridor Area, Tanuku, West Godavari District, Andhra Pradesh - 534211, India</strong> (CIN: U01110AP2023PTC123456).</p>
+            <p>The primary data controller responsible for personal information collected under this Privacy Policy is <strong>SINDULIS INNOVATIVE SOLUTIONS</strong> (trading as "BioCart"), a company incorporated under the laws of India, with corporate operations located at <strong>Industrial Corridor Area, Tirupati, Andhra Pradesh - 517507, India</strong> (Udyam Reg: UDYAM-AP-23-0104910).</p>
 
             <h3>3. Scope of Policy & Services Covered</h3>
             <p>This Policy applies to all registered customers, guest shoppers, marketplace vendor partners, wholesale applicants, and visitors browsing our biological plant care, double-screened vermicompost, and potting mix catalog across India.</p>
@@ -1064,7 +1064,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             <p>Under Indian information technology standards and applicable data privacy principles, you have the right to access, inspect, rectify, or request an export of your saved personal information by visiting your Customer Dashboard or emailing our privacy desk.</p>
 
             <h3>15. Account Closure & Data Erasure Requests</h3>
-            <p>You may submit an account deletion request through the Security tab of your Customer Dashboard or by contacting <strong>privacy@biocart.co.in</strong>. Upon verification, non-statutory personal data is permanently scrubbed from active databases within thirty (30) days.</p>
+            <p>You may submit an account deletion request through the Security tab of your Customer Dashboard or by contacting <strong>biocart.2025@gmail.com</strong>. Upon verification, non-statutory personal data is permanently scrubbed from active databases within thirty (30) days.</p>
 
             <h3>16. Marketing Communication Preferences</h3>
             <p>We communicate essential order updates via transactional SMS and email. You can opt out of promotional newsletters and agricultural crop tips at any time by clicking "Unsubscribe" in any email dispatch.</p>
@@ -1088,9 +1088,9 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             <p>In accordance with the Information Technology Act, 2000 and rules made thereunder, the designated Grievance Officer for BioCart is:</p>
             <div class="grievance-officer-block p-4 bg-slate-50 rounded-xl border border-slate-200 mt-2 text-xs">
               <p><strong>Grievance & Privacy Officer:</strong> Legal Compliance Cell</p>
-              <p><strong>Company:</strong> Sindulis Agro Products Private Limited</p>
-              <p><strong>Address:</strong> Industrial Corridor Area, Tanuku, West Godavari District, Andhra Pradesh - 534211, India</p>
-              <p><strong>Email:</strong> <a href="mailto:privacy@biocart.co.in" class="text-emerald-700 underline font-semibold">privacy@biocart.co.in</a> • <strong>Phone:</strong> +91 91542 22539</p>
+              <p><strong>Company:</strong> SINDULIS INNOVATIVE SOLUTIONS</p>
+              <p><strong>Address:</strong> Industrial Corridor Area, Tirupati, Andhra Pradesh - 517507, India</p>
+              <p><strong>Email:</strong> <a href="mailto:biocart.2025@gmail.com" class="text-emerald-700 underline font-semibold">biocart.2025@gmail.com</a> • <strong>Phone:</strong> +91 949080479</p>
               <p class="text-slate-500 mt-1">Response Timeline: All legitimate privacy grievances are acknowledged within 24 hours and addressed within 15 working days.</p>
             </div>
           `
@@ -1136,13 +1136,13 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
           heading: 'Master Terms and Conditions of Service (Updated 2026)',
           content: `
             <h3>1. Corporate Identity, Marketplace Scope & Legal Entity</h3>
-            <p>Welcome to <strong>BioCart</strong> (the "Marketplace", "Platform", "Website" or "Service"), an organic agricultural and horticulture marketplace operated by <strong>Sindulis Agro Products Private Limited</strong> (CIN: U01110AP2023PTC123456), having its registered office and primary fulfillment facility at Industrial Corridor Area, Tanuku, West Godavari District, Andhra Pradesh - 534211, India ("Company", "We", "Us", or "Our"). These Terms of Service ("Terms") constitute a legally binding agreement between you ("Customer", "User", "You", or "Buyer") and Sindulis Agro Products Private Limited governing your access to and commercial purchase of goods on biocart.in.</p>
+            <p>Welcome to <strong>BioCart</strong> (the "Marketplace", "Platform", "Website" or "Service"), an organic agricultural and horticulture marketplace operated by <strong>SINDULIS INNOVATIVE SOLUTIONS</strong> (Udyam Reg: UDYAM-AP-23-0104910), having its registered office and primary fulfillment facility at Industrial Corridor Area, Tirupati, Andhra Pradesh - 517507, India ("Company", "We", "Us", or "Our"). These Terms of Service ("Terms") constitute a legally binding agreement between you ("Customer", "User", "You", or "Buyer") and SINDULIS INNOVATIVE SOLUTIONS governing your access to and commercial purchase of goods on biocart.in.</p>
 
             <h3>2. Definitions & Customer Eligibility</h3>
             <p>By registering an account, accessing the Platform, or placing an order, you warrant and represent that you are at least eighteen (18) years of age, mentally sound, and possess the full legal capacity to enter into a binding contract under the Indian Contract Act, 1872. If you are accessing this Platform on behalf of an agricultural cooperative, farming firm, company, or institution, you affirm that you have the requisite corporate authority to bind that entity to these Terms.</p>
 
             <h3>3. Account Registration, Verification & Security</h3>
-            <p>To purchase products or access order records, customers may register an account providing truthful, accurate, and complete information, including a valid mobile number and email address. You are solely responsible for preserving the confidentiality of your account credentials. You agree to notify BioCart immediately at support@biocart.co.in upon discovering any unauthorized access or breach of account security. The Company shall not be liable for losses incurred as a result of compromised user passwords.</p>
+            <p>To purchase products or access order records, customers may register an account providing truthful, accurate, and complete information, including a valid mobile number and email address. You are solely responsible for preserving the confidentiality of your account credentials. You agree to notify BioCart immediately at biocart.2025@gmail.com upon discovering any unauthorized access or breach of account security. The Company shall not be liable for losses incurred as a result of compromised user passwords.</p>
 
             <h3>4. Customer Responsibilities & Agricultural Usage</h3>
             <p>You agree to utilize BioCart solely for lawful purposes. You agree not to misuse, tamper with, or introduce malicious scripts into the Platform. You acknowledge that biological inputs, soil enhancers, and organic pest repellents require appropriate handling, dosing, and adherence to safety guidelines tailored to specific crop cycles and local soil compositions.</p>
@@ -1175,7 +1175,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             <p>All biological products, vermicompost, beneficial microbial inoculants, and cold-pressed neem formulations should be stored in a cool, dry, shaded environment away from direct sunlight, children, and pet access. Products are formulated solely for horticultural soil and plant application and are strictly not for human or animal consumption.</p>
 
             <h3>14. Intellectual Property, Trademarks & Brand Protection</h3>
-            <p>The trademarks "BioCart", "Sindulis Agro Products", brand logos, UI designs, graphics, and proprietary product names are the exclusive intellectual property of Sindulis Agro Products Private Limited. Unauthorized duplication, reverse engineering, software scraping, or commercial exploitation is strictly prohibited under the Trade Marks Act, 1999 and the Copyright Act, 1957.</p>
+            <p>The trademarks "BioCart", "SINDULIS INNOVATIVE SOLUTIONS", brand logos, UI designs, graphics, and proprietary product names are the exclusive intellectual property of SINDULIS INNOVATIVE SOLUTIONS. Unauthorized duplication, reverse engineering, software scraping, or commercial exploitation is strictly prohibited under the Trade Marks Act, 1999 and the Copyright Act, 1957.</p>
 
             <h3>15. Prohibited Activities, Malicious Scraping & System Abuse</h3>
             <p>Users may not: (a) deploy automated web crawlers, spiders, or scrapers to extract pricing, inventory, or user records; (b) execute denial-of-service attacks or tamper with server infrastructure; (c) post defamatory, abusive, or false reviews; or (d) circumvent authentication gateways.</p>
@@ -1184,7 +1184,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             <p>BioCart reserves the right to suspend, terminate, or restrict user access to the Platform with or without prior notice if fraudulent conduct, coupon abuse, repeated payment defaults, or violations of these Terms occur.</p>
 
             <h3>17. Limitation of Liability & Statutory Disclaimers</h3>
-            <p>To the maximum extent permitted by applicable Indian law, Sindulis Agro Products Private Limited and its directors, officers, and employees shall not be liable for any indirect, incidental, punitive, or consequential damages resulting from the use or inability to use our products or services. In all events, our aggregate liability shall not exceed the amount actually paid by you for the specific item in dispute.</p>
+            <p>To the maximum extent permitted by applicable Indian law, SINDULIS INNOVATIVE SOLUTIONS and its directors, officers, and employees shall not be liable for any indirect, incidental, punitive, or consequential damages resulting from the use or inability to use our products or services. In all events, our aggregate liability shall not exceed the amount actually paid by you for the specific item in dispute.</p>
 
             <h3>18. Dispute Resolution, Governing Law & Jurisdiction</h3>
             <p>These Terms shall be interpreted and governed in accordance with the substantive laws of India. Any dispute, controversy, or claim arising out of or relating to these Terms shall be referred to arbitration in accordance with the Arbitration and Conciliation Act, 1996, or subject to the exclusive jurisdiction of the competent civil courts situated in <strong>West Godavari District, Andhra Pradesh, India</strong>.</p>
@@ -1195,11 +1195,11 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             <h3>20. Customer Support & Grievance Redressal Contact Block</h3>
             <p>In accordance with the Information Technology Act, 2000 and the Consumer Protection (E-Commerce) Rules, 2020, our contact information and designated Grievance Officer details are set forth below:</p>
             <div class="legal-contact-block p-4 bg-slate-50 rounded-xl border border-slate-200 mt-2 text-xs">
-              <p><strong>Operating Entity:</strong> Sindulis Agro Products Private Limited</p>
-              <p><strong>Corporate Identification Number (CIN):</strong> U01110AP2023PTC123456</p>
-              <p><strong>Registered & Operational Address:</strong> Industrial Corridor Area, Tanuku, West Godavari District, Andhra Pradesh - 534211, India</p>
-              <p><strong>Customer Care Email:</strong> <a href="mailto:support@biocart.co.in" class="text-emerald-700 underline font-semibold">support@biocart.co.in</a> • <strong>Phone:</strong> +91 91542 22539</p>
-              <p><strong>Grievance Officer:</strong> Legal Compliance Cell (Email: <a href="mailto:privacy@biocart.co.in" class="text-emerald-700 underline font-semibold">privacy@biocart.co.in</a>)</p>
+              <p><strong>Operating Entity:</strong> SINDULIS INNOVATIVE SOLUTIONS</p>
+              <p><strong>Udyam Registration Number:</strong> UDYAM-AP-23-0104910 (Proprietorship)</p>
+              <p><strong>Registered & Operational Address:</strong> Industrial Corridor Area, Tirupati, Andhra Pradesh - 517507, India</p>
+              <p><strong>Customer Care Email:</strong> <a href="mailto:biocart.2025@gmail.com" class="text-emerald-700 underline font-semibold">biocart.2025@gmail.com</a> • <strong>Phone:</strong> +91 949080479</p>
+              <p><strong>Grievance Officer:</strong> Legal Compliance Cell (Email: <a href="mailto:biocart.2025@gmail.com" class="text-emerald-700 underline font-semibold">biocart.2025@gmail.com</a>)</p>
               <p class="text-slate-500 mt-1">Grievances are acknowledged within 48 hours and resolved within one month of receipt in accordance with consumer protection guidelines.</p>
             </div>
           `

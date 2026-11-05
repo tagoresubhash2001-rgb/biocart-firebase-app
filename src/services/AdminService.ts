@@ -26,12 +26,12 @@ import { MASTER_CATEGORIES } from '../data/categoryCatalog';
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   businessName: 'BioCart Sustainable Marketplace',
     storeName: 'BioCart',
-    address: 'Bio-Innovation Park, Hyderabad, India',
-  contactEmail: 'support@biocart.com',
-  contactPhone: '+91 (800) 246-2278',
+    address: 'Tirupati, Andhra Pradesh – 517507, India',
+  contactEmail: 'biocart.2025@gmail.com',
+  contactPhone: '+91 949080479',
     socialLinks: {
     facebook: 'https://facebook.com/biocart',
-    instagram: 'https://instagram.com/biocart',
+    instagram: 'https://www.instagram.com/bio_cart/?hl=en',
     twitter: 'https://twitter.com/biocart',
     youtube: 'https://youtube.com/biocart',
     linkedin: 'https://linkedin.com/company/biocart'

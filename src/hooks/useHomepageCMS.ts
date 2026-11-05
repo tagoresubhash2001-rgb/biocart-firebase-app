@@ -4,7 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 
 export const defaultHomepageCMS = {
   hero: {
-    badgeText: "Sindulis Agro Products Presents",
+    badgeText: "BioCart Presents",
     titleLine1: "BioCart – The Way of",
     titleLine2: "Healthy, Organic",
     titleLine3: "Life",
@@ -40,7 +40,7 @@ export const defaultHomepageCMS = {
   philosophy: {
     badge: "Our Ecological Vision",
     title: "Promoting Plastic-Free, Chemical-Free Indian Lifestyles",
-    description: "Sindulis Agro Products established BioCart to pioneer the circular economy. Traditional gardening consumables leak toxic PVC microplastics and chemical synthetic compounds directly into home-grown organic vegetables. Our fully biodegradable coir items decompose organically right inside your planters, building richer soil parameters instead of microplastic toxicities.",
+    description: "SINDULIS INNOVATIVE SOLUTIONS established BioCart to pioneer the circular economy. Traditional gardening consumables leak toxic PVC microplastics and chemical synthetic compounds directly into home-grown organic vegetables. Our fully biodegradable coir items decompose organically right inside your planters, building richer soil parameters instead of microplastic toxicities.",
     bullet1Title: "100% Clean Sourcing",
     bullet1Desc: "Washed and processed in our Guntur facility under strict low EC guidelines.",
     bullet2Title: "Carbon-Neutral Shipping",
@@ -86,7 +86,7 @@ export const defaultHomepageCMS = {
     brandDescription: "Leading the transition to zero-plastic, zero-chemical horticulture with authentic organic agricultural outputs.",
     socialTitle: "Follow Our Dispatch Journey",
     socialSubtitle: "Regenerating Indian Horticulture @BioCart",
-    copyrightText: "© 2026 BioCart. Sindulis Agro Products Private Limited. All Rights Reserved."
+    copyrightText: "© 2026 BioCart. SINDULIS INNOVATIVE SOLUTIONS Private Limited. All Rights Reserved."
   },
     promotionalRibbon: {
       enabled: true,
@@ -132,7 +132,7 @@ export const defaultHomepageCMS = {
         titleLine2: 'Healthy, Organic',
         titleLine3: 'Life',
         subtitle: 'Indulge in premium organic living. Crafted carefully with certified zero-chemical formulations and 100% plastic-free commitments.',
-        badgeText: 'Sindulis Agro Products Presents',
+        badgeText: 'BioCart Presents',
         imageUrl: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?auto=format&fit=crop&w=1920&q=80',
         primaryButtonText: 'Explore Premium Collection',
         primaryButtonUrl: '#shop',

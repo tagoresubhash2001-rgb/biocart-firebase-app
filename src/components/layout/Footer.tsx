@@ -223,16 +223,20 @@ export const Footer: React.FC = () => {
               {/* Corporate Contact Info */}
               <div className="space-y-3.5 text-[13px] footer-meta font-sans font-medium">
                 <div className="flex items-center gap-2.5">
-                  <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>{settings.contactPhone || '+91 91542 22539'}</span>
+                  <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <a href={`tel:${(settings.contactPhone || '+91 949080479').replace(/\s+/g, '')}`} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" aria-label="Call BioCart Customer Support">
+                    {settings.contactPhone || '+91 949080479'}
+                  </a>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <Mail className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>{settings.contactEmail || 'care@biocart.co.in'}</span>
+                  <Mail className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <a href={`mailto:${settings.contactEmail || 'biocart.2025@gmail.com'}`} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" aria-label="Email BioCart Support Desk">
+                    {settings.contactEmail || 'biocart.2025@gmail.com'}
+                  </a>
                 </div>
                 <div className="flex items-start gap-2.5">
                   <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                  <span>{settings.address || 'Sindulis Agro Farms, Tanuku, AP - 534211'}</span>
+                  <span>{settings.address || 'Tirupati, Andhra Pradesh – 517507'}</span>
                 </div>
               </div>
               
@@ -253,9 +257,9 @@ export const Footer: React.FC = () => {
               </div>
 
               <div className="space-y-1.5 text-[11px] footer-copy font-mono" id="col-brand-corporate">
-                <p className="font-bold text-nature-800 dark:text-slate-400 font-sans">Sindulis Agro Products Pvt. Ltd.</p>
-                <p>CIN: U01110AP2023PTC123456</p>
-                <p>Horticulture License No. 4930</p>
+                <p className="font-bold text-nature-800 dark:text-slate-400 font-sans">SINDULIS INNOVATIVE SOLUTIONS</p>
+                <p>Proprietorship • Unit: BioCart</p>
+                <p>Udyam Reg: UDYAM-AP-23-0104910</p>
               </div>
             </div>
 
@@ -416,11 +420,11 @@ export const Footer: React.FC = () => {
 
             <div className="flex gap-4" id="social-circular-buttons">
               {[
-                { icon: Instagram, href: settings.socialLinks?.instagram || 'https://instagram.com/biocart' },
-                { icon: Facebook, href: settings.socialLinks?.facebook || 'https://facebook.com/biocart' },
-                { icon: Twitter, href: settings.socialLinks?.twitter || 'https://twitter.com/biocart' },
-                { icon: Linkedin, href: settings.socialLinks?.linkedin || 'https://linkedin.com/company/biocart' },
-                { icon: Youtube, href: settings.socialLinks?.youtube || 'https://youtube.com/biocart' }
+                { name: 'Instagram', icon: Instagram, href: settings.socialLinks?.instagram || 'https://www.instagram.com/bio_cart/?hl=en' },
+                { name: 'Facebook', icon: Facebook, href: settings.socialLinks?.facebook || 'https://facebook.com/biocart' },
+                { name: 'Twitter', icon: Twitter, href: settings.socialLinks?.twitter || 'https://twitter.com/biocart' },
+                { name: 'LinkedIn', icon: Linkedin, href: settings.socialLinks?.linkedin || 'https://linkedin.com/company/biocart' },
+                { name: 'YouTube', icon: Youtube, href: settings.socialLinks?.youtube || 'https://youtube.com/biocart' }
               ].map((social, idx) => {
                 const IconComponent = social.icon;
                 return (
@@ -429,6 +433,7 @@ export const Footer: React.FC = () => {
                     href={social.href} 
                     target="_blank" 
                     rel="noopener noreferrer" 
+                    aria-label={`Follow BioCart on ${social.name}`}
                     className="w-12 h-12 rounded-full bg-white dark:bg-charcoal-800 flex items-center justify-center text-nature-800 dark:text-slate-300 border border-emerald-500/10 dark:border-white/5 shadow-sm hover:shadow-[0_0_20px_rgba(16,185,129,0.35)] hover:-translate-y-1 hover:scale-110 hover:text-nature-700 dark:hover:text-nature-400 transition-all duration-300"
                     id={`social-btn-${idx}`}
                   >
@@ -442,7 +447,7 @@ export const Footer: React.FC = () => {
           {/* 5. COPYRIGHT BAR */}
           <div className="mt-8 pt-6 border-t border-emerald-500/10 dark:border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 text-xs footer-copy" id="footer-copyright-bar">
             <p className="text-center md:text-left font-sans font-medium">
-              © 2026 BioCart. Sindulis Agro Products Private Limited. All Rights Reserved.
+              © 2026 BioCart. SINDULIS INNOVATIVE SOLUTIONS (Udyam: UDYAM-AP-23-0104910). All Rights Reserved.
             </p>
             <div className="flex flex-wrap justify-center gap-4 md:gap-6 text-charcoal-500 dark:text-slate-400 font-medium" id="copyright-bar-links">
               <span onClick={() => { setTab('privacy-policy'); setSubView(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 dark:hover:text-white cursor-pointer transition-colors">Privacy Policy</span>

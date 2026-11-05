@@ -6,12 +6,14 @@ import { useApp } from '../../context/AppContext';
 import { Settings as SettingsIcon, Save, Truck, Percent, Shield, Sparkles, UserCheck, CheckCircle2 } from 'lucide-react';
 import { BioCartLoading } from '../ui/BioCartLoading';
 import { AdminProfileSecurity } from './AdminProfileSecurity';
+import { AdminApiConfiguration } from './AdminApiConfiguration';
+import { Key } from 'lucide-react';
 
 export const AdminSettings: React.FC = () => {
   const { userProfile } = useAuth();
   const { addToast } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'store' | 'security'>('store');
+  const [activeTab, setActiveTab] = useState<'store' | 'financial' | 'security' | 'api'>('store');
   const [settings, setSettings] = useState<StoreSettings | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -86,6 +88,18 @@ export const AdminSettings: React.FC = () => {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('api')}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'api'
+                ? 'bg-white text-emerald-700 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Key className="w-3.5 h-3.5" />
+            Logistics & API Integration
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('security')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'security'
@@ -101,7 +115,9 @@ export const AdminSettings: React.FC = () => {
 
       {activeTab === 'security' ? (
         <AdminProfileSecurity />
-      ) : activeTab === ('financial' as any) ? (
+      ) : activeTab === 'api' ? (
+        <AdminApiConfiguration />
+      ) : activeTab === 'financial' ? (
         <form onSubmit={handleSaveSettings} className="space-y-6">
           <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
             <div className="border-b border-slate-200 pb-3 flex items-center justify-between">

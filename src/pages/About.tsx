@@ -19,7 +19,7 @@ export const About: React.FC = () => {
     {
       year: '2023',
       title: 'Inception & Corporate Registration',
-      subtitle: 'Sindulis Agro Products Pvt. Ltd.',
+      subtitle: 'SINDULIS INNOVATIVE SOLUTIONS',
       desc: 'Founded with a definitive mandate: to pioneer pure bio-circular agriculture and engineer completely non-toxic, zero-plastic growing mediums for Indian horticulture.',
       tag: 'Foundation'
     },
@@ -102,7 +102,7 @@ export const About: React.FC = () => {
               className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-emerald-900/60 border border-emerald-500/30 text-emerald-300 text-xs font-semibold tracking-widest uppercase shadow-inner"
             >
               <Leaf className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Sindulis Agro Products • BioCart Brand Journey</span>
+              <span>SINDULIS INNOVATIVE SOLUTIONS • BioCart Brand Journey</span>
             </motion.div>
 
             {/* Headline */}
@@ -188,7 +188,7 @@ export const About: React.FC = () => {
               </div>
               <div className="text-xs">
                 <div className="font-bold text-stone-100">Verified Agro-Enterprise</div>
-                <div className="text-emerald-300/80 text-[11px]">CIN: U01110AP2023PTC123456</div>
+                <div className="text-emerald-300/80 text-[11px]">Udyam: UDYAM-AP-23-0104910</div>
               </div>
             </div>
           </div>
@@ -206,7 +206,7 @@ export const About: React.FC = () => {
 
             <div className="text-stone-700 text-sm sm:text-base leading-relaxed space-y-4">
               <p>
-                <strong>Sindulis Agro Products Private Limited</strong> was founded on a simple yet profound realization: the modern urban movement toward gardening was quietly creating an ecological contradiction. Behind every thriving balcony vegetable patch sat heaps of single-use black plastic nursery trays, chemical fertilizer bags, and synthetic soil enhancers saturated with heavy salts.
+                <strong>SINDULIS INNOVATIVE SOLUTIONS</strong> was founded on a simple yet profound realization: the modern urban movement toward gardening was quietly creating an ecological contradiction. Behind every thriving balcony vegetable patch sat heaps of single-use black plastic nursery trays, chemical fertilizer bags, and synthetic soil enhancers saturated with heavy salts.
               </p>
               <p>
                 We established <strong>BioCart</strong> as our flagship consumer brand to provide Indian plant lovers, urban growers, and conscious agriculturalists with an uncompromising alternative: certified organic growing mediums, zero-plastic coir nursery pots, and cold-pressed bio-inputs that nurture roots naturally.
@@ -356,7 +356,7 @@ export const About: React.FC = () => {
                   Prashanthi Pallapothula
                 </h3>
                 <p className="text-xs text-stone-300 font-light mt-0.5">
-                  Sindulis Agro Products Pvt. Ltd. • Product R&D & Design
+                  SINDULIS INNOVATIVE SOLUTIONS • Product R&D & Design
                 </p>
               </div>
             </div>
@@ -400,7 +400,7 @@ export const About: React.FC = () => {
                   Tagore Subhash Maguluri
                 </h3>
                 <p className="text-xs text-stone-300 font-light mt-0.5">
-                  Sindulis Agro Products Pvt. Ltd. • Platforms & Supply Chains
+                  SINDULIS INNOVATIVE SOLUTIONS • Platforms & Supply Chains
                 </p>
               </div>
             </div>

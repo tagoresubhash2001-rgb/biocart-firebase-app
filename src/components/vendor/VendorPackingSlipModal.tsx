@@ -139,10 +139,10 @@ export const VendorPackingSlipModal: React.FC<PackingSlipProps> = ({
                   Certified Ecological Multi-Vendor Marketplace • Circular Agriculture
                 </p>
                 <div className="text-[10px] text-slate-400 font-mono space-y-0.5">
-                  <p>Operating Entity: Sindulis Agro Products Pvt. Ltd.</p>
-                  <p>CIN: U01110AP2023PTC123456 • GSTIN: 36AABCS1429B1Z8</p>
-                  <p>HQ: Industrial Corridor Area, Guntur, AP - 522001</p>
-                  <p>Portal: https://biocart.in • Care: care@biocart.co.in</p>
+                  <p>Operating Entity: SINDULIS INNOVATIVE SOLUTIONS</p>
+                  <p>Udyam Reg: UDYAM-AP-23-0104910 • Constitution: Proprietorship</p>
+                  <p>HQ: Tirupati, Andhra Pradesh – 517507</p>
+                  <p>Portal: https://biocart.in • Care: biocart.2025@gmail.com</p>
                 </div>
               </div>
 
@@ -329,7 +329,7 @@ export const VendorPackingSlipModal: React.FC<PackingSlipProps> = ({
                 🌿 BioCart 100% Plastic-Free & Organic Guarantee
               </p>
               <p className="leading-relaxed">
-                This shipment was packed in an eco-certified processing hub using corrugated cartons, water-activated paper tape, and biodegradable coir protections. For any issues or quality claims, contact our agronomists at care@biocart.co.in or call +91 863 2244 556 quoting order number {orderNumber}.
+                This shipment was packed in an eco-certified processing hub using corrugated cartons, water-activated paper tape, and biodegradable coir protections. For any issues or quality claims, contact our agronomists at biocart.2025@gmail.com or call +91 949080479 quoting order number {orderNumber}.
               </p>
             </div>
 
