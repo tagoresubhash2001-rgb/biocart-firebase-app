@@ -697,7 +697,7 @@ const DealerLocatorBlock: React.FC<{ sectionData?: any }> = ({ sectionData }) =>
       address: 'Sindulis Agro Farms, Industrial Corridor, Tanuku, West Godavari District',
       state: 'Andhra Pradesh',
       pin: '534211',
-      phone: '+91 949080479',
+      phone: '+91 9494080479',
       hours: 'Mon - Sat: 8:00 AM - 6:30 PM',
       services: ['Direct Pallet Sourcing', 'Raw Coir Bales', 'Low-EC Testing Lab']
     },

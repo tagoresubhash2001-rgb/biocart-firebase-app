@@ -329,7 +329,7 @@ export const VendorPackingSlipModal: React.FC<PackingSlipProps> = ({
                 🌿 BioCart 100% Plastic-Free & Organic Guarantee
               </p>
               <p className="leading-relaxed">
-                This shipment was packed in an eco-certified processing hub using corrugated cartons, water-activated paper tape, and biodegradable coir protections. For any issues or quality claims, contact our agronomists at biocart.2025@gmail.com or call +91 949080479 quoting order number {orderNumber}.
+                This shipment was packed in an eco-certified processing hub using corrugated cartons, water-activated paper tape, and biodegradable coir protections. For any issues or quality claims, contact our agronomists at biocart.2025@gmail.com or call +91 9494080479 quoting order number {orderNumber}.
               </p>
             </div>
 

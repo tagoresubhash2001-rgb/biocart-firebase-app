@@ -60,12 +60,12 @@ export const BUSINESS_CONFIG: BusinessConfig = {
     fullAddress: 'Fulfillment & Logistics Facility, Tirupati, Andhra Pradesh – 517507, India'
   },
   contact: {
-    supportPhone: '+91949080479',
-    supportPhoneDisplay: '+91 949080479',
+    supportPhone: '+919494080479',
+    supportPhoneDisplay: '+91 9494080479',
     supportEmail: 'biocart.2025@gmail.com',
     foundersEmail: 'biocart.2025@gmail.com',
-    whatsappNumber: '91949080479',
-    whatsappUrl: 'https://wa.me/91949080479',
+    whatsappNumber: '919494080479',
+    whatsappUrl: 'https://wa.me/919494080479',
     instagramUrl: 'https://www.instagram.com/bio_cart/?hl=en',
     businessHours: 'Mon–Sat: 9:00 AM – 6:00 PM IST'
   },

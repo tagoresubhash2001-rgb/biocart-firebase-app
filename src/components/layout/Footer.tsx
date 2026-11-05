@@ -224,8 +224,8 @@ export const Footer: React.FC = () => {
               <div className="space-y-3.5 text-[13px] footer-meta font-sans font-medium">
                 <div className="flex items-center gap-2.5">
                   <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <a href={`tel:${(settings.contactPhone || '+91 949080479').replace(/\s+/g, '')}`} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" aria-label="Call BioCart Customer Support">
-                    {settings.contactPhone || '+91 949080479'}
+                  <a href={`tel:${(settings.contactPhone || '+91 9494080479').replace(/\s+/g, '')}`} className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors" aria-label="Call BioCart Customer Support">
+                    {settings.contactPhone || '+91 9494080479'}
                   </a>
                 </div>
                 <div className="flex items-center gap-2.5">

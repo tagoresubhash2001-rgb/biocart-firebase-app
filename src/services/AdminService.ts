@@ -28,7 +28,7 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
     storeName: 'BioCart',
     address: 'Tirupati, Andhra Pradesh – 517507, India',
   contactEmail: 'biocart.2025@gmail.com',
-  contactPhone: '+91 949080479',
+  contactPhone: '+91 9494080479',
     socialLinks: {
     facebook: 'https://facebook.com/biocart',
     instagram: 'https://www.instagram.com/bio_cart/?hl=en',

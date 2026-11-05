@@ -388,7 +388,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
         order: 3,
         data: {
           title: 'Corporate Office & Primary Processing Plant',
-          content: '<p><strong>Headquarters:</strong> SINDULIS INNOVATIVE SOLUTIONS, Tirupati, Andhra Pradesh – 517507, India.</p><p><strong>Telephone Helpdesk:</strong> +91 949080479 (Mon - Sat | 9:00 AM - 6:00 PM IST)</p><p><strong>Email Correspondence:</strong> General: biocart.2025@gmail.com | Founders: biocart.2025@gmail.com</p><p><strong>WhatsApp Support:</strong> +91 949080479 (Rapid Response Team)</p>'
+          content: '<p><strong>Headquarters:</strong> SINDULIS INNOVATIVE SOLUTIONS, Tirupati, Andhra Pradesh – 517507, India.</p><p><strong>Telephone Helpdesk:</strong> +91 9494080479 (Mon - Sat | 9:00 AM - 6:00 PM IST)</p><p><strong>Email Correspondence:</strong> General: biocart.2025@gmail.com | Founders: biocart.2025@gmail.com</p><p><strong>WhatsApp Support:</strong> +91 9494080479 (Rapid Response Team)</p>'
         }
       },
       {
@@ -474,7 +474,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
           features: [
             { title: '24-Hour Dispatch', desc: 'Standard consumer orders leave our Andhra and Karnataka facilities within 24 business hours.' },
             { title: 'Certified Agronomists', desc: 'Complimentary technical guidance on application dosages, EC levels, and organic pest remedies.' },
-            { title: 'Direct Care Desk', desc: 'Reach our team directly at biocart.2025@gmail.com or call +91 949080479 (Mon–Sat 9AM–6PM IST).' }
+            { title: 'Direct Care Desk', desc: 'Reach our team directly at biocart.2025@gmail.com or call +91 9494080479 (Mon–Sat 9AM–6PM IST).' }
           ]
         }
       },
@@ -573,7 +573,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
           features: [
             { title: 'Automated SMS Alerts', desc: 'Receive real-time courier AWB links as soon as your parcel is scanned at the dispatch terminal.' },
             { title: '100% Plastic-Free Packaging', desc: 'Heavy-duty corrugated boxes sealed with natural starch water-activated tape for zero plastic transit.' },
-            { title: 'Priority Dispatch Support', desc: 'Need urgent delivery acceleration? Contact our logistics desk at biocart.2025@gmail.com or +91 949080479.' }
+            { title: 'Priority Dispatch Support', desc: 'Need urgent delivery acceleration? Contact our logistics desk at biocart.2025@gmail.com or +91 9494080479.' }
           ]
         }
       }
@@ -718,7 +718,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             </ul>
 
             <h3>2. How to Submit a Claim</h3>
-            <p>To report an issue, please email <strong>biocart.2025@gmail.com</strong> or WhatsApp <strong>+91 949080479</strong> within <strong>7 calendar days</strong> of receiving your parcel. Please include:</p>
+            <p>To report an issue, please email <strong>biocart.2025@gmail.com</strong> or WhatsApp <strong>+91 9494080479</strong> within <strong>7 calendar days</strong> of receiving your parcel. Please include:</p>
             <ul>
               <li>Your BioCart 10-digit Order Number (e.g. ORD-2026-XXXXX).</li>
               <li>Clear photographs of the outer carton showing the shipping label and barcode.</li>
@@ -1090,7 +1090,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
               <p><strong>Grievance & Privacy Officer:</strong> Legal Compliance Cell</p>
               <p><strong>Company:</strong> SINDULIS INNOVATIVE SOLUTIONS</p>
               <p><strong>Address:</strong> Industrial Corridor Area, Tirupati, Andhra Pradesh - 517507, India</p>
-              <p><strong>Email:</strong> <a href="mailto:biocart.2025@gmail.com" class="text-emerald-700 underline font-semibold">biocart.2025@gmail.com</a> • <strong>Phone:</strong> +91 949080479</p>
+              <p><strong>Email:</strong> <a href="mailto:biocart.2025@gmail.com" class="text-emerald-700 underline font-semibold">biocart.2025@gmail.com</a> • <strong>Phone:</strong> +91 9494080479</p>
               <p class="text-slate-500 mt-1">Response Timeline: All legitimate privacy grievances are acknowledged within 24 hours and addressed within 15 working days.</p>
             </div>
           `
@@ -1198,7 +1198,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
               <p><strong>Operating Entity:</strong> SINDULIS INNOVATIVE SOLUTIONS</p>
               <p><strong>Udyam Registration Number:</strong> UDYAM-AP-23-0104910 (Proprietorship)</p>
               <p><strong>Registered & Operational Address:</strong> Industrial Corridor Area, Tirupati, Andhra Pradesh - 517507, India</p>
-              <p><strong>Customer Care Email:</strong> <a href="mailto:biocart.2025@gmail.com" class="text-emerald-700 underline font-semibold">biocart.2025@gmail.com</a> • <strong>Phone:</strong> +91 949080479</p>
+              <p><strong>Customer Care Email:</strong> <a href="mailto:biocart.2025@gmail.com" class="text-emerald-700 underline font-semibold">biocart.2025@gmail.com</a> • <strong>Phone:</strong> +91 9494080479</p>
               <p><strong>Grievance Officer:</strong> Legal Compliance Cell (Email: <a href="mailto:biocart.2025@gmail.com" class="text-emerald-700 underline font-semibold">biocart.2025@gmail.com</a>)</p>
               <p class="text-slate-500 mt-1">Grievances are acknowledged within 48 hours and resolved within one month of receipt in accordance with consumer protection guidelines.</p>
             </div>

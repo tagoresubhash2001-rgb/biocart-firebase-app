@@ -235,7 +235,7 @@ export const Contact: React.FC = () => {
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +91 949080479"
+                    placeholder="e.g. +91 9494080479"
                     className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm text-stone-900 focus:outline-none focus:border-emerald-600 focus:bg-white transition-colors"
                   />
                 </div>
@@ -358,18 +358,18 @@ export const Contact: React.FC = () => {
               
               <div className="space-y-3 pt-1">
                 <a 
-                  href="tel:+91949080479"
+                  href="tel:+919494080479"
                   className="flex items-center justify-between p-3 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-800 text-xs sm:text-sm font-semibold transition-colors border border-stone-200/60"
                 >
                   <span className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-emerald-700" />
-                    +91 949080479
+                    +91 9494080479
                   </span>
                   <span className="text-[10px] uppercase font-bold text-emerald-700">Call Now</span>
                 </a>
 
                 <a 
-                  href="https://wa.me/91949080479"
+                  href="https://wa.me/919494080479"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 hover:bg-emerald-100/70 text-emerald-950 text-xs sm:text-sm font-semibold transition-colors border border-emerald-200"
