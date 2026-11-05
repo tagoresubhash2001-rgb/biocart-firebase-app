@@ -493,7 +493,7 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             },
             {
               q: 'What payment methods do you accept?',
-              a: 'We accept all major Indian payment methods through our PCI-DSS compliant Razorpay gateway: UPI (Google Pay, PhonePe, Paytm, BHIM), Net Banking across 50+ Indian banks, Credit and Debit Cards (Visa, MasterCard, RuPay), and Cash on Delivery (COD) for eligible domestic pincodes.'
+              a: 'We accept all major Indian payment methods through our PCI-DSS compliant Cashfree Payments gateway: UPI (Google Pay, PhonePe, Paytm, BHIM), Net Banking across 50+ Indian banks, Credit and Debit Cards (Visa, MasterCard, RuPay), and Cash on Delivery (COD) for eligible domestic pincodes.'
             },
             {
               q: 'How long does delivery take and what are the shipping charges?',
@@ -1035,13 +1035,13 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             <p>We process personal data under legitimate business grounds and contractual necessity:</p>
             <ul>
               <li><strong>Contract Performance:</strong> Processing checkout requests, dispatching biological nursery supplies, and coordinating with regional couriers.</li>
-              <li><strong>Logistics Coordination:</strong> Calculating pin code serviceability and generating airway bills (AWB) via Delhivery logistics APIs.</li>
+              <li><strong>Logistics Coordination:</strong> Calculating pin code serviceability and generating airway bills (AWB) via EKART by Flipkart logistics APIs.</li>
               <li><strong>Customer Assistance:</strong> Providing horticultural diagnostics, tracking status inquiries, and resolving return tickets.</li>
               <li><strong>Legal Mandates:</strong> Maintaining statutory accounting ledgers, issuing GST tax invoices, and preventing commercial fraud.</li>
             </ul>
 
             <h3>9. Payment Gateway Security & Zero Card Storage Guarantee</h3>
-            <p>BioCart enforces zero financial card data retention. <strong>We never capture, store, log, or process credit/debit card numbers, CVV codes, net banking credentials, or UPI PINs on our servers.</strong> All digital transactions are processed directly through PCI-DSS Level 1 compliant payment gateways (Razorpay). Communications are encrypted using end-to-end 256-bit TLS protocols.</p>
+            <p>BioCart enforces zero financial card data retention. <strong>We never capture, store, log, or process credit/debit card numbers, CVV codes, net banking credentials, or UPI PINs on our servers.</strong> All digital transactions are processed directly through PCI-DSS Level 1 compliant payment gateways (Cashfree Payments). Communications are encrypted using end-to-end 256-bit TLS protocols.</p>
 
             <h3>10. Cookies, Session Storage & Analytics Technologies</h3>
             <p>We use essential functional cookies and browser local storage strictly to remember cart items, preserve your wishlist, maintain active login sessions, and optimize storefront load times. We do not deploy intrusive third-party cross-site advertising trackers or sell browsing data.</p>
@@ -1049,8 +1049,8 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             <h3>11. Authorized Processors & Data Sharing</h3>
             <p>We share operational information strictly on a need-to-know basis under binding confidentiality and data-protection terms with:</p>
             <ul>
-              <li><strong>Logistics Partners (Delhivery):</strong> Name, delivery destination address, pin code, and contact phone number to execute parcel delivery.</li>
-              <li><strong>Payment Processors (Razorpay & RazorpayX):</strong> Order totals, transaction tokens, and verified vendor bank details for disbursements.</li>
+              <li><strong>Logistics Partners (EKART by Flipkart):</strong> Name, delivery destination address, pin code, and contact phone number to execute parcel delivery.</li>
+              <li><strong>Payment Processors (Cashfree Payments):</strong> Order totals, transaction tokens, and verified vendor bank details for disbursements.</li>
               <li><strong>Infrastructure Hosting:</strong> Google Cloud Platform and Firebase (Singapore/Asia-Southeast1 region) for encrypted database storage and serverless computation.</li>
             </ul>
 
@@ -1157,13 +1157,13 @@ export const INITIAL_CMS_PAGES: CMSPage[] = [
             <p>The display of items on the Platform constitutes an invitation to offer. Receipt of an electronic order receipt or SMS confirmation does not constitute our final legal acceptance. BioCart and its merchants reserve the unconditional right to limit, decline, or cancel orders in cases of stock depletion, logistics constraints, typographical pricing errors, or suspected unauthorized fraudulent activities. If an order is canceled post-payment, a full refund is immediately credited to the original payment source.</p>
 
             <h3>8. Payment Methods, Digital Authorization & Zero Card Storage</h3>
-            <p>All prices listed on BioCart are denominated in Indian Rupees (INR) and are inclusive of Goods and Services Tax (GST). BioCart accepts major domestic and international credit/debit cards, net banking, UPI, and authorized digital wallets via PCI-DSS Level 1 certified payment gateways (Razorpay). <strong>Zero Card Storage Guarantee:</strong> BioCart does not capture, store, or view your sensitive payment card numbers, CVVs, or banking credentials.</p>
+            <p>All prices listed on BioCart are denominated in Indian Rupees (INR) and are inclusive of Goods and Services Tax (GST). BioCart accepts major domestic and international credit/debit cards, net banking, UPI, and authorized digital wallets via PCI-DSS Level 1 certified payment gateways (Cashfree Payments). <strong>Zero Card Storage Guarantee:</strong> BioCart does not capture, store, or view your sensitive payment card numbers, CVVs, or banking credentials.</p>
 
             <h3>9. Cash on Delivery (COD) Terms & Anti-Abuse Verification</h3>
             <p>Cash on Delivery may be offered on select product categories and pin codes. BioCart reserves the right to verify COD orders via automated IVR, SMS, or phone confirmation prior to parcel release. Refusal to accept verified COD shipments without valid defect justification may lead to restriction of COD privileges or account suspension.</p>
 
             <h3>10. Pan-India Shipping, Delivery Timelines & Logistics Limitations</h3>
-            <p>We fulfill orders across India via trusted logistics networks (including Delhivery). Estimated shipping timelines (typically 3–7 business days depending on geography) are indicative. BioCart is not liable for parcel delays resulting from extreme weather, natural disasters, state-wide transport strikes, or incomplete customer addresses.</p>
+            <p>We fulfill orders across India via trusted logistics networks (including EKART by Flipkart). Estimated shipping timelines (typically 3–7 business days depending on geography) are indicative. BioCart is not liable for parcel delays resulting from extreme weather, natural disasters, state-wide transport strikes, or incomplete customer addresses.</p>
 
             <h3>11. Returns, Replacements, Refunds & Botanical Exceptions</h3>
             <p>Customers may request replacements or refunds for items received in damaged, leaking, expired, or incorrect condition within seven (7) days of confirmed delivery, supported by photographic evidence. Due to biological sensitivity, live plant saplings and opened liquid bio-stimulant containers cannot be returned once opened, except in confirmed cases of manufacturing contamination.</p>

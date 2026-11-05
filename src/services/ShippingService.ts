@@ -31,7 +31,7 @@ export interface CreateShipmentParams {
 export interface TrackingResult {
   success: boolean;
   waybill: string;
-  carrier: 'delhivery';
+  carrier: 'ekart';
   status: ShipmentItem['status'];
   carrierStatus: string;
   expectedDeliveryDate?: string | null;
@@ -41,8 +41,8 @@ export interface TrackingResult {
 }
 
 export interface ShippingConfig {
-  delhiveryEnv: 'production' | 'staging';
-  delhiveryToken?: string;
+  ekartEnv: 'production' | 'staging';
+  ekartToken?: string;
   defaultPickupLocation: string;
   clientName?: string;
   updatedAt?: string;
@@ -53,7 +53,7 @@ export class ShippingService {
    * Check if a 6-digit Indian PIN code is serviceable by Delhivery for Prepaid and COD.
    */
   static async checkPincode(pincode: string): Promise<PincodeCheckResult> {
-    const fn = httpsCallable<{ pincode: string }, PincodeCheckResult>(functions, 'checkDelhiveryPincode');
+    const fn = httpsCallable<{ pincode: string }, PincodeCheckResult>(functions, 'checkEkartPincode');
     const res = await fn({ pincode });
     return res.data;
   }
@@ -62,7 +62,7 @@ export class ShippingService {
    * Idempotently create a Delhivery shipment for an authorized vendor order.
    */
   static async createShipment(params: CreateShipmentParams): Promise<{ success: boolean; waybill: string; shipmentId: string; status: string }> {
-    const fn = httpsCallable<CreateShipmentParams, any>(functions, 'createDelhiveryShipment');
+    const fn = httpsCallable<CreateShipmentParams, any>(functions, 'createEkartShipment');
     const res = await fn(params);
     return res.data;
   }
@@ -71,7 +71,7 @@ export class ShippingService {
    * Track a Delhivery shipment by its waybill/AWB.
    */
   static async trackShipment(waybill: string): Promise<TrackingResult> {
-    const fn = httpsCallable<{ waybill: string }, TrackingResult>(functions, 'trackDelhiveryShipment');
+    const fn = httpsCallable<{ waybill: string }, TrackingResult>(functions, 'trackEkartShipment');
     const res = await fn({ waybill });
     return res.data;
   }
@@ -80,7 +80,7 @@ export class ShippingService {
    * Retrieve printable PDF packing slip / label URL.
    */
   static async getShippingLabel(waybill: string): Promise<{ success: boolean; labelUrl: string }> {
-    const fn = httpsCallable<{ waybill: string }, { success: boolean; labelUrl: string }>(functions, 'getDelhiveryLabel');
+    const fn = httpsCallable<{ waybill: string }, { success: boolean; labelUrl: string }>(functions, 'getEkartLabel');
     const res = await fn({ waybill });
     return res.data;
   }
@@ -89,7 +89,7 @@ export class ShippingService {
    * Cancel an eligible Delhivery shipment.
    */
   static async cancelShipment(waybill: string, reason?: string): Promise<{ success: boolean; waybill: string; status: string }> {
-    const fn = httpsCallable<{ waybill: string; reason?: string }, any>(functions, 'cancelDelhiveryShipment');
+    const fn = httpsCallable<{ waybill: string; reason?: string }, any>(functions, 'cancelEkartShipment');
     const res = await fn({ waybill, reason });
     return res.data;
   }
@@ -171,7 +171,7 @@ export class ShippingService {
       return snap.data() as ShippingConfig;
     }
     return {
-      delhiveryEnv: 'production',
+      ekartEnv: 'production',
       defaultPickupLocation: 'BioCart Central Hub',
       clientName: 'SINDULIS B2C'
     };

@@ -41,7 +41,7 @@ export const CheckoutModal: React.FC = () => {
   const [shippingCity, setShippingCity] = useState('');
   const [shippingState, setShippingState] = useState('');
   const [shippingZip, setShippingZip] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('razorpay');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'cashfree'>('cashfree');
 
   // B2B GST Invoice Request
   const [requestGstInvoice, setRequestGstInvoice] = useState(false);
@@ -236,7 +236,7 @@ export const CheckoutModal: React.FC = () => {
     }
 
     if (paymentMethod === 'cod' && pincodeStatus && pincodeStatus.cod === false) {
-      addToast('Cash on Delivery (COD) is not available for this postal code. Please choose Razorpay / Online Payment.', 'error');
+      addToast('Cash on Delivery (COD) is not available for this postal code. Please choose Cashfree Online Payment.', 'error');
       return;
     }
 
@@ -764,15 +764,15 @@ export const CheckoutModal: React.FC = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={() => setPaymentMethod('razorpay')}
+                      onClick={() => setPaymentMethod('cashfree')}
                       className={`p-3 rounded-2xl border text-center flex flex-col items-center gap-1 cursor-pointer transition-all ${
-                        paymentMethod === 'razorpay'
+                        paymentMethod === 'cashfree'
                           ? 'border-nature-700 bg-nature-50/50 dark:bg-nature-950/20 text-nature-800 dark:text-nature-400 font-bold'
                           : 'border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-600'
                       }`}
                     >
                       <CreditCard className="w-5 h-5 text-nature-700" />
-                      <span className="text-xs font-semibold">Razorpay (UPI / Cards / NetBanking)</span>
+                      <span className="text-xs font-semibold">Cashfree Payments (UPI, Cards, NetBanking)</span>
                     </button>
                     <button
                       type="button"

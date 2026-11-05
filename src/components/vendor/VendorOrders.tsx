@@ -278,7 +278,7 @@ export const VendorOrders: React.FC = () => {
     }
   };
 
-  // Delhivery Shipment Dispatch
+  // EKART Shipment Dispatch
   const handleCreateShipment = async (order: VendorOrderSlice) => {
     setShippingActionOrder(order.orderNumber);
     try {
@@ -287,7 +287,7 @@ export const VendorOrders: React.FC = () => {
         vendorId: order.vendorId || vendorId || '',
         goodsDescription: order.items.map(i => i.name).join(', ').substring(0, 50)
       });
-      addToast(`Delhivery shipment created! AWB: ${res.waybill}`, 'success');
+      addToast(`EKART shipment created! AWB: ${res.waybill}`, 'success');
 
       // Update vendor order to 'shipped'
       await updateDoc(order.ref, {
@@ -300,13 +300,13 @@ export const VendorOrders: React.FC = () => {
       });
     } catch (err: any) {
       console.error('Failed to create shipment:', err);
-      addToast(err.message || 'Failed to dispatch with Delhivery', 'error');
+      addToast(err.message || 'Failed to dispatch with EKART', 'error');
     } finally {
       setShippingActionOrder(null);
     }
   };
 
-  // Live Delhivery Tracking
+  // Live EKART Tracking
   const handleTrackLive = async (awb: string) => {
     setTrackingAwb(awb);
     setTrackingLoading(true);
@@ -316,7 +316,7 @@ export const VendorOrders: React.FC = () => {
       setTrackingData(res);
     } catch (err: any) {
       console.error('Tracking failed:', err);
-      addToast(err.message || 'Failed to query live tracking from Delhivery.', 'error');
+      addToast(err.message || 'Failed to query live tracking from EKART.', 'error');
     } finally {
       setTrackingLoading(false);
     }
@@ -377,7 +377,7 @@ export const VendorOrders: React.FC = () => {
     });
 
     if (eligibleJobs.length === 0) {
-      addToast(`None of the ${selectedList.length} selected orders have an AWB allocated yet. Ship them with Delhivery first.`, 'warning');
+      addToast(`None of the ${selectedList.length} selected orders have an AWB allocated yet. Ship them with EKART first.`, 'warning');
       return;
     }
 
@@ -455,10 +455,10 @@ export const VendorOrders: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <ShoppingBag className="w-5 h-5 text-emerald-600" />
-            Vendor Order Processing & Delhivery Logistics
+            Vendor Order Processing & EKART Logistics
           </h1>
           <p className="text-xs text-slate-500">
-            Accept incoming orders, pack products, print BioCart packing slips, allocate Delhivery AWBs, and download batch 4×6 labels.
+            Accept incoming orders, pack products, print BioCart packing slips, allocate EKART AWBs, and download batch 4×6 labels.
           </p>
         </div>
 
@@ -597,7 +597,7 @@ export const VendorOrders: React.FC = () => {
                 <th className="p-3">Net Earning</th>
                 <th className="p-3">Workflow State</th>
                 <th className="p-3">Packing Slip</th>
-                <th className="p-3 text-right">Delhivery Dispatch & Label</th>
+                <th className="p-3 text-right">EKART Dispatch & Label</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -727,14 +727,14 @@ export const VendorOrders: React.FC = () => {
                         </button>
                       </td>
 
-                      {/* Delhivery Action (Phase 4) */}
+                      {/* EKART Action (Phase 4) */}
                       <td className="p-3 text-right">
                         {awb ? (
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => handleTrackLive(awb)}
                               className="px-2.5 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1 font-semibold cursor-pointer"
-                              title="Track Live Delhivery Status"
+                              title="Track Live EKART Status"
                             >
                               <Eye className="w-3.5 h-3.5" />
                               Track
@@ -759,7 +759,7 @@ export const VendorOrders: React.FC = () => {
                             ) : (
                               <Truck className="w-3.5 h-3.5" />
                             )}
-                            Dispatch Delhivery
+                            Dispatch EKART
                           </button>
                         )}
                       </td>
@@ -830,7 +830,7 @@ export const VendorOrders: React.FC = () => {
         );
       })()}
 
-      {/* 5. Live Delhivery Tracking Modal */}
+      {/* 5. Live EKART Tracking Modal */}
       {trackingAwb && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
@@ -840,7 +840,7 @@ export const VendorOrders: React.FC = () => {
                   <Truck className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Live Delhivery Tracking</h3>
+                  <h3 className="text-sm font-bold text-slate-900">Live EKART Tracking</h3>
                   <span className="text-xs font-mono text-emerald-700 font-semibold">{trackingAwb}</span>
                 </div>
               </div>
@@ -855,7 +855,7 @@ export const VendorOrders: React.FC = () => {
             {trackingLoading ? (
               <div className="py-12 text-center text-slate-500">
                 <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-600" />
-                <p className="text-xs">Querying Delhivery carrier network...</p>
+                <p className="text-xs">Querying EKART carrier network...</p>
               </div>
             ) : trackingData ? (
               <div className="space-y-4">
@@ -895,7 +895,7 @@ export const VendorOrders: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-400 italic">No package scans reported yet by Delhivery.</p>
+                    <p className="text-xs text-slate-400 italic">No package scans reported yet by EKART.</p>
                   )}
                 </div>
               </div>

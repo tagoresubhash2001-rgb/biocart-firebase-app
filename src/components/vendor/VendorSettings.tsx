@@ -1331,7 +1331,7 @@ export const VendorSettings: React.FC = () => {
             <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50 space-y-2">
               <h4 className="text-xs font-bold text-slate-900">Emergency Logistics Contact</h4>
               <p className="text-xs text-slate-600">
-                For order delivery, Delhivery pickup escalation, or returns query:
+                For order delivery, EKART pickup escalation, or returns query:
               </p>
               <p className="text-xs font-bold text-slate-800">+91 (Contact BioCart Operations)</p>
             </div>

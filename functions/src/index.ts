@@ -1604,12 +1604,18 @@ export const uploadMediaAsset = onCall({ region: 'asia-southeast1' }, async (req
 });
 
 export {
-  checkDelhiveryPincode,
-  createDelhiveryShipment,
-  trackDelhiveryShipment,
-  getDelhiveryLabel,
-  cancelDelhiveryShipment
-} from './delhivery';
+  createCashfreeOrder,
+  verifyCashfreePayment,
+  cashfreePaymentWebhook
+} from './cashfree';
+
+export {
+  checkEkartPincode,
+  createEkartShipment,
+  trackEkartShipment,
+  getEkartLabel,
+  cancelEkartShipment
+} from './ekart';
 
 // ==========================================================
 // updateVendorCommercials — admin-only callable to safely update

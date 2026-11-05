@@ -411,7 +411,7 @@ export interface ShipmentItem {
   parentOrderId: string;
   vendorOrderId: string;
   vendorId: string;
-  carrier: 'delhivery';
+  carrier: 'ekart' | 'delhivery';
   waybill: string | null;
   trackingNumber?: string | null;
   shipmentId: string;

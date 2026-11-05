@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.razorpayPayoutWebhook = exports.retryVendorPayout = exports.releasePendingEarnings = exports.processOrderRefund = exports.triggerManualSettlement = exports.tuesdayVendorSettlement = exports.updateVendorCommercials = exports.cancelDelhiveryShipment = exports.getDelhiveryLabel = exports.trackDelhiveryShipment = exports.createDelhiveryShipment = exports.checkDelhiveryPincode = exports.uploadMediaAsset = exports.generateInvoicePDF = exports.reconcileVendorAccount = exports.updateVendorEmail = exports.quoteOrder = exports.submitProductChange = exports.cancelOrder = exports.allocateCustomerId = exports.clearMustChangePassword = exports.createVendorAccount = exports.provisionBioCartOwner = exports.createOrder = void 0;
+exports.razorpayPayoutWebhook = exports.retryVendorPayout = exports.releasePendingEarnings = exports.processOrderRefund = exports.triggerManualSettlement = exports.tuesdayVendorSettlement = exports.updateVendorCommercials = exports.cancelEkartShipment = exports.getEkartLabel = exports.trackEkartShipment = exports.createEkartShipment = exports.checkEkartPincode = exports.cashfreePaymentWebhook = exports.verifyCashfreePayment = exports.createCashfreeOrder = exports.uploadMediaAsset = exports.generateInvoicePDF = exports.reconcileVendorAccount = exports.updateVendorEmail = exports.quoteOrder = exports.submitProductChange = exports.cancelOrder = exports.allocateCustomerId = exports.clearMustChangePassword = exports.createVendorAccount = exports.provisionBioCartOwner = exports.createOrder = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
@@ -1402,12 +1402,16 @@ exports.uploadMediaAsset = (0, https_1.onCall)({ region: 'asia-southeast1' }, as
     const publicUrl = `https://storage.googleapis.com/biocart-production-storage/${filePath}`;
     return { success: true, url: publicUrl, path: filePath };
 });
-var delhivery_1 = require("./delhivery");
-Object.defineProperty(exports, "checkDelhiveryPincode", { enumerable: true, get: function () { return delhivery_1.checkDelhiveryPincode; } });
-Object.defineProperty(exports, "createDelhiveryShipment", { enumerable: true, get: function () { return delhivery_1.createDelhiveryShipment; } });
-Object.defineProperty(exports, "trackDelhiveryShipment", { enumerable: true, get: function () { return delhivery_1.trackDelhiveryShipment; } });
-Object.defineProperty(exports, "getDelhiveryLabel", { enumerable: true, get: function () { return delhivery_1.getDelhiveryLabel; } });
-Object.defineProperty(exports, "cancelDelhiveryShipment", { enumerable: true, get: function () { return delhivery_1.cancelDelhiveryShipment; } });
+var cashfree_1 = require("./cashfree");
+Object.defineProperty(exports, "createCashfreeOrder", { enumerable: true, get: function () { return cashfree_1.createCashfreeOrder; } });
+Object.defineProperty(exports, "verifyCashfreePayment", { enumerable: true, get: function () { return cashfree_1.verifyCashfreePayment; } });
+Object.defineProperty(exports, "cashfreePaymentWebhook", { enumerable: true, get: function () { return cashfree_1.cashfreePaymentWebhook; } });
+var ekart_1 = require("./ekart");
+Object.defineProperty(exports, "checkEkartPincode", { enumerable: true, get: function () { return ekart_1.checkEkartPincode; } });
+Object.defineProperty(exports, "createEkartShipment", { enumerable: true, get: function () { return ekart_1.createEkartShipment; } });
+Object.defineProperty(exports, "trackEkartShipment", { enumerable: true, get: function () { return ekart_1.trackEkartShipment; } });
+Object.defineProperty(exports, "getEkartLabel", { enumerable: true, get: function () { return ekart_1.getEkartLabel; } });
+Object.defineProperty(exports, "cancelEkartShipment", { enumerable: true, get: function () { return ekart_1.cancelEkartShipment; } });
 exports.updateVendorCommercials = (0, https_1.onCall)({ region: 'asia-southeast1' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in.');

@@ -164,7 +164,7 @@ export const VendorPackingSlipModal: React.FC<PackingSlipProps> = ({
                 )}
                 {awbNumber && (
                   <div className="text-xs text-emerald-800 font-mono font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60 inline-block mt-1">
-                    Delhivery AWB: {awbNumber}
+                    EKART AWB: {awbNumber}
                   </div>
                 )}
               </div>

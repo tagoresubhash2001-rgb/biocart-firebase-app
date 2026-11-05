@@ -62,7 +62,7 @@ export const FinancialControlCenter: React.FC<FinancialControlCenterProps> = ({
       name: 'Successful Prepaid Collections',
       value: formatRupees(summary.prepaidCollectionsPaise),
       category: 'cash',
-      definition: 'Actual funds captured upfront via online payment gateways (Razorpay, UPI, NetBanking, Cards).',
+      definition: 'Actual funds captured upfront via online payment gateways (Cashfree, UPI, NetBanking, Cards).',
       status: 'Bank Settled / Captured'
     },
     // 4. COD collections

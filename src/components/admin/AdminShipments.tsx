@@ -18,7 +18,7 @@ export const AdminShipments: React.FC = () => {
 
   // Settings State
   const [config, setConfig] = useState<ShippingConfig>({
-    delhiveryEnv: 'production',
+    ekartEnv: 'production',
     defaultPickupLocation: 'BioCart Central Hub',
     clientName: 'SINDULIS B2C'
   });
@@ -43,8 +43,8 @@ export const AdminShipments: React.FC = () => {
     ShippingService.getShippingConfig().then((cfg) => {
       if (cfg) {
         setConfig(cfg);
-        if (cfg.delhiveryToken) {
-          setApiTokenInput(cfg.delhiveryToken);
+        if (cfg.ekartToken) {
+          setApiTokenInput(cfg.ekartToken);
         }
       }
     });
@@ -57,12 +57,12 @@ export const AdminShipments: React.FC = () => {
     setSavingSettings(true);
     try {
       await ShippingService.saveShippingConfig({
-        delhiveryEnv: config.delhiveryEnv,
+        ekartEnv: config.ekartEnv,
         defaultPickupLocation: config.defaultPickupLocation,
         clientName: config.clientName,
-        delhiveryToken: apiTokenInput.trim() || undefined
+        ekartToken: apiTokenInput.trim() || undefined
       });
-      addToast('Delhivery logistics settings saved securely.', 'success');
+      addToast('EKART logistics settings saved securely.', 'success');
     } catch (err: any) {
       console.error('Failed to save settings:', err);
       addToast(err.message || 'Failed to save settings.', 'error');
@@ -80,7 +80,7 @@ export const AdminShipments: React.FC = () => {
       setTrackingData(res);
     } catch (err: any) {
       console.error('Tracking failed:', err);
-      addToast(err.message || 'Failed to query live tracking from Delhivery.', 'error');
+      addToast(err.message || 'Failed to query live tracking from EKART.', 'error');
     } finally {
       setTrackingLoading(false);
     }
@@ -92,9 +92,9 @@ export const AdminShipments: React.FC = () => {
       const res = await ShippingService.getShippingLabel(awb);
       if (res.labelUrl) {
         window.open(res.labelUrl, '_blank');
-        addToast('Opening Delhivery packing slip / shipping label...', 'info');
+        addToast('Opening EKART packing slip / shipping label...', 'info');
       } else {
-        addToast('Packing slip URL not returned by Delhivery.', 'warning');
+        addToast('Packing slip URL not returned by EKART.', 'warning');
       }
     } catch (err: any) {
       console.error('Failed to get label:', err);
@@ -111,7 +111,7 @@ export const AdminShipments: React.FC = () => {
       return;
     }
     const confirmCancel = window.confirm(
-      `Are you sure you want to cancel Delhivery shipment AWB ${awb}? This action cannot be undone.`
+      `Are you sure you want to cancel EKART shipment AWB ${awb}? This action cannot be undone.`
     );
     if (!confirmCancel) return;
 
@@ -155,7 +155,7 @@ export const AdminShipments: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Truck className="w-5 h-5 text-emerald-600" />
-            Delhivery Logistics & Shipments
+            EKART Logistics & Shipments
           </h1>
           <p className="text-xs text-slate-500">
             Manage multi-vendor logistics, print packing slips, query live scans, and configure carrier API credentials.
@@ -339,7 +339,7 @@ export const AdminShipments: React.FC = () => {
                                   <button
                                     onClick={() => handleTrackLive(awb)}
                                     className="p-1.5 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 font-medium"
-                                    title="Track Live Delhivery Scans"
+                                    title="Track Live EKART Scans"
                                   >
                                     <Eye className="w-3.5 h-3.5" />
                                     Track
@@ -388,7 +388,7 @@ export const AdminShipments: React.FC = () => {
           <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
             <Shield className="w-5 h-5 text-emerald-600" />
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Delhivery API & Logistics Configuration</h2>
+              <h2 className="text-sm font-bold text-slate-900">EKART API & Logistics Configuration</h2>
               <p className="text-xs text-slate-500">
                 Credentials are stored securely in Firestore and executed exclusively via Cloud Functions. Tokens are never exposed to client browsers.
               </p>
@@ -403,7 +403,7 @@ export const AdminShipments: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <label
                   className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs cursor-pointer transition-all ${
-                    config.delhiveryEnv === 'staging'
+                    config.ekartEnv === 'staging'
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-900 font-semibold'
                       : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
@@ -412,8 +412,8 @@ export const AdminShipments: React.FC = () => {
                     type="radio"
                     name="env"
                     value="staging"
-                    checked={config.delhiveryEnv === 'staging'}
-                    onChange={() => setConfig({ ...config, delhiveryEnv: 'staging' })}
+                    checked={config.ekartEnv === 'staging'}
+                    onChange={() => setConfig({ ...config, ekartEnv: 'staging' })}
                     className="accent-emerald-600"
                   />
                   <div>
@@ -424,7 +424,7 @@ export const AdminShipments: React.FC = () => {
 
                 <label
                   className={`flex items-center gap-2.5 p-3 rounded-xl border text-xs cursor-pointer transition-all ${
-                    config.delhiveryEnv === 'production'
+                    config.ekartEnv === 'production'
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-900 font-semibold'
                       : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
@@ -433,8 +433,8 @@ export const AdminShipments: React.FC = () => {
                     type="radio"
                     name="env"
                     value="production"
-                    checked={config.delhiveryEnv === 'production'}
-                    onChange={() => setConfig({ ...config, delhiveryEnv: 'production' })}
+                    checked={config.ekartEnv === 'production'}
+                    onChange={() => setConfig({ ...config, ekartEnv: 'production' })}
                     className="accent-emerald-600"
                   />
                   <div>
@@ -448,7 +448,7 @@ export const AdminShipments: React.FC = () => {
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
               <div className="flex items-center gap-2 mb-1">
                 <Shield className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-xs font-semibold text-slate-700">Delhivery API Token Security</span>
+                <span className="text-xs font-semibold text-slate-700">EKART API Token Security</span>
               </div>
               <p className="text-[11px] text-slate-600 leading-relaxed">
                 In accordance with enterprise secret hygiene, private carrier tokens are managed exclusively via <strong>Firebase Functions Secret Manager (<code>DELHIVERY_API_TOKEN</code>)</strong> on the secure backend and are never loaded into browser memory or stored in Firestore documents.
@@ -468,7 +468,7 @@ export const AdminShipments: React.FC = () => {
                 required
               />
               <span className="text-[10px] text-slate-400 block mt-1">
-                Must match the pickup warehouse name registered with Delhivery.
+                Must match the pickup warehouse name registered with EKART.
               </span>
             </div>
 
@@ -507,7 +507,7 @@ export const AdminShipments: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-emerald-600" />
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Live Delhivery Tracking</h3>
+                  <h3 className="text-sm font-bold text-slate-900">Live EKART Tracking</h3>
                   <span className="text-xs font-mono text-emerald-600 font-semibold">{selectedAwb}</span>
                 </div>
               </div>
@@ -522,7 +522,7 @@ export const AdminShipments: React.FC = () => {
             {trackingLoading ? (
               <div className="py-12 text-center text-slate-500">
                 <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-600" />
-                <p className="text-xs">Querying Delhivery tracking API...</p>
+                <p className="text-xs">Querying EKART tracking API...</p>
               </div>
             ) : trackingData ? (
               <div className="space-y-4">
@@ -572,7 +572,7 @@ export const AdminShipments: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-400 italic">No package scans reported yet by Delhivery.</p>
+                    <p className="text-xs text-slate-400 italic">No package scans reported yet by EKART.</p>
                   )}
                 </div>
 

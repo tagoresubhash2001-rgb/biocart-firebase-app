@@ -203,7 +203,7 @@ export const AdminSettings: React.FC = () => {
                   })}
                   className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono font-bold"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">200 Basis Points = 2.00% (Standard Razorpay / Domestic Card gateway rate).</p>
+                <p className="text-[10px] text-slate-500 mt-1">200 Basis Points = 2.00% (Standard Cashfree Payments gateway rate).</p>
               </div>
 
               <div>

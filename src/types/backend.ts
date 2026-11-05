@@ -243,7 +243,7 @@ export const ProductVariantEntitySchema = BaseEntitySchema.extend({
 export interface OrderEntity extends BaseEntity {
   userId: string;
   orderNumber: string;
-  paymentMethod: 'cod' | 'razorpay' | 'stripe' | 'card';
+  paymentMethod: 'cod' | 'cashfree' | 'stripe' | 'card';
   paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
   shippingAddressId: string;
   billingAddressId: string;
@@ -260,7 +260,7 @@ export interface OrderEntity extends BaseEntity {
 export const OrderEntitySchema = BaseEntitySchema.extend({
   userId: z.string().min(1, 'User ID is required'),
   orderNumber: z.string().min(1, 'Order number is required'),
-  paymentMethod: z.enum(['cod', 'razorpay', 'stripe', 'card']),
+  paymentMethod: z.enum(['cod', 'cashfree', 'stripe', 'card']),
   paymentStatus: z.enum(['pending', 'completed', 'failed', 'refunded']),
   shippingAddressId: z.string().min(1, 'Shipping address is required'),
   billingAddressId: z.string().min(1, 'Billing address is required'),

@@ -866,7 +866,7 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
     });
   });
 
-  describe('14. Delhivery Logistics Integration, Multi-Vendor Slices & Idempotency', () => {
+  describe('14. EKART Logistics Integration, Multi-Vendor Slices & Idempotency', () => {
     it('verifies deterministic shipment document ID generation ensures per-vendor idempotency', () => {
       const orderNumber = 'BC-20261015-8821';
       const vendorId = 'vnd_sindulis_agro';
@@ -891,8 +891,8 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.equal(isValidPincode('ABCDEF'), false); // Non-numeric
     });
 
-    it('verifies Delhivery status code mapping to canonical BioCart shipment statuses', () => {
-      const mapDelhiveryStatus = (statusType: string): string => {
+    it('verifies EKART status code mapping to canonical BioCart shipment statuses', () => {
+      const mapEKARTStatus = (statusType: string): string => {
         const normalized = (statusType || '').toUpperCase().trim();
         switch (normalized) {
           case 'DL':
@@ -921,27 +921,27 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
         }
       };
 
-      assert.equal(mapDelhiveryStatus('DL'), 'delivered');
-      assert.equal(mapDelhiveryStatus('Delivered'), 'delivered');
-      assert.equal(mapDelhiveryStatus('UD'), 'out_for_delivery');
-      assert.equal(mapDelhiveryStatus('Out for Delivery'), 'out_for_delivery');
-      assert.equal(mapDelhiveryStatus('IT'), 'in_transit');
-      assert.equal(mapDelhiveryStatus('In Transit'), 'in_transit');
-      assert.equal(mapDelhiveryStatus('RT'), 'returned');
-      assert.equal(mapDelhiveryStatus('CN'), 'cancelled');
-      assert.equal(mapDelhiveryStatus('MF'), 'manifested');
-      assert.equal(mapDelhiveryStatus('UNKNOWN'), 'pending');
+      assert.equal(mapEKARTStatus('DL'), 'delivered');
+      assert.equal(mapEKARTStatus('Delivered'), 'delivered');
+      assert.equal(mapEKARTStatus('UD'), 'out_for_delivery');
+      assert.equal(mapEKARTStatus('Out for Delivery'), 'out_for_delivery');
+      assert.equal(mapEKARTStatus('IT'), 'in_transit');
+      assert.equal(mapEKARTStatus('In Transit'), 'in_transit');
+      assert.equal(mapEKARTStatus('RT'), 'returned');
+      assert.equal(mapEKARTStatus('CN'), 'cancelled');
+      assert.equal(mapEKARTStatus('MF'), 'manifested');
+      assert.equal(mapEKARTStatus('UNKNOWN'), 'pending');
     });
 
-    it('verifies functions/src/delhivery.ts exports all 5 core logistics Cloud Functions', async () => {
+    it('verifies functions/src/ekart.ts exports all 5 core logistics Cloud Functions', async () => {
       const fs = await import('node:fs');
       const functionsIndex = fs.readFileSync('functions/src/index.ts', 'utf8');
 
-      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*checkDelhiveryPincode[\s\S]*\}/);
-      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*createDelhiveryShipment[\s\S]*\}/);
-      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*trackDelhiveryShipment[\s\S]*\}/);
-      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*getDelhiveryLabel[\s\S]*\}/);
-      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*cancelDelhiveryShipment[\s\S]*\}/);
+      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*checkEkartPincode[\s\S]*\}/);
+      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*createEkartShipment[\s\S]*\}/);
+      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*trackEkartShipment[\s\S]*\}/);
+      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*getEkartLabel[\s\S]*\}/);
+      assert.match(functionsIndex, /export\s+\{\s*[\s\S]*cancelEkartShipment[\s\S]*\}/);
     });
 
     it('verifies AdminLayout and AdminConsole contain shipments navigation section', async () => {
@@ -950,11 +950,11 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       const consoleContent = fs.readFileSync('src/components/admin/AdminConsole.tsx', 'utf8');
 
       assert.match(layoutContent, /'shipments'/);
-      assert.match(layoutContent, /id:\s*'shipments',\s*label:\s*'Logistics & Delhivery'/);
+      assert.match(layoutContent, /id:\s*'shipments',\s*label:\s*'Logistics & EKART'/);
       assert.match(consoleContent, /case 'shipments':\s*return <AdminShipments \/>;/);
     });
 
-    it('verifies VendorOrders and Dashboard include Delhivery live tracking', async () => {
+    it('verifies VendorOrders and Dashboard include EKART live tracking', async () => {
       const fs = await import('node:fs');
       const vendorOrders = fs.readFileSync('src/components/vendor/VendorOrders.tsx', 'utf8');
       const dashboard = fs.readFileSync('src/pages/Dashboard.tsx', 'utf8');
@@ -963,8 +963,8 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.match(vendorOrders, /ShippingService\.trackShipment/);
       assert.match(vendorOrders, /ShippingService\.getShippingLabel/);
 
-      assert.match(dashboard, /delhivery-multi-package-tracking/);
-      assert.match(dashboard, /Delhivery Express Logistics/);
+      assert.match(dashboard, /ekart-multi-package-tracking/);
+      assert.match(dashboard, /EKART Express Logistics/);
       assert.match(dashboard, /ShippingService\.trackShipment/);
     });
   });

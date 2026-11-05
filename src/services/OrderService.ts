@@ -22,7 +22,7 @@ export class OrderService {
     userId: string, 
     items: { productId: string; quantity: number }[],
     shippingAddress: any,
-    paymentMethod: 'cod' | 'razorpay' | 'stripe' | 'card'
+    paymentMethod: 'cod' | 'cashfree' | 'stripe' | 'card'
   ): Promise<{ orderId: string }> {
     try {
       const batch = writeBatch(db);

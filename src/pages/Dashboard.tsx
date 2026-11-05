@@ -184,19 +184,19 @@ export const Dashboard: React.FC = () => {
     });
   };
 
-  // Delhivery Logistics & Shipment Tracking State
+  // EKART Logistics & Shipment Tracking State
   const [trackingShipments, setTrackingShipments] = useState<ShipmentItem[]>([]);
-  const [liveDelhiveryTracking, setLiveDelhiveryTracking] = useState<Record<string, TrackingResult>>({});
+  const [liveEKARTTracking, setLiveEKARTTracking] = useState<Record<string, TrackingResult>>({});
   const [loadingLiveAwb, setLoadingLiveAwb] = useState<string | null>(null);
 
   const handleFetchLiveTracking = async (awb: string) => {
     setLoadingLiveAwb(awb);
     try {
       const res = await ShippingService.trackShipment(awb);
-      setLiveDelhiveryTracking((prev) => ({ ...prev, [awb]: res }));
-      addToast(`Live Delhivery tracking updated for AWB ${awb}`, 'info');
+      setLiveEKARTTracking((prev) => ({ ...prev, [awb]: res }));
+      addToast(`Live EKART tracking updated for AWB ${awb}`, 'info');
     } catch (err: any) {
-      console.error('Failed to track Delhivery shipment:', err);
+      console.error('Failed to track EKART shipment:', err);
       addToast(err.message || 'Failed to fetch live carrier scans.', 'warning');
     } finally {
       setLoadingLiveAwb(null);
@@ -301,7 +301,7 @@ export const Dashboard: React.FC = () => {
     }
   }, [user?.uid]);
 
-  // Synchronize Delhivery shipments for current search/order
+  // Synchronize EKART shipments for current search/order
   useEffect(() => {
     const activeId = (trackInputId || activeOrderTrackId || '').trim();
     if (!activeId) {
@@ -1490,13 +1490,13 @@ export const Dashboard: React.FC = () => {
 
               {/* Tracking Visualization */}
               {trackingShipments.length > 0 ? (
-                <div className="space-y-6 pt-2" id="delhivery-multi-package-tracking">
+                <div className="space-y-6 pt-2" id="ekart-multi-package-tracking">
                   <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-wrap items-center justify-between text-xs font-semibold gap-2">
                     <div className="flex items-center gap-2">
                       <Truck className="w-5 h-5 text-emerald-700" />
                       <div>
                         <span className="text-slate-500">Logistics Carrier:</span>
-                        <strong className="text-emerald-950 ml-1.5 font-bold">Delhivery Express Logistics</strong>
+                        <strong className="text-emerald-950 ml-1.5 font-bold">EKART Express Logistics</strong>
                       </div>
                     </div>
                     <div className="text-emerald-800 font-mono text-[11px]">
@@ -1507,7 +1507,7 @@ export const Dashboard: React.FC = () => {
                   <div className="space-y-4">
                     {trackingShipments.map((shp, idx) => {
                       const awb = shp.trackingNumber || shp.waybill || 'N/A';
-                      const liveData = liveDelhiveryTracking[awb];
+                      const liveData = liveEKARTTracking[awb];
                       const isLoadingAwb = loadingLiveAwb === awb;
                       const scans = liveData?.scans || shp.scans || [];
 
@@ -1553,7 +1553,7 @@ export const Dashboard: React.FC = () => {
                                   onClick={() => handleFetchLiveTracking(awb)}
                                   disabled={isLoadingAwb}
                                   className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
-                                  title="Query live Delhivery tracking"
+                                  title="Query live EKART tracking"
                                 >
                                   {isLoadingAwb ? (
                                     <RefreshCw className="w-3 h-3 animate-spin text-emerald-600" />
@@ -1586,7 +1586,7 @@ export const Dashboard: React.FC = () => {
                           <div>
                             <h5 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1">
                               <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                              Delhivery Courier Scans
+                              EKART Courier Scans
                             </h5>
                             {scans.length > 0 ? (
                               <div className="relative border-l-2 border-slate-200 ml-2.5 space-y-3 py-1">
@@ -1605,7 +1605,7 @@ export const Dashboard: React.FC = () => {
                               </div>
                             ) : (
                               <p className="text-xs text-slate-400 italic">
-                                Package manifested with Delhivery. Click "Refresh Scans" once the package is picked up.
+                                Package manifested with EKART. Click "Refresh Scans" once the package is picked up.
                               </p>
                             )}
                           </div>
@@ -1665,7 +1665,7 @@ export const Dashboard: React.FC = () => {
                         )}
                       </div>
                       <div className={!['shipped', 'delivered'].includes(isFoundOrder.status?.toLowerCase()) ? 'opacity-60' : ''}>
-                        <h4 className="font-semibold text-sm text-slate-900">Dispatched with Delhivery</h4>
+                        <h4 className="font-semibold text-sm text-slate-900">Dispatched with EKART</h4>
                         <p className="text-xs text-slate-500 mt-0.5">Enroute via partner agricultural transport logistics.</p>
                       </div>
                     </div>
@@ -1694,12 +1694,12 @@ export const Dashboard: React.FC = () => {
                 <div className="text-center py-10 text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
                   <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
                   <p className="font-semibold text-slate-800">Reference "{currentTrackId}" not found in your orders.</p>
-                  <p className="text-xs text-slate-500">Please enter a valid BioCart Order Number or Delhivery AWB.</p>
+                  <p className="text-xs text-slate-500">Please enter a valid BioCart Order Number or EKART AWB.</p>
                 </div>
               ) : (
                 <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                   <Truck className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-slate-700">Enter an Order ID or Delhivery AWB above to view shipment progress.</p>
+                  <p className="text-sm font-semibold text-slate-700">Enter an Order ID or EKART AWB above to view shipment progress.</p>
                 </div>
               )}
             </div>
