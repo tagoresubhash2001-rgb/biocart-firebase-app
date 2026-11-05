@@ -37,13 +37,11 @@ async function getRazorpayXCredentials(): Promise<{ keyId: string; keySecret: st
     const snap = await db.collection('settings').doc('payments').get();
     if (snap.exists) {
       const d = snap.data() || {};
-      if (d.razorpayKeyId) keyId = d.razorpayKeyId.trim();
-      if (d.razorpayKeySecret) keySecret = d.razorpayKeySecret.trim();
-      if (d.razorpayAccountNumber) accountNumber = d.razorpayAccountNumber.trim();
+      // Only non-secret payout enablement flags are inspected from settings/payments
       if (d.livePayoutsEnabled === true) isLive = true;
     }
   } catch (err) {
-    console.warn('Could not read settings/payments:', err);
+    console.warn('Could not read non-secret settings/payments:', err);
   }
 
   // Treat as sandbox if livePayoutsEnabled is false or credentials look like placeholders

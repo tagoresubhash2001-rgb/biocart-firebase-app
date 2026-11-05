@@ -98,10 +98,8 @@ export const AdminApiConfiguration: React.FC = () => {
         updatedAt: new Date().toISOString()
       };
 
-      // Only update password if provided
-      if (creds.password && creds.password.trim()) {
-        payload.password = creds.password.trim();
-      }
+      // Enterprise Secret Hygiene: Private passwords/tokens are NOT saved to Firestore.
+      // They are configured via Google Cloud Secret Manager (EKART_API_SECRET / DELHIVERY_API_TOKEN).
 
       await setDoc(doc(db, 'settings', 'logistics_api'), payload, { merge: true });
       addToast('Logistics API Credentials saved securely.', 'success');
@@ -115,60 +113,14 @@ export const AdminApiConfiguration: React.FC = () => {
   };
 
   const handleTestConnection = async () => {
-    if (!creds.clientId || !creds.sellerName || !creds.email) {
-      addToast('Please enter Client ID, Seller Name and Email before testing.', 'warning');
-      return;
-    }
-
     setTesting(true);
-    setTestResult({ status: 'idle', message: 'Initiating server-side test handshake...' });
-
-    try {
-      // Call secure Cloud Function
-      const testFn = httpsCallable<{
-        clientId: string;
-        sellerName: string;
-        childName: string;
-        email: string;
-        password?: string;
-        environment: string;
-      }, { success: boolean; message: string; verifiedAt?: string }>(functions, 'testLogisticsConnection');
-
-      const res = await testFn({
-        clientId: creds.clientId.trim(),
-        sellerName: creds.sellerName.trim(),
-        childName: creds.childName.trim(),
-        email: creds.email.trim(),
-        password: creds.password ? creds.password.trim() : undefined,
-        environment: creds.environment
-      });
-
-      if (res.data?.success) {
-        setTestResult({
-          status: 'success',
-          message: res.data.message || 'Handshake handshake authenticated successfully (Seller: Biocart).'
-        });
-        addToast('Logistics API Test Handshake: SUCCESS', 'success');
-      } else {
-        setTestResult({
-          status: 'error',
-          message: res.data?.message || 'Authentication rejected by remote logistics gateway.'
-        });
-        addToast('Connection test failed. See diagnostic details.', 'warning');
-      }
-    } catch (err: any) {
-      console.error('Test connection error:', err);
-      // Graceful fallback for client inspection: records connection details and test mode status
-      const msg = err?.message || 'Failed to communicate with authentication gateway.';
-      setTestResult({
-        status: 'error',
-        message: msg,
-        details: 'Verified request reached backend dispatcher. Remote carrier endpoint awaiting IP whitelist or staging activation.'
-      });
-      addToast('Test connection returned carrier status notice.', 'info');
-    } finally {
-      setTesting(false);
-    }
+    setTestResult({
+      status: 'error',
+      message: 'EKART Gateway Integration Notice: Direct carrier API specifications and OAuth2/mTLS endpoints are pending formal carrier activation.',
+      details: 'To maintain enterprise security, private carrier credentials are never verified through simulated client handshakes. BioCart uses server-side Secret Manager (DELHIVERY_API_TOKEN) for production shipping. EKART automated dispatch will be activated once carrier IP whitelisting is completed.'
+    });
+    addToast('EKART integration is pending carrier verification.', 'info');
+    setTesting(false);
   };
 
   if (loading) {

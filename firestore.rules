@@ -306,6 +306,8 @@ service cloud.firestore {
     }
 
     // 18. Global Settings Configuration
+    // Strict isolation: Only explicitly allowlisted non-secret documents are publicly readable.
+    // Private credentials (shipping, logistics_api, payments) are strictly admin-only.
     match /settings/shipping {
       allow read, write: if isAdmin();
     }
@@ -314,8 +316,13 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /settings/payments {
+      allow read, write: if isAdmin();
+    }
+
+    // Explicit allowlist for public storefront settings (general, main, appearance)
     match /settings/{settingId} {
-      allow read: if true;
+      allow read: if settingId in ['general', 'main', 'appearance'];
       allow write: if isAdmin();
     }
 

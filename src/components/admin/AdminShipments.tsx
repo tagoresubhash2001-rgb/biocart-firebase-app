@@ -445,20 +445,14 @@ export const AdminShipments: React.FC = () => {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Delhivery API Token
-              </label>
-              <input
-                type="password"
-                placeholder="Enter Delhivery Authorization Token (or leave blank if using Cloud Secret)"
-                value={apiTokenInput}
-                onChange={(e) => setApiTokenInput(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
-              />
-              <span className="text-[10px] text-slate-400 block mt-1">
-                Stored in <code>/settings/shipping</code> (Admin-only readable). Overrides or supplements the <code>DELHIVERY_API_TOKEN</code> Cloud Function secret.
-              </span>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+              <div className="flex items-center gap-2 mb-1">
+                <Shield className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-xs font-semibold text-slate-700">Delhivery API Token Security</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                In accordance with enterprise secret hygiene, private carrier tokens are managed exclusively via <strong>Firebase Functions Secret Manager (<code>DELHIVERY_API_TOKEN</code>)</strong> on the secure backend and are never loaded into browser memory or stored in Firestore documents.
+              </p>
             </div>
 
             <div>

@@ -370,6 +370,9 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       const rules = fs.readFileSync('firestore.rules', 'utf8');
       
       assert.match(rules, /match\s+\/settings\/shipping\s*\{\s*allow\s+read,\s*write:\s*if\s+isAdmin\(\);/);
+      assert.match(rules, /match\s+\/settings\/logistics_api\s*\{\s*allow\s+read,\s*write:\s*if\s+isAdmin\(\);/);
+      assert.match(rules, /match\s+\/settings\/payments\s*\{\s*allow\s+read,\s*write:\s*if\s+isAdmin\(\);/);
+      assert.match(rules, /settingId\s+in\s+\[\'general\',\s*\'main\',\s*\'appearance\'\]/);
     });
 
     it('verifies firestore.rules declares signed-in read and admin write for shipments', async () => {

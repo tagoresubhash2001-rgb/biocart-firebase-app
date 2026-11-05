@@ -1,4 +1,4 @@
-name: Deploy BioCart to Firebase Hosting
+﻿name: Deploy BioCart to Firebase Hosting
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  build_and_deploy:
+  validate_and_test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -24,11 +24,11 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm ci
 
-      - name: Run Automated Test Suite
-        run: npm test
-
       - name: Verify TypeScript
         run: npx tsc --noEmit
+
+      - name: Run Automated Test Suite
+        run: npm test
 
       - name: Build Production Frontend
         run: npm run build
@@ -40,16 +40,40 @@ jobs:
           npm run build
           cd ..
 
-      - name: Deploy Firebase Rules, Storage and Functions
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+  deploy_production:
+    needs: validate_and_test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies & Build
         run: |
-          npx firebase-tools deploy --only functions,firestore,storage --project bio-cart --non-interactive
-        continue-on-error: true
+          npm ci
+          npm run build
+          cd functions && npm ci && npm run build && cd ..
+
+      - name: Authenticate to Google Cloud
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BIO_CART != '' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BIO_CART }}
+
+      - name: Deploy Firebase Rules, Storage and Functions
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BIO_CART != '' }}
+        run: |
+          npx firebase-tools deploy --only firestore,storage,functions --project bio-cart --non-interactive
 
       - name: Deploy to Firebase Hosting
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_BIO_CART != '' }}
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

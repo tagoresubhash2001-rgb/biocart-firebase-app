@@ -58,9 +58,7 @@ export async function getDelhiveryCredentials(): Promise<DelhiveryCredentials> {
     const snap = await db.collection('settings').doc('shipping').get();
     if (snap.exists) {
       const d = snap.data();
-      if (d?.delhiveryToken && typeof d.delhiveryToken === 'string') {
-        token = d.delhiveryToken.trim();
-      }
+      // Only non-secret configuration is read from Firestore
       if (d?.delhiveryEnv && typeof d.delhiveryEnv === 'string') {
         env = d.delhiveryEnv.toLowerCase().trim();
       }
@@ -72,7 +70,7 @@ export async function getDelhiveryCredentials(): Promise<DelhiveryCredentials> {
       }
     }
   } catch (err) {
-    console.warn('[Delhivery] Could not inspect settings/shipping:', err);
+    console.warn('[Delhivery] Could not inspect non-secret settings/shipping:', err);
   }
 
   const baseUrl = env === 'staging'
