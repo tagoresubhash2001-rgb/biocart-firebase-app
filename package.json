@@ -10,7 +10,7 @@
     "clean": "rm -rf dist server.js",
     "prebuild": "tsx scripts/generate-sitemap.ts",
     "lint": "tsc --noEmit",
-    "test": "tsx --test tests/auth-and-rules.test.ts",
+    "test": "tsx --test tests/auth-and-rules.test.ts tests/phase9-e2e.test.ts tests/financial-cashfree-verification.test.ts",
     "verify": "tsc --noEmit && npm test && npm run build"
   },
   "dependencies": {

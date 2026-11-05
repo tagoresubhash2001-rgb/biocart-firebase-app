@@ -295,7 +295,7 @@ export const VendorOrders: React.FC = () => {
         status: 'shipped',
         shipmentStatus: 'shipped',
         trackingNumber: res.waybill,
-        carrier: 'delhivery',
+        carrier: 'ekart',
         updatedAt: new Date().toISOString()
       });
     } catch (err: any) {

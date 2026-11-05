@@ -4,6 +4,7 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import * as crypto from 'node:crypto';
 import { DEFAULT_FINANCIAL_POLICY, FinancialPolicy } from './financialEngine';
+import { executeBankPayoutTransfer as executeCashfreePayoutTransfer } from './cashfreePayouts';
 
 const db = getFirestore();
 
@@ -69,13 +70,9 @@ export async function executeBankPayoutTransfer(params: {
   idempotencyKey: string;
   purpose?: string;
 }): Promise<PayoutTransferResult> {
-  const { vendorId, vendorName, amountPaise, bankAccount, idempotencyKey, purpose } = params;
-
-  // Strict bank detail sanity validation
-  const cleanAccount = (bankAccount.accountNumber || '').replace(/\s+/g, '');
-  const cleanIfsc = (bankAccount.ifscCode || '').replace(/\s+/g, '').toUpperCase();
-  const beneficiary = (bankAccount.beneficiaryName || vendorName || '').trim();
-
+  // Validate bank details before transfer execution
+  const cleanAccount = (params.bankAccount.accountNumber || '').replace(/\s+/g, '');
+  const cleanIfsc = (params.bankAccount.ifscCode || '').replace(/\s+/g, '').toUpperCase();
   if (!cleanAccount || cleanAccount.length < 8 || !/^\d+$/.test(cleanAccount)) {
     return {
       success: false,
@@ -84,7 +81,6 @@ export async function executeBankPayoutTransfer(params: {
       failureReason: 'Invalid or missing bank account number format'
     };
   }
-
   if (!cleanIfsc || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(cleanIfsc)) {
     return {
       success: false,
@@ -93,104 +89,8 @@ export async function executeBankPayoutTransfer(params: {
       failureReason: `Invalid IFSC Code format: ${cleanIfsc}`
     };
   }
-
-  const creds = await getRazorpayXCredentials();
-
-  // If live credentials configured and livePayoutsEnabled is true, call RazorpayX API
-  if (creds.isLive && creds.keyId && creds.keySecret && creds.accountNumber) {
-    try {
-      const authHeader = 'Basic ' + Buffer.from(`${creds.keyId}:${creds.keySecret}`).toString('base64');
-      const payload = {
-        account_number: creds.accountNumber,
-        amount: amountPaise,
-        currency: 'INR',
-        mode: 'NEFT', // or IMPS based on amount
-        purpose: purpose || 'vendor_payout',
-        fund_account: {
-          account_type: 'bank_account',
-          bank_account: {
-            name: beneficiary,
-            ifsc: cleanIfsc,
-            account_number: cleanAccount
-          },
-          contact: {
-            name: beneficiary,
-            type: 'vendor',
-            reference_id: vendorId
-          }
-        },
-        queue_if_low_balance: true,
-        reference_id: idempotencyKey,
-        narration: 'BioCart Weekly Payout'
-      };
-
-      const response = await fetch('https://api.razorpay.com/v1/payouts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authHeader,
-          'X-Payout-Idempotency': idempotencyKey
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const resData = await response.json();
-
-      if (!response.ok) {
-        console.error('RazorpayX Payout API error:', resData);
-        return {
-          success: false,
-          providerReferenceId: resData.id || `ERR-${Date.now()}`,
-          status: 'failed',
-          failureReason: resData.error?.description || resData.message || 'RazorpayX gateway error'
-        };
-      }
-
-      const rzpStatus = resData.status; // 'processing' | 'processed' | 'queued' | 'reversed' | 'rejected'
-      if (rzpStatus === 'processed') {
-        return {
-          success: true,
-          providerReferenceId: resData.id,
-          utr: resData.utr || undefined,
-          status: 'paid'
-        };
-      } else if (rzpStatus === 'processing' || rzpStatus === 'queued') {
-        return {
-          success: true,
-          providerReferenceId: resData.id,
-          status: 'processing'
-        };
-      } else {
-        return {
-          success: false,
-          providerReferenceId: resData.id || `FAIL-${Date.now()}`,
-          status: 'failed',
-          failureReason: resData.status_details?.reason || `Gateway status: ${rzpStatus}`
-        };
-      }
-    } catch (apiErr: any) {
-      console.error('Network exception contacting RazorpayX:', apiErr);
-      return {
-        success: false,
-        providerReferenceId: `EXC-${Date.now()}`,
-        status: 'failed',
-        failureReason: apiErr.message || 'Network timeout connecting to payout gateway'
-      };
-    }
-  }
-
-  // Deterministic Sandbox/Mock Simulation for test/staging safety without live bank debit
-  console.log(`[Payout Sandbox] Simulating payout of ₹${amountPaise / 100} to ${beneficiary} (${cleanIfsc} - ${cleanAccount.slice(-4)})`);
-  const mockRef = `pout_sim_${crypto.randomBytes(6).toString('hex')}`;
-  const mockUtr = `UTR${Date.now().toString().slice(-8)}${Math.floor(1000 + Math.random() * 9000)}`;
-
-  return {
-    success: true,
-    providerReferenceId: mockRef,
-    utr: mockUtr,
-    status: 'paid',
-    simulated: true
-  };
+  // Cashfree Payouts is the exclusive official vendor disbursement provider
+  return executeCashfreePayoutTransfer(params);
 }
 
 /**

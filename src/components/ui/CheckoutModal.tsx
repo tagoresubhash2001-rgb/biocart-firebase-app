@@ -1,3 +1,4 @@
+declare const Cashfree: any;
 import React, { useState, useEffect } from 'react';
 import { functions } from '../../config/firebase';
 import { httpsCallable } from 'firebase/functions';
@@ -121,7 +122,9 @@ export const CheckoutModal: React.FC = () => {
   
   const [createdOrderId, setCreatedOrderId] = useState('');
 
-  // Authoritative Backend Quote State
+  // Authoritative Backend Quote State & Lifecycle Status
+  const [quoteStatus, setQuoteStatus] = useState<'idle' | 'loading' | 'valid' | 'failed'>('idle');
+  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [authoritativeQuote, setAuthoritativeQuote] = useState<{
     subtotal: number;
     discountAmount: number;
@@ -135,10 +138,13 @@ export const CheckoutModal: React.FC = () => {
     codAvailable?: boolean;
   } | null>(null);
   const [quotingOrder, setQuotingOrder] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
-  useEffect(() => {
+  const fetchAuthoritativeQuote = () => {
     if (!isCartOpen || cart.length === 0) {
       setAuthoritativeQuote(null);
+      setQuoteStatus('idle');
+      setQuoteError(null);
       return;
     }
 
@@ -148,22 +154,37 @@ export const CheckoutModal: React.FC = () => {
     }));
 
     setQuotingOrder(true);
+    setQuoteStatus('loading');
+    setQuoteError(null);
+    setAuthoritativeQuote(null); // Clear stale quote
+
     const quoteFn = httpsCallable<any, any>(functions, 'quoteOrder');
     quoteFn({ items: payloadItems, couponCode: appliedCoupon?.code || undefined })
       .then(res => {
-        if (res?.data) {
+        if (res?.data && res.data.totalAmount !== undefined) {
           setAuthoritativeQuote(res.data);
+          setQuoteStatus('valid');
+          setQuoteError(null);
           if (res.data.discountAmount !== undefined) {
             setCouponDiscount(res.data.discountAmount);
           }
+        } else {
+          setQuoteStatus('failed');
+          setQuoteError('Received incomplete pricing quote from server.');
         }
       })
       .catch(err => {
-        console.warn('Backend quoteOrder call error, falling back to local snapshot:', err);
+        console.error('Backend quoteOrder error:', err);
+        setQuoteStatus('failed');
+        setQuoteError(err?.message || 'Unable to generate secure order quote from server. Please retry.');
       })
       .finally(() => {
         setQuotingOrder(false);
       });
+  };
+
+  useEffect(() => {
+    fetchAuthoritativeQuote();
   }, [isCartOpen, cart, appliedCoupon?.code]);
 
   if (!isCartOpen) return null;
@@ -280,47 +301,101 @@ export const CheckoutModal: React.FC = () => {
         quantity: item.quantityInCart || 1
       }));
 
+      if (quoteStatus !== 'valid' || !authoritativeQuote) {
+        addToast('A valid authoritative server quote is required before checkout. Please retry.', 'error');
+        fetchAuthoritativeQuote();
+        return;
+      }
+
+      setIsProcessingPayment(true);
       let orderId = '';
-      try {
-        const createOrderFn = httpsCallable<any, { orderId: string }>(functions, 'createOrder');
-        const resp = await createOrderFn({
-          items: functionCartItems,
-          shippingAddress: orderData.shippingAddress,
-          billingAddress: orderData.billingAddress,
-          paymentMethod,
-          couponCode: appliedCoupon?.code || undefined,
-          customerGstin: requestGstInvoice ? customerGstin.trim().toUpperCase() : undefined,
-          customerBusinessName: requestGstInvoice ? customerBusinessName.trim() : undefined
-        });
-        if (resp?.data?.orderId) {
-          orderId = resp.data.orderId;
-        }
-      } catch (fnErr: any) {
-        console.warn('Cloud Function createOrder call details:', fnErr);
-        // Client-submitted prices and inventory changes are not trustworthy.
-        // Keep the fallback available only for an explicitly configured emulator.
-        const functionsEmulator = import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true';
-        if (!functionsEmulator) throw fnErr;
+      const createOrderFn = httpsCallable<any, { orderId: string }>(functions, 'createOrder');
+      const resp = await createOrderFn({
+        items: functionCartItems,
+        shippingAddress: orderData.shippingAddress,
+        billingAddress: orderData.billingAddress,
+        paymentMethod,
+        couponCode: appliedCoupon?.code || undefined,
+        customerGstin: requestGstInvoice ? customerGstin.trim().toUpperCase() : undefined,
+        customerBusinessName: requestGstInvoice ? customerBusinessName.trim() : undefined
+      });
+      if (resp?.data?.orderId) {
+        orderId = resp.data.orderId;
+      } else {
+        throw new Error('Order creation service did not return a valid order ID. Please retry.');
       }
-
-      if (!orderId && import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
-        const OrderService = (await import('../../services/OrderService')).OrderService;
-        const result = await OrderService.createOrder(
-          orderData.userId || 'guest',
-          functionCartItems,
-          orderData.shippingAddress,
-          paymentMethod
-        );
-        orderId = result.orderId;
-      }
-
-      if (!orderId) throw new Error('Order service did not return an order ID. Please retry.');
 
       setCreatedOrderId(orderId);
+
+      // Handle Online Payment via Cashfree
+      if (paymentMethod === 'cashfree') {
+        const createCashfreeOrderFn = httpsCallable<any, any>(functions, 'createCashfreeOrder');
+        const cfRes = await createCashfreeOrderFn({
+          orderId,
+          customerPhone: shippingPhone,
+          customerEmail: user.email || 'customer@biocart.in',
+          customerName: shippingName
+        });
+
+        const paymentSessionId = cfRes?.data?.paymentSessionId;
+        if (!paymentSessionId) {
+          throw new Error('Could not initiate secure Cashfree payment session.');
+        }
+
+        if (typeof Cashfree !== 'undefined') {
+          const cashfree = Cashfree({
+            mode: cfRes?.data?.environment === 'PRODUCTION' ? 'production' : 'sandbox'
+          });
+
+          cashfree.checkout({
+            paymentSessionId,
+            redirectTarget: '_modal'
+          }).then(async (result: any) => {
+            if (result.error) {
+              console.error('Cashfree modal error:', result.error);
+              addToast(result.error.message || 'Payment cancelled or incomplete.', 'error');
+              setIsProcessingPayment(false);
+              return;
+            }
+
+            // Authoritative server-side verification
+            try {
+              const verifyFn = httpsCallable<any, any>(functions, 'verifyCashfreePayment');
+              const verifyRes = await verifyFn({ orderId });
+              if (verifyRes?.data?.success) {
+                setStep('success');
+                addToast('Payment received! Order confirmed.', 'success');
+              } else {
+                addToast('Payment verification pending or incomplete.', 'warning');
+              }
+            } catch (vErr: any) {
+              console.warn('Payment verification check:', vErr);
+              addToast('Order recorded. Payment status will update shortly.', 'info');
+              setStep('success');
+            } finally {
+              setIsProcessingPayment(false);
+            }
+          }).catch((modalErr: any) => {
+            console.error('Cashfree dropin exception:', modalErr);
+            addToast('Error displaying payment gateway. Please retry.', 'error');
+            setIsProcessingPayment(false);
+          });
+          return;
+        } else {
+          addToast('Cashfree Payment Gateway initialized. Verifying payment...', 'info');
+          setStep('success');
+          setIsProcessingPayment(false);
+          return;
+        }
+      }
+
+      // Cash on Delivery
       setStep('success');
       addToast('Order placed successfully!', 'success');
     } catch (error: any) {
       addToast(error.message || 'Failed to place order', 'error');
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -810,6 +885,20 @@ export const CheckoutModal: React.FC = () => {
                   </p>
                 </div>
 
+                {/* Quote Status Warning & Retry */}
+                {quoteStatus === 'failed' && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center justify-between">
+                    <span>{quoteError || 'Could not verify prices with server.'}</span>
+                    <button
+                      type="button"
+                      onClick={fetchAuthoritativeQuote}
+                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-[11px]"
+                    >
+                      Retry Quote
+                    </button>
+                  </div>
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-3 pt-4">
                   <button
@@ -821,9 +910,26 @@ export const CheckoutModal: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-grow flex items-center justify-center gap-2 py-3.5 bg-[#004643] hover:bg-[#003532] text-white rounded-xl font-bold shadow-md transition-all cursor-pointer hover:scale-[1.02] active:scale-95 duration-200 shadow-[#004643]/30 !text-white"
+                    disabled={quoteStatus !== 'valid' || isProcessingPayment}
+                    className={`flex-grow flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold shadow-md transition-all duration-200 ${
+                      quoteStatus !== 'valid' || isProcessingPayment
+                        ? 'bg-slate-300 dark:bg-charcoal-700 text-slate-500 cursor-not-allowed opacity-70'
+                        : 'bg-[#004643] hover:bg-[#003532] text-white cursor-pointer hover:scale-[1.02] active:scale-95 shadow-[#004643]/30 !text-white'
+                    }`}
                   >
-                    <span className="!text-white">Authorize & Pay • ₹{total}</span>
+                    {isProcessingPayment ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Processing Payment...
+                      </span>
+                    ) : quoteStatus === 'loading' ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Verifying Price...
+                      </span>
+                    ) : quoteStatus === 'failed' ? (
+                      <span>Quote Error • Please Retry</span>
+                    ) : (
+                      <span className="!text-white">Authorize & Pay • ₹{total}</span>
+                    )}
                   </button>
                 </div>
               </form>

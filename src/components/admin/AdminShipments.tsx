@@ -323,7 +323,7 @@ export const AdminShipments: React.FC = () => {
                           </td>
                           <td className="p-3">
                             <span className="font-mono text-[10px] uppercase text-slate-700 font-medium block">
-                              {s.carrier || 'delhivery'}
+                              {s.carrier || 'ekart'}
                             </span>
                             <span className="text-[10px] text-slate-400 uppercase font-mono">
                               {raw.paymentMode || s.payment?.mode || 'Prepaid'}
@@ -418,7 +418,7 @@ export const AdminShipments: React.FC = () => {
                   />
                   <div>
                     <span className="block font-medium">Staging (Sandbox)</span>
-                    <span className="text-[10px] text-slate-500">stage-express.delhivery.com</span>
+                    <span className="text-[10px] text-slate-500">api.ekartlogistics.com (staging)</span>
                   </div>
                 </label>
 
@@ -439,7 +439,7 @@ export const AdminShipments: React.FC = () => {
                   />
                   <div>
                     <span className="block font-medium">Production (Live)</span>
-                    <span className="text-[10px] text-slate-500">track.delhivery.com</span>
+                    <span className="text-[10px] text-slate-500">api.ekartlogistics.com</span>
                   </div>
                 </label>
               </div>
@@ -451,7 +451,7 @@ export const AdminShipments: React.FC = () => {
                 <span className="text-xs font-semibold text-slate-700">EKART API Token Security</span>
               </div>
               <p className="text-[11px] text-slate-600 leading-relaxed">
-                In accordance with enterprise secret hygiene, private carrier tokens are managed exclusively via <strong>Firebase Functions Secret Manager (<code>DELHIVERY_API_TOKEN</code>)</strong> on the secure backend and are never loaded into browser memory or stored in Firestore documents.
+                In accordance with enterprise secret hygiene, private carrier tokens are managed exclusively via <strong>Firebase Functions Secret Manager (<code>EKART_API_SECRET</code>)</strong> on the secure backend and are never loaded into browser memory or stored in Firestore documents.
               </p>
             </div>
 

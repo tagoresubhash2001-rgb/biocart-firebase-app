@@ -27,8 +27,8 @@ export async function getCashfreePayoutCredentials(): Promise<{
   env: 'PRODUCTION' | 'TEST';
   isLive: boolean;
 }> {
-  const clientId = (process.env.CASHFREE_PAYOUT_CLIENT_ID || process.env.CASHFREE_APP_ID || '').trim();
-  const clientSecret = (process.env.CASHFREE_PAYOUT_CLIENT_SECRET || process.env.CASHFREE_SECRET_KEY || '').trim();
+  const clientId = (process.env.CASHFREE_PAYOUT_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.CASHFREE_PAYOUT_CLIENT_SECRET || '').trim();
   const env = (process.env.CASHFREE_PAYOUT_ENVIRONMENT || 'TEST').toUpperCase() === 'PRODUCTION' ? 'PRODUCTION' : 'TEST';
   let isLive = false;
 
@@ -42,7 +42,12 @@ export async function getCashfreePayoutCredentials(): Promise<{
     console.warn('Could not read non-secret settings/payments:', err);
   }
 
-  return { clientId, clientSecret, env, isLive };
+  // Live execution only when dedicated payout client credentials exist and live flag is true
+  if (clientId && clientSecret && isLive) {
+    return { clientId, clientSecret, env, isLive: true };
+  }
+
+  return { clientId, clientSecret, env, isLive: false };
 }
 
 /**
@@ -172,22 +177,19 @@ export async function executeBankPayoutTransfer(params: {
     }
   }
 
-  // Safe Sandbox / Deterministic Test Mode Simulation
-  console.log(`[Cashfree Payout Sandbox] Simulating payout of ₹${amountPaise / 100} to ${beneficiary} (${cleanIfsc} - ${cleanAccount.slice(-4)})`);
-  const simulatedRef = `cf_py_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-  const simulatedUtr = `CMS${Date.now().toString().slice(-8)}${Math.floor(1000 + Math.random() * 9000)}`;
-
+  // Non-production / sandbox safety: Never fabricate success in production when credentials missing
+  console.log(`[Cashfree Payout] Live transfers disabled or credentials missing. Setting status needs_review for vendor ${vendorId}`);
   return {
-    success: true,
-    providerReferenceId: simulatedRef,
-    utr: simulatedUtr,
-    status: 'paid',
-    simulated: true
+    success: false,
+    providerReferenceId: `BLOCKED-${Date.now()}`,
+    status: 'needs_review',
+    failureReason: 'Cashfree Payouts credentials not configured or live disbursements disabled in settings/payments.'
   };
 }
 
 /**
  * Webhook handler for Cashfree Payout status updates
+ * Verified signature, transfer ID reconciliation, and atomic ledger update.
  */
 export const cashfreePayoutWebhook = onRequest({
   region: 'asia-southeast1',
@@ -198,29 +200,65 @@ export const cashfreePayoutWebhook = onRequest({
     return;
   }
 
-  const { transferId, referenceId, status, utr, reason } = req.body || {};
-  console.log(`Received Cashfree Payout webhook event for transfer: ${transferId}, status: ${status}`);
+  const signature = req.headers['x-webhook-signature'] as string;
+  const timestamp = req.headers['x-webhook-timestamp'] as string;
+  const rawBody = (req as any).rawBody ? (req as any).rawBody.toString() : JSON.stringify(req.body);
+
+  const secret = process.env.CASHFREE_PAYOUT_CLIENT_SECRET || '';
+  if (secret && signature && timestamp) {
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(timestamp + rawBody)
+      .digest('base64');
+
+    if (signature !== expectedSignature) {
+      console.warn('[Cashfree Payout Webhook] Invalid webhook signature detected.');
+      res.status(400).send('Invalid signature');
+      return;
+    }
+  }
+
+  const { transferId, referenceId, status, utr, reason, event } = req.body || {};
+  console.log(`Received Cashfree Payout webhook event: ${event || status} for transfer: ${transferId}`);
 
   try {
     if (transferId) {
-      const q = await db.collection('vendor_settlements').where('transferId', '==', transferId).limit(1).get();
+      const q = await db.collection('vendor_settlements').where('idempotencyKey', '==', transferId).limit(1).get();
       if (!q.empty) {
         const settlementDoc = q.docs[0];
         const currentData = settlementDoc.data();
 
-        if (status === 'SUCCESS') {
+        if (status === 'SUCCESS' && currentData.status !== 'paid') {
           await settlementDoc.ref.update({
             status: 'paid',
             providerReferenceId: referenceId || currentData.providerReferenceId,
             utr: utr || currentData.utr,
-            settledAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            settledAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp()
+          });
+
+          // Atomically move wallet settling -> paidOut
+          const walletRef = db.collection('vendor_wallets').doc(currentData.vendorId);
+          await walletRef.update({
+            settling: FieldValue.increment(-Number(currentData.amountPaise || 0)),
+            paidOut: FieldValue.increment(Number(currentData.amountPaise || 0)),
+            lastPayoutDate: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp()
           });
         } else if (status === 'FAILED' || status === 'REVERSED') {
           await settlementDoc.ref.update({
             status: 'failed',
-            failureReason: reason || `Cashfree payout ${status}`,
-            updatedAt: new Date().toISOString()
+            failureReason: reason || `Cashfree payout transfer ${status}`,
+            updatedAt: FieldValue.serverTimestamp()
+          });
+
+          // Rollback settling balance back to available
+          const walletRef = db.collection('vendor_wallets').doc(currentData.vendorId);
+          await walletRef.update({
+            settling: FieldValue.increment(-Number(currentData.amountPaise || 0)),
+            availableBalance: FieldValue.increment(Number(currentData.amountPaise || 0)),
+            available: FieldValue.increment(Number(currentData.amountPaise || 0)),
+            updatedAt: FieldValue.serverTimestamp()
           });
         }
       }

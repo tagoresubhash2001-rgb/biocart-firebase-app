@@ -99,7 +99,7 @@ export const AdminApiConfiguration: React.FC = () => {
       };
 
       // Enterprise Secret Hygiene: Private passwords/tokens are NOT saved to Firestore.
-      // They are configured via Google Cloud Secret Manager (EKART_API_SECRET / DELHIVERY_API_TOKEN).
+      // They are configured via Google Cloud Secret Manager (EKART_API_SECRET / EKART_API_SECRET).
 
       await setDoc(doc(db, 'settings', 'logistics_api'), payload, { merge: true });
       addToast('Logistics API Credentials saved securely.', 'success');
@@ -117,7 +117,7 @@ export const AdminApiConfiguration: React.FC = () => {
     setTestResult({
       status: 'error',
       message: 'EKART Gateway Integration Notice: Direct carrier API specifications and OAuth2/mTLS endpoints are pending formal carrier activation.',
-      details: 'To maintain enterprise security, private carrier credentials are never verified through simulated client handshakes. BioCart uses server-side Secret Manager (DELHIVERY_API_TOKEN) for production shipping. EKART automated dispatch will be activated once carrier IP whitelisting is completed.'
+      details: 'To maintain enterprise security, private carrier credentials are never verified through simulated client handshakes. BioCart uses server-side Secret Manager (EKART_API_SECRET) for production shipping. EKART automated dispatch will be activated once carrier IP whitelisting is completed.'
     });
     addToast('EKART integration is pending carrier verification.', 'info');
     setTesting(false);
