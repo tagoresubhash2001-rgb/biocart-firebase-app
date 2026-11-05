@@ -5,6 +5,7 @@ import { useHomepageCMS } from '../hooks/useHomepageCMS';
 
 
 import { ProductCard } from '../components/ui/ProductCard';
+import { CategoryCircularNav } from '../components/ui/CategoryCircularNav';
 import { Product, CategoryItem, BannerItem, StoreSettings, Review } from '../types';
 import { AdminService } from '../services/AdminService';
 import { SEED_PRODUCTS } from '../data/seedData';

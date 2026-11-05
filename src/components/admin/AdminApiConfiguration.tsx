@@ -19,6 +19,7 @@ export interface LogisticsApiCredentials {
   lastTestedAt?: string;
   lastTestStatus?: 'success' | 'failed';
   lastTestMessage?: string;
+  updatedAt?: string;
 }
 
 export const AdminApiConfiguration: React.FC = () => {
