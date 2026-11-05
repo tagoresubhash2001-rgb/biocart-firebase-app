@@ -48,7 +48,7 @@ export const CheckoutModal: React.FC = () => {
   const [customerGstin, setCustomerGstin] = useState('');
   const [customerBusinessName, setCustomerBusinessName] = useState('');
 
-  // Delhivery Pincode Serviceability State
+  // EKART Pincode Serviceability State
   const [pincodeStatus, setPincodeStatus] = useState<PincodeCheckResult | null>(null);
   const [checkingPincode, setCheckingPincode] = useState(false);
 
@@ -97,7 +97,7 @@ export const CheckoutModal: React.FC = () => {
     }
   };
 
-  // Delhivery Live PIN Code Serviceability Check
+  // EKART Live PIN Code Serviceability Check
   useEffect(() => {
     const cleanPin = shippingZip.replace(/\D/g, '');
     if (cleanPin.length === 6) {
@@ -109,7 +109,7 @@ export const CheckoutModal: React.FC = () => {
           if (res.state && !shippingState) setShippingState(res.state);
         })
         .catch((err) => {
-          console.warn('Delhivery pincode check error:', err);
+          console.warn('EKART pincode check error:', err);
         })
         .finally(() => {
           setCheckingPincode(false);
@@ -689,7 +689,7 @@ export const CheckoutModal: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Delhivery Serviceability Badge */}
+                  {/* EKART Serviceability Badge */}
                   {pincodeStatus && (
                     <div
                       className={`p-2.5 rounded-xl border text-xs flex items-center justify-between transition-all ${
@@ -702,7 +702,7 @@ export const CheckoutModal: React.FC = () => {
                         <Truck className="w-4 h-4 flex-shrink-0" />
                         <span className="font-semibold">
                           {pincodeStatus.serviceable
-                            ? 'Delhivery Express Delivery Available'
+                            ? 'EKART Express Delivery Available'
                             : 'Limited Logistics Coverage'}
                         </span>
                       </div>

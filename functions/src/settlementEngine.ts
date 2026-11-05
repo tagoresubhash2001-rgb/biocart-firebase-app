@@ -1,6 +1,6 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
-import { defineSecret } from 'firebase-functions/params';
+
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import * as crypto from 'node:crypto';
 import { DEFAULT_FINANCIAL_POLICY, FinancialPolicy } from './financialEngine';
@@ -8,9 +8,9 @@ import { DEFAULT_FINANCIAL_POLICY, FinancialPolicy } from './financialEngine';
 const db = getFirestore();
 
 // Optional secrets for production RazorpayX Payouts
-const razorpayKeyIdSecret = defineSecret('RAZORPAY_KEY_ID');
-const razorpayKeySecretSecret = defineSecret('RAZORPAY_KEY_SECRET');
-const razorpayAccountNumberSecret = defineSecret('RAZORPAY_ACCOUNT_NUMBER');
+
+
+
 
 /**
  * Payout provider response contract
@@ -28,9 +28,9 @@ export interface PayoutTransferResult {
  * Helper: Retrieve configured RazorpayX credentials from secrets or settings/payments doc
  */
 async function getRazorpayXCredentials(): Promise<{ keyId: string; keySecret: string; accountNumber: string; isLive: boolean }> {
-  let keyId = (razorpayKeyIdSecret.value() || process.env.RAZORPAY_KEY_ID || '').trim();
-  let keySecret = (razorpayKeySecretSecret.value() || process.env.RAZORPAY_KEY_SECRET || '').trim();
-  let accountNumber = (razorpayAccountNumberSecret.value() || process.env.RAZORPAY_ACCOUNT_NUMBER || '').trim();
+  let keyId = (process.env.RAZORPAY_KEY_ID || '').trim();
+  let keySecret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
+  let accountNumber = (process.env.RAZORPAY_ACCOUNT_NUMBER || '').trim();
   let isLive = false;
 
   try {

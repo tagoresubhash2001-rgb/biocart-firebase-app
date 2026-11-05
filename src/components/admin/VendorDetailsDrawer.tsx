@@ -164,7 +164,7 @@ export const VendorDetailsDrawer: React.FC<VendorDetailsDrawerProps> = ({
             </div>
 
             <div className="pt-2 border-t border-slate-200">
-              <span className="text-slate-500 font-semibold block mb-0.5">Delhivery Pickup Address:</span>
+              <span className="text-slate-500 font-semibold block mb-0.5">EKART Pickup Address:</span>
               {pickupAddress?.addressLine1 ? (
                 <p className="text-slate-800 font-medium">
                   {pickupAddress.addressLine1}, {pickupAddress.city}, {pickupAddress.state} - {pickupAddress.pinCode}, {pickupAddress.country}

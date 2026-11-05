@@ -50,7 +50,7 @@ export interface ShippingConfig {
 
 export class ShippingService {
   /**
-   * Check if a 6-digit Indian PIN code is serviceable by Delhivery for Prepaid and COD.
+   * Check if a 6-digit Indian PIN code is serviceable by EKART Logistics for Prepaid and COD.
    */
   static async checkPincode(pincode: string): Promise<PincodeCheckResult> {
     const fn = httpsCallable<{ pincode: string }, PincodeCheckResult>(functions, 'checkEkartPincode');
@@ -59,7 +59,7 @@ export class ShippingService {
   }
 
   /**
-   * Idempotently create a Delhivery shipment for an authorized vendor order.
+   * Idempotently create an EKART shipment for an authorized vendor order.
    */
   static async createShipment(params: CreateShipmentParams): Promise<{ success: boolean; waybill: string; shipmentId: string; status: string }> {
     const fn = httpsCallable<CreateShipmentParams, any>(functions, 'createEkartShipment');
@@ -68,7 +68,7 @@ export class ShippingService {
   }
 
   /**
-   * Track a Delhivery shipment by its waybill/AWB.
+   * Track an EKART shipment by its waybill/AWB.
    */
   static async trackShipment(waybill: string): Promise<TrackingResult> {
     const fn = httpsCallable<{ waybill: string }, TrackingResult>(functions, 'trackEkartShipment');
@@ -86,7 +86,7 @@ export class ShippingService {
   }
 
   /**
-   * Cancel an eligible Delhivery shipment.
+   * Cancel an eligible EKART shipment.
    */
   static async cancelShipment(waybill: string, reason?: string): Promise<{ success: boolean; waybill: string; status: string }> {
     const fn = httpsCallable<{ waybill: string; reason?: string }, any>(functions, 'cancelEkartShipment');

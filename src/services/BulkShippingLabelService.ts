@@ -18,7 +18,7 @@ export interface BulkLabelProgress {
 
 export class BulkShippingLabelService {
   /**
-   * Fetches the official PDF label bytes for a given waybill from the backend/Delhivery URL.
+   * Fetches the official PDF label bytes for a given waybill from the backend/EKART URL.
    */
   static async fetchLabelPdfBytes(labelUrl: string): Promise<Uint8Array> {
     const res = await fetch(labelUrl, {

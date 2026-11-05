@@ -558,7 +558,7 @@ export const VendorOnboardingModal: React.FC<VendorOnboardingModalProps> = ({
                       })}
                       className="w-4 h-4 text-emerald-600 rounded"
                     />
-                    <span className="font-semibold text-slate-800">Delhivery Pickup Address is the same as Registered Address</span>
+                    <span className="font-semibold text-slate-800">EKART Pickup Address is the same as Registered Address</span>
                   </label>
                 </div>
               </div>

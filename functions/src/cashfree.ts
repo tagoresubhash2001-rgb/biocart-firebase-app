@@ -1,13 +1,8 @@
-﻿import { defineSecret } from 'firebase-functions/params';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 
 const db = getFirestore();
-
-// Cashfree Production & Sandbox Secrets
-const cashfreeAppIdSecret = defineSecret('CASHFREE_APP_ID');
-const cashfreeSecretKeySecret = defineSecret('CASHFREE_SECRET_KEY');
 
 export interface CashfreeCredentials {
   appId: string;
@@ -17,8 +12,8 @@ export interface CashfreeCredentials {
 }
 
 export function getCashfreeCredentials(): CashfreeCredentials {
-  const appId = (cashfreeAppIdSecret.value() || process.env.CASHFREE_APP_ID || '').trim();
-  const secretKey = (cashfreeSecretKeySecret.value() || process.env.CASHFREE_SECRET_KEY || '').trim();
+  const appId = (process.env.CASHFREE_APP_ID || '').trim();
+  const secretKey = (process.env.CASHFREE_SECRET_KEY || '').trim();
   const env = (process.env.CASHFREE_ENVIRONMENT || 'SANDBOX').toUpperCase() === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
   return {
     appId,
@@ -32,7 +27,7 @@ export function getCashfreeCredentials(): CashfreeCredentials {
  * 1. createCashfreeOrder — Secure server-side payment order & session creation
  */
 export const createCashfreeOrder = onCall(
-  { region: 'asia-southeast1', secrets: [cashfreeAppIdSecret, cashfreeSecretKeySecret] },
+  { region: 'asia-southeast1' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be signed in to initiate checkout.');
@@ -48,17 +43,18 @@ export const createCashfreeOrder = onCall(
 
     // Deterministic simulation in sandbox / pre-configured mode
     if (isSandbox) {
-      const simulatedPaymentSessionId = `session_sim_${crypto.randomBytes(12).toString('hex')}`;
       return {
         success: true,
         orderId,
-        paymentSessionId: simulatedPaymentSessionId,
+        orderAmount,
+        currency: 'INR',
+        paymentSessionId: `cf_sess_${crypto.randomBytes(16).toString('hex')}`,
         environment: 'SANDBOX',
-        message: 'Sandbox Cashfree order session initiated.'
+        note: 'Simulated Cashfree Session (Sandbox/Pre-configuration mode)'
       };
     }
 
-    // Production Cashfree API v2023-08-01
+    // Production Cashfree API Call
     const url = 'https://api.cashfree.com/pg/orders';
     const payload = {
       order_id: orderId,
@@ -66,18 +62,18 @@ export const createCashfreeOrder = onCall(
       order_currency: 'INR',
       customer_details: {
         customer_id: request.auth.uid,
+        customer_phone: customerPhone || '9999999999',
         customer_email: customerEmail || 'customer@biocart.in',
-        customer_phone: (customerPhone || '9999999999').replace(/\D/g, '').slice(-10),
         customer_name: customerName || 'BioCart Customer'
       },
       order_meta: {
-        return_url: `https://biocart.in/dashboard?order_id={order_id}&payment_status=check`,
-        notify_url: `https://asia-southeast1-bio-cart.cloudfunctions.net/cashfreePaymentWebhook`
+        return_url: 'https://biocart.in/dashboard?subView=orders&orderId={order_id}',
+        notify_url: 'https://asia-southeast1-bio-cart.cloudfunctions.net/cashfreePaymentWebhook'
       }
     };
 
     try {
-      const res = await fetch(url, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,15 +84,17 @@ export const createCashfreeOrder = onCall(
         body: JSON.stringify(payload)
       });
 
-      const resData: any = await res.json();
-      if (!res.ok) {
+      const resData: any = await response.json();
+      if (!response.ok) {
         console.error('[Cashfree] Order creation error:', resData);
-        throw new Error(resData.message || 'Cashfree payment gateway order creation failed.');
+        throw new HttpsError('internal', resData.message || 'Cashfree order creation failed.');
       }
 
       return {
         success: true,
         orderId: resData.order_id,
+        orderAmount: resData.order_amount,
+        currency: resData.order_currency,
         paymentSessionId: resData.payment_session_id,
         environment: 'PRODUCTION'
       };
@@ -111,7 +109,7 @@ export const createCashfreeOrder = onCall(
  * 2. verifyCashfreePayment — Authoritative server-side payment verification
  */
 export const verifyCashfreePayment = onCall(
-  { region: 'asia-southeast1', secrets: [cashfreeAppIdSecret, cashfreeSecretKeySecret] },
+  { region: 'asia-southeast1' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be signed in.');
@@ -168,7 +166,7 @@ export const verifyCashfreePayment = onCall(
  * 3. cashfreePaymentWebhook — Webhook listener for asynchronous payment settlement
  */
 export const cashfreePaymentWebhook = onRequest(
-  { region: 'asia-southeast1', secrets: [cashfreeSecretKeySecret] },
+  { region: 'asia-southeast1' },
   async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).send('Method Not Allowed');
@@ -180,7 +178,7 @@ export const cashfreePaymentWebhook = onRequest(
     const timestamp = req.headers['x-webhook-timestamp'];
     const rawBody = req.rawBody ? req.rawBody.toString() : JSON.stringify(req.body);
 
-    const secret = cashfreeSecretKeySecret.value() || process.env.CASHFREE_SECRET_KEY || '';
+    const secret = process.env.CASHFREE_SECRET_KEY || '';
     if (secret && signature && timestamp) {
       const expectedSignature = crypto
         .createHmac('sha256', secret)

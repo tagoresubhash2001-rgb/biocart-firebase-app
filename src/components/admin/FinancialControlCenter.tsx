@@ -98,7 +98,7 @@ export const FinancialControlCenter: React.FC<FinancialControlCenterProps> = ({
       name: 'Shipping Charges & Logistics',
       value: formatRupees(summary.shippingCollectedPaise),
       category: 'cost',
-      definition: 'Shipping fee collected from customers vs. logistics obligations to carrier partner (Delhivery).',
+      definition: 'Shipping fee collected from customers vs. logistics obligations to carrier partner (EKART Express).',
       status: 'Carrier Clearing'
     },
     // 8. Applicable taxes
