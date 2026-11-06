@@ -1,8 +1,13 @@
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { defineSecret } from 'firebase-functions/params';
 import crypto from 'crypto';
 
 const db = getFirestore();
+
+export const cashfreeAppId = defineSecret('CASHFREE_APP_ID');
+export const cashfreeSecretKey = defineSecret('CASHFREE_SECRET_KEY');
+export const cashfreeEnvironment = defineSecret('CASHFREE_ENVIRONMENT');
 
 export interface CashfreeCredentials {
   appId: string;
@@ -12,12 +17,31 @@ export interface CashfreeCredentials {
 }
 
 export function getCashfreeCredentials(): CashfreeCredentials {
-  const appId = (process.env.CASHFREE_APP_ID || '').trim();
-  const secretKey = (process.env.CASHFREE_SECRET_KEY || '').trim();
-  const env = (process.env.CASHFREE_ENVIRONMENT || 'SANDBOX').toUpperCase() === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
+  let appId = '';
+  try {
+    appId = cashfreeAppId.value() || '';
+  } catch {
+    appId = process.env.CASHFREE_APP_ID || '';
+  }
+
+  let secretKey = '';
+  try {
+    secretKey = cashfreeSecretKey.value() || '';
+  } catch {
+    secretKey = process.env.CASHFREE_SECRET_KEY || '';
+  }
+
+  let envStr = 'SANDBOX';
+  try {
+    envStr = cashfreeEnvironment.value() || process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
+  } catch {
+    envStr = process.env.CASHFREE_ENVIRONMENT || 'SANDBOX';
+  }
+
+  const env = envStr.toUpperCase() === 'PRODUCTION' ? 'PRODUCTION' : 'SANDBOX';
   return {
-    appId,
-    secretKey,
+    appId: appId.trim(),
+    secretKey: secretKey.trim(),
     env,
     apiVersion: '2023-08-01'
   };
@@ -31,7 +55,10 @@ export function getCashfreeCredentials(): CashfreeCredentials {
  * - Prevents duplicate session creation if order already paid
  */
 export const createCashfreeOrder = onCall(
-  { region: 'asia-southeast1' },
+  {
+    region: 'asia-southeast1',
+    secrets: [cashfreeAppId, cashfreeSecretKey, cashfreeEnvironment]
+  },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be signed in to initiate checkout.');
@@ -67,30 +94,14 @@ export const createCashfreeOrder = onCall(
     }
 
     const creds = getCashfreeCredentials();
-    const isSandbox = creds.env === 'SANDBOX' || !creds.appId || !creds.secretKey;
-
-    if (isSandbox) {
-      // Non-production sandbox environment session
-      const simulatedSessionId = `cf_sess_${crypto.randomBytes(16).toString('hex')}`;
-      await orderDoc.ref.set({
-        paymentSessionId: simulatedSessionId,
-        paymentGateway: 'cashfree',
-        cashfreeEnvironment: 'SANDBOX',
-        updatedAt: FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      return {
-        success: true,
-        orderId,
-        orderAmount: authoritativeAmount,
-        currency: 'INR',
-        paymentSessionId: simulatedSessionId,
-        environment: 'SANDBOX'
-      };
+    if (!creds.appId || !creds.secretKey) {
+      console.error('[Cashfree] Gateway credentials missing.');
+      throw new HttpsError('failed-precondition', 'Cashfree payment gateway credentials are not configured.');
     }
 
-    // Production Cashfree API Call
-    const url = 'https://api.cashfree.com/pg/orders';
+    // Dynamic base URL based on environment (SANDBOX vs PRODUCTION)
+    const baseUrl = creds.env === 'PRODUCTION' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
+    const url = `${baseUrl}/orders`;
     const payload = {
       order_id: orderId,
       order_amount: authoritativeAmount,
@@ -128,7 +139,7 @@ export const createCashfreeOrder = onCall(
       await orderDoc.ref.set({
         paymentSessionId: resData.payment_session_id,
         paymentGateway: 'cashfree',
-        cashfreeEnvironment: 'PRODUCTION',
+        cashfreeEnvironment: creds.env,
         updatedAt: FieldValue.serverTimestamp()
       }, { merge: true });
 
@@ -138,7 +149,7 @@ export const createCashfreeOrder = onCall(
         orderAmount: resData.order_amount,
         currency: resData.order_currency,
         paymentSessionId: resData.payment_session_id,
-        environment: 'PRODUCTION'
+        environment: creds.env
       };
     } catch (err: any) {
       console.error('[Cashfree] Network exception:', err);
@@ -151,7 +162,10 @@ export const createCashfreeOrder = onCall(
  * 2. verifyCashfreePayment — Authoritative server-side payment verification
  */
 export const verifyCashfreePayment = onCall(
-  { region: 'asia-southeast1' },
+  {
+    region: 'asia-southeast1',
+    secrets: [cashfreeAppId, cashfreeSecretKey, cashfreeEnvironment]
+  },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'User must be signed in.');
@@ -173,19 +187,13 @@ export const verifyCashfreePayment = onCall(
     }
 
     const creds = getCashfreeCredentials();
-    const isSandbox = creds.env === 'SANDBOX' || !creds.appId || !creds.secretKey;
-
-    if (isSandbox) {
-      return {
-        success: orderData.paymentStatus === 'paid',
-        orderId,
-        orderStatus: orderData.paymentStatus === 'paid' ? 'PAID' : 'PENDING',
-        paymentStatus: orderData.paymentStatus === 'paid' ? 'SUCCESS' : 'PENDING',
-        environment: 'SANDBOX'
-      };
+    if (!creds.appId || !creds.secretKey) {
+      console.error('[Cashfree] Gateway credentials missing.');
+      throw new HttpsError('failed-precondition', 'Cashfree payment gateway credentials are not configured.');
     }
 
-    const url = `https://api.cashfree.com/pg/orders/${orderId}`;
+    const baseUrl = creds.env === 'PRODUCTION' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
+    const url = `${baseUrl}/orders/${orderId}`;
     try {
       const res = await fetch(url, {
         headers: {
@@ -229,7 +237,10 @@ export const verifyCashfreePayment = onCall(
  * idempotency, amount checking, and state-downgrade prevention.
  */
 export const cashfreePaymentWebhook = onRequest(
-  { region: 'asia-southeast1' },
+  {
+    region: 'asia-southeast1',
+    secrets: [cashfreeSecretKey]
+  },
   async (req, res) => {
     if (req.method !== 'POST') {
       res.status(405).send('Method Not Allowed');
@@ -240,23 +251,44 @@ export const cashfreePaymentWebhook = onRequest(
     const timestamp = req.headers['x-webhook-timestamp'] as string;
     const rawBody = (req as any).rawBody ? (req as any).rawBody.toString() : JSON.stringify(req.body);
 
-    const secret = process.env.CASHFREE_SECRET_KEY || '';
-    if (secret) {
-      if (!signature || !timestamp) {
-        console.warn('[Cashfree Webhook] Missing signature or timestamp headers.');
-        res.status(400).send('Missing signature headers');
-        return;
-      }
-      const expectedSignature = crypto
-        .createHmac('sha256', secret)
-        .update(timestamp + rawBody)
-        .digest('base64');
+    if (!signature || !timestamp) {
+      console.warn('[Cashfree Webhook] Missing x-webhook-signature or x-webhook-timestamp header.');
+      res.status(401).send('Unauthorized: Missing signature headers');
+      return;
+    }
 
-      if (signature !== expectedSignature) {
-        console.warn('[Cashfree Webhook] Invalid webhook signature detected.');
-        res.status(400).send('Invalid signature');
-        return;
-      }
+    // Reject timestamps older than 5 minutes (300,000 ms)
+    const tsNumber = Number(timestamp);
+    if (!Number.isNaN(tsNumber) && Math.abs(Date.now() - tsNumber) > 300000) {
+      console.warn(`[Cashfree Webhook] Webhook timestamp stale: ${timestamp}`);
+      res.status(401).send('Unauthorized: Stale webhook timestamp');
+      return;
+    }
+
+    let secret = '';
+    try {
+      secret = cashfreeSecretKey.value() || '';
+    } catch {
+      secret = process.env.CASHFREE_SECRET_KEY || '';
+    }
+
+    if (!secret) {
+      console.error('[Cashfree Webhook] CASHFREE_SECRET_KEY not configured.');
+      res.status(500).send('Server configuration error');
+      return;
+    }
+
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(timestamp + rawBody)
+      .digest('base64');
+
+    const sigBuf = Buffer.from(signature, 'utf8');
+    const expBuf = Buffer.from(expectedSignature, 'utf8');
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      console.warn('[Cashfree Webhook] Invalid webhook signature detected.');
+      res.status(401).send('Unauthorized: Invalid signature');
+      return;
     }
 
     const event = req.body?.type;

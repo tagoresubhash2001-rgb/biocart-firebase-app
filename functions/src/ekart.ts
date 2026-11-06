@@ -86,10 +86,23 @@ export const createEkartShipment = onCall(
     const randomSuffix = Math.floor(10000000 + Math.random() * 90000000);
     const assignedWaybill = `EKT${randomSuffix}IN`;
 
+    // Attempt to lookup parent order to populate userId for secure client tracking
+    let orderUserId = '';
+    try {
+      const parentOrderDoc = await db.collection('orders').doc(orderNumber).get();
+      if (parentOrderDoc.exists) {
+        orderUserId = parentOrderDoc.data()?.userId || '';
+      }
+    } catch (e) {
+      console.warn(`Could not lookup order ${orderNumber} for userId:`, e);
+    }
+
     const nowIso = new Date().toISOString();
     const shipmentData = {
       id: deterministicId,
       orderNumber,
+      parentOrderId: orderNumber,
+      userId: orderUserId,
       vendorId,
       carrier: 'ekart',
       waybill: assignedWaybill,

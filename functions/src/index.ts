@@ -853,19 +853,40 @@ export const submitProductChange = onCall({ region: 'asia-southeast1' }, async (
 
   const nowIso = new Date().toISOString();
 
-  // If vendor changes price, name or critical details, reset approvalStatus to 'pending'
-  const requiresApproval = !isAdminUser && (
-    'price' in updates ||
-    'mrp' in updates ||
-    'name' in updates ||
-    'sku' in updates ||
-    'category' in updates
-  );
+  // Vendor updates must be sanitized against an allowlist and cannot modify protected fields
+  let cleanUpdates: Record<string, any> = {};
+  let finalApprovalStatus = prodData.approvalStatus || 'approved';
 
-  const cleanUpdates: Record<string, any> = { ...updates, updatedAt: nowIso };
-  if (requiresApproval) {
+  if (!isAdminUser) {
+    // Non-admin vendor: strictly allowlist editable content keys
+    const allowedVendorKeys = [
+      'name', 'description', 'price', 'mrp', 'stock', 'sku', 'category',
+      'subCategory', 'images', 'thumbnail', 'tags', 'unit', 'weightGrams',
+      'dimensions', 'benefits', 'howToUse', 'ingredients'
+    ];
+
+    for (const key of allowedVendorKeys) {
+      if (key in updates) {
+        cleanUpdates[key] = updates[key];
+      }
+    }
+
+    // Unconditionally force pending approval on any vendor update to prevent self-approval
     cleanUpdates.approvalStatus = 'pending';
     cleanUpdates.approvalRequestedAt = nowIso;
+    cleanUpdates.updatedAt = nowIso;
+    finalApprovalStatus = 'pending';
+
+    // Never allow vendor to change owner, active flag, commission, or approval
+    delete cleanUpdates.vendorId;
+    delete cleanUpdates.active;
+    delete cleanUpdates.commissionRateBps;
+    delete cleanUpdates.approvedBy;
+    delete cleanUpdates.approvedAt;
+  } else {
+    // Admin user: can update any fields passed
+    cleanUpdates = { ...updates, updatedAt: nowIso };
+    finalApprovalStatus = updates.approvalStatus || prodData.approvalStatus || 'approved';
   }
 
   await prodRef.update(cleanUpdates);
@@ -873,7 +894,7 @@ export const submitProductChange = onCall({ region: 'asia-southeast1' }, async (
   return {
     success: true,
     productId,
-    approvalStatus: requiresApproval ? 'pending' : (prodData.approvalStatus || 'approved')
+    approvalStatus: finalApprovalStatus
   };
 });
 
@@ -1451,7 +1472,7 @@ export const generateInvoicePDF = onDocumentCreated({ document: 'orders/{orderId
 
   return new Promise<void>((resolve, reject) => {
     const doc = new (PDFDocument as any)({ margin: 50 });
-    const bucket = storage.bucket('biocart-production-storage');
+    const bucket = storage.bucket();
     const userId = orderData.userId || 'unknown';
     const pdfPath = `invoices/${userId}/${orderId}.pdf`;
     const file = bucket.file(pdfPath);
@@ -1464,12 +1485,13 @@ export const generateInvoicePDF = onDocumentCreated({ document: 'orders/{orderId
     doc.pipe(stream);
 
     const isB2B = !!orderData.customerGstin;
-    const invoiceTitle = isB2B ? 'TAX INVOICE (B2B)' : 'RETAIL TAX INVOICE';
+    const invoiceTitle = 'ORDER CONFIRMATION / BILL OF SUPPLY';
 
     doc.fontSize(20).text(invoiceTitle, { align: 'center' });
     doc.moveDown(0.5);
-    doc.fontSize(10).text('BioCart Sustainable Marketplace / Sindulis Agro Products', { align: 'center' });
-    doc.text('Bio-Innovation Park, Hyderabad, India | GSTIN: 36AABCS1429B1Z8', { align: 'center' });
+    doc.fontSize(11).font('Helvetica-Bold').text('SINDULIS INNOVATIVE SOLUTIONS', { align: 'center' });
+    doc.font('Helvetica').fontSize(9).text('Udyam Registration: UDYAM-AP-23-0104910', { align: 'center' });
+    doc.text('Tirupati, Andhra Pradesh, India | Contact: +91 9494080479 | Email: biocart.2025@gmail.com', { align: 'center' });
     doc.moveDown();
 
     doc.fontSize(11).text(`Invoice Number: ${invoiceNumber}`);
@@ -1578,29 +1600,38 @@ export const uploadMediaAsset = onCall({ region: 'asia-southeast1' }, async (req
     throw new HttpsError('invalid-argument', 'File size exceeds 10MB limit.');
   }
 
-  // Validate allowed image MIME types
-  const allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+  // Validate allowed image MIME types (disallow svg to prevent stored XSS)
+  const allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
   if (!allowedMime.includes(contentType.toLowerCase())) {
-    throw new HttpsError('invalid-argument', `Unsupported file type: ${contentType}. Must be JPEG, PNG, WEBP, GIF, or SVG.`);
+    throw new HttpsError('invalid-argument', `Unsupported file type: ${contentType}. Must be JPEG, PNG, WEBP, or GIF.`);
   }
+
+  // Whitelist allowed destination folders
+  const allowedFolders = ['cms', 'products', 'banners', 'categories', 'media', 'vendors'];
+  const targetFolder = allowedFolders.includes(folder) ? folder : 'media';
 
   const cleanFileName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
   const timestamp = Date.now();
-  const filePath = `${folder}/${timestamp}_${cleanFileName}`;
+  const filePath = `${targetFolder}/${timestamp}_${cleanFileName}`;
 
-  const bucket = storage.bucket('biocart-production-storage');
+  const bucket = storage.bucket();
   const fileRef = bucket.file(filePath);
+  const downloadToken = crypto.randomUUID ? crypto.randomUUID() : (crypto as any).randomBytes(16).toString('hex');
 
   await fileRef.save(buffer, {
     metadata: {
       contentType,
-      cacheControl: 'public, max-age=31536000, immutable'
+      cacheControl: 'public, max-age=31536000, immutable',
+      metadata: {
+        firebaseStorageDownloadTokens: downloadToken
+      }
     },
     resumable: false
   });
 
-  const publicUrl = `https://storage.googleapis.com/biocart-production-storage/${filePath}`;
-  return { success: true, url: publicUrl, path: filePath };
+  // Standard Firebase Storage download URL that works without requiring public bucket IAM read
+  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filePath)}?alt=media&token=${downloadToken}`;
+  return { success: true, url: downloadUrl, path: filePath };
 });
 
 export {
@@ -1718,10 +1749,104 @@ export const updateVendorCommercials = onCall({ region: 'asia-southeast1' }, asy
 });
 
 // ==========================================================
+// updateOrderStatus — Admin-only authoritative order status update
+// ==========================================================
+export const updateOrderStatus = onCall({ region: 'asia-southeast1' }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be signed in.');
+  }
+
+  const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+  const callerRole = callerDoc.exists ? callerDoc.data()?.role : null;
+  if (callerRole !== 'admin' && callerRole !== 'super_admin') {
+    throw new HttpsError('permission-denied', 'Only administrators can update master order status.');
+  }
+
+  const { orderId, newStatus, reason } = request.data || {};
+  if (!orderId || typeof orderId !== 'string' || !newStatus || typeof newStatus !== 'string') {
+    throw new HttpsError('invalid-argument', 'Valid orderId and newStatus are required.');
+  }
+
+  const orderRef = db.collection('orders').doc(orderId);
+  const orderDoc = await orderRef.get();
+  if (!orderDoc.exists) {
+    throw new HttpsError('not-found', `Order ${orderId} does not exist.`);
+  }
+
+  const nowIso = new Date().toISOString();
+  await orderRef.update({
+    status: newStatus,
+    orderStatus: newStatus,
+    updatedAt: nowIso,
+    statusHistory: FieldValue.arrayUnion({
+      status: newStatus,
+      at: nowIso,
+      by: request.auth.uid,
+      role: 'admin',
+      reason: reason || `Admin updated status to ${newStatus}`
+    })
+  });
+
+  return { success: true, orderId, status: newStatus };
+});
+
+// ==========================================================
+// updateVendorOrderStatus — Vendor/Admin update for vendor suborders
+// ==========================================================
+export const updateVendorOrderStatus = onCall({ region: 'asia-southeast1' }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'User must be signed in.');
+  }
+
+  const { orderId, vendorId, newStatus, rejectionReason, trackingNumber, carrier } = request.data || {};
+  if (!orderId || !vendorId || !newStatus) {
+    throw new HttpsError('invalid-argument', 'orderId, vendorId, and newStatus are required.');
+  }
+
+  const callerUid = request.auth.uid;
+  const callerDoc = await db.collection('users').doc(callerUid).get();
+  const callerRole = callerDoc.exists ? callerDoc.data()?.role : null;
+  const isAdminUser = callerRole === 'admin' || callerRole === 'super_admin';
+  const isVendorOwnerUser = callerUid === vendorId;
+
+  if (!isAdminUser && !isVendorOwnerUser) {
+    throw new HttpsError('permission-denied', 'You are not authorized to update this vendor suborder.');
+  }
+
+  const vendorOrderRef = db.collection('orders').doc(orderId).collection('vendor_orders').doc(vendorId);
+  const vendorOrderDoc = await vendorOrderRef.get();
+
+  const nowIso = new Date().toISOString();
+  const updatePayload: Record<string, any> = {
+    orderStatus: newStatus,
+    status: newStatus,
+    updatedAt: nowIso
+  };
+
+  if (rejectionReason) {
+    updatePayload.rejectionReason = rejectionReason;
+  }
+  if (trackingNumber) {
+    updatePayload.trackingNumber = trackingNumber;
+    updatePayload.carrier = carrier || 'ekart';
+    updatePayload.shipmentStatus = 'shipped';
+  }
+
+  if (vendorOrderDoc.exists) {
+    await vendorOrderRef.update(updatePayload);
+  } else {
+    // If vendor_orders subcollection does not exist yet, save with merge
+    await vendorOrderRef.set(updatePayload, { merge: true });
+  }
+
+  return { success: true, orderId, vendorId, status: newStatus };
+});
+
+// ==========================================================
 // ==========================================================
 // Marketplace Financial Settlement Engine
 // ==========================================================
-export { cashfreePayoutWebhook, cashfreePayoutWebhook as razorpayPayoutWebhook } from './cashfreePayouts';
+export { cashfreePayoutWebhook } from './cashfreePayouts';
 export {
   tuesdayVendorSettlement,
   triggerManualSettlement,

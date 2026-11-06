@@ -204,18 +204,38 @@ export const cashfreePayoutWebhook = onRequest({
   const timestamp = req.headers['x-webhook-timestamp'] as string;
   const rawBody = (req as any).rawBody ? (req as any).rawBody.toString() : JSON.stringify(req.body);
 
-  const secret = process.env.CASHFREE_PAYOUT_CLIENT_SECRET || '';
-  if (secret && signature && timestamp) {
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(timestamp + rawBody)
-      .digest('base64');
+  if (!signature || !timestamp) {
+    console.warn('[Cashfree Payout Webhook] Missing signature or timestamp headers.');
+    res.status(401).send('Unauthorized: Missing signature headers');
+    return;
+  }
 
-    if (signature !== expectedSignature) {
-      console.warn('[Cashfree Payout Webhook] Invalid webhook signature detected.');
-      res.status(400).send('Invalid signature');
-      return;
-    }
+  // Reject timestamps older than 5 minutes
+  const tsNumber = Number(timestamp);
+  if (!Number.isNaN(tsNumber) && Math.abs(Date.now() - tsNumber) > 300000) {
+    console.warn(`[Cashfree Payout Webhook] Stale webhook timestamp: ${timestamp}`);
+    res.status(401).send('Unauthorized: Stale timestamp');
+    return;
+  }
+
+  const secret = process.env.CASHFREE_PAYOUT_CLIENT_SECRET || '';
+  if (!secret) {
+    console.error('[Cashfree Payout Webhook] CASHFREE_PAYOUT_CLIENT_SECRET not configured.');
+    res.status(500).send('Server configuration error');
+    return;
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(timestamp + rawBody)
+    .digest('base64');
+
+  const sigBuf = Buffer.from(signature, 'utf8');
+  const expBuf = Buffer.from(expectedSignature, 'utf8');
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    console.warn('[Cashfree Payout Webhook] Invalid webhook signature detected.');
+    res.status(401).send('Unauthorized: Invalid signature');
+    return;
   }
 
   const { transferId, referenceId, status, utr, reason, event } = req.body || {};
