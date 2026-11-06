@@ -28,37 +28,54 @@ service firebase.storage {
              request.resource.size <= 10 * 1024 * 1024; // 10MB limit
     }
 
-    match /{allPaths=**} {
-      allow read: if true;
-    }
-
+    // Public Storefront Assets
     match /products/{allPaths=**} {
+      allow read: if true;
       allow write: if isAdmin() && isValidImage();
     }
     match /vendor_products/{vendorId}/{allPaths=**} {
+      allow read: if true;
       allow write: if (isAdmin() || isVendorOwner(vendorId)) && isValidImage();
     }
     match /cms/{allPaths=**} {
+      allow read: if true;
       allow write: if isAdmin() && isValidImage();
     }
     match /media/{allPaths=**} {
+      allow read: if true;
       allow write: if isAdmin() && isValidImage();
     }
     match /categories/{allPaths=**} {
+      allow read: if true;
       allow write: if isAdmin() && isValidImage();
     }
     match /banners/{allPaths=**} {
+      allow read: if true;
       allow write: if isAdmin() && isValidImage();
     }
     match /vendors/{vendorId}/{allPaths=**} {
+      allow read: if true;
       allow write: if (isAdmin() || isVendorOwner(vendorId)) && isValidImage();
     }
     match /avatars/{userId}/{allPaths=**} {
+      allow read: if true;
       allow write: if isSignedIn() && request.auth.uid == userId && isValidImage();
     }
-    
+
+    // Confidential KYC Documents - only vendor owner and admin
+    match /kyc/{vendorId}/{allPaths=**} {
+      allow read, write: if (isAdmin() || isVendorOwner(vendorId));
+    }
+
+    // Invoices - only the specific customer and admin
+    match /invoices/{userId}/{allPaths=**} {
+      allow read: if (isAdmin() || (isSignedIn() && request.auth.uid == userId));
+      allow write: if false; // Generated via Cloud Functions (Admin SDK)
+    }
+
+    // Global Deny for all other paths
     match /{allPaths=**} {
-      allow write: if false; // Deny all other writes
+      allow read, write: if false;
     }
   }
 }

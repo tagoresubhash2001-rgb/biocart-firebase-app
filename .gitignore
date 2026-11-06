@@ -13,3 +13,6 @@ coverage/
 .env*
 !.env.example
 biocart-release.zip
+
+*.secret*
+.secret.local

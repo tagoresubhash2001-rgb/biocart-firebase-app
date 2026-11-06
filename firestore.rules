@@ -57,6 +57,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && isEmailVerified() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -149,15 +156,37 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
                     incoming().role in ['customer', 'guest'];
-      allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) &&
-                    ((incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'phoneNumber', 'location', 'photoURL', 'lastLoginAt', 'updatedAt', 'customerId'])) || isAdmin());
+      allow update: if isSignedIn() && isValidUser(incoming()) && (
+        (isOwner(userId) && incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'phoneNumber', 'location', 'photoURL', 'lastLoginAt', 'updatedAt', 'customerId'])) ||
+        isSuperAdmin() ||
+        (isAdmin() && (incoming().role == existing().role || (!(incoming().role in ['admin', 'super_admin']) && !(existing().role in ['admin', 'super_admin']))))
+      );
       allow delete: if isAdmin();
     }
 
     // 2. Products Catalog
     match /products/{productId} {
       allow read: if true;
-      allow write: if isAdmin() || (isVendorOwner(incoming().vendorId) && (!('vendorId' in existing()) || existing().vendorId == incoming().vendorId));
+      allow create: if isAdmin() || (
+        isVendorOwner(incoming().vendorId) &&
+        incoming().approvalStatus == 'pending'
+      );
+      allow update: if isAdmin() || (
+        isVendorOwner(existing().vendorId) &&
+        // Immutability: deny changes to vendorId, approvalStatus (must remain pending or transition to pending), active, commissionRateBps
+        incoming().vendorId == existing().vendorId &&
+        incoming().approvalStatus == 'pending' &&
+        !incoming().diff(existing()).affectedKeys().hasAny(['vendorId', 'active', 'commissionRateBps']) &&
+        // Vendor update keys restricted to explicit content allow-list
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'description', 'shortDescription', 'images', 'image', 'price', 'mrp', 
+          'weightVariants', 'selectedVariant', 'category', 'categoryId', 'sku', 
+          'features', 'benefits', 'usageInstructions', 'ingredients', 'materials', 
+          'dimensions', 'badge', 'stockStatus', 'inStock', 'stockQuantity', 'faqs', 
+          'reviews', 'approvalStatus', 'approvalRequestedAt', 'source', 'updatedAt'
+        ])
+      );
+      allow delete: if isAdmin();
     }
 
     // 3. Product Categories
@@ -183,31 +212,22 @@ service cloud.firestore {
       allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       // Orders are calculated and written by createOrder with the Admin SDK.
+      // All status transitions and lifecycle updates must go through Cloud Functions.
       allow create: if false;
-      allow update: if isVerifiedAccount() && (
-        isAdmin() ||
-        (isOwner(existing().userId) &&
-         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'orderStatus', 'notes', 'cancellationReason', 'updatedAt']) &&
-         existing().status in ['placed', 'processing']) // Terminal state locking
-      );
+      allow update: if false;
       allow delete: if isAdmin();
 
-      // 6b. Per-vendor order slices. A vendor can only ever read their own
-      // slice and only ever touch shipment status/tracking on it — never
-      // the items, amounts, or commission. Everything else is admin-only
-      // (written by the createOrder Cloud Function via the Admin SDK,
-      // which bypasses these rules entirely).
+      // 6b. Per-vendor order slices. Writes must go through Cloud Functions / Admin SDK.
       match /vendor_orders/{vendorId} {
-        allow read: if isAdmin() || isVendorOwner(vendorId);
-        allow update: if isAdmin() || (
-          isVendorOwner(vendorId) &&
-          incoming().diff(existing()).affectedKeys().hasOnly([
-            'orderStatus', 'status', 'shipmentStatus', 'trackingNumber', 
-            'carrier', 'rejectionReason', 'cancellationReason', 'notes', 'updatedAt'
-          ])
-        );
-        allow write: if isAdmin();
+        allow read: if isAdmin() || isVendorOwner(vendorId) || (isSignedIn() && existing().userId == request.auth.uid);
+        allow write: if false;
       }
+    }
+
+    // 6c. Collection Group Rule for vendor_orders
+    match /{path=**}/vendor_orders/{vendorId} {
+      allow read: if isAdmin() || isVendorOwner(resource.data.vendorId) || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
     }
 
     // 7. Order Line Items
@@ -301,7 +321,7 @@ service cloud.firestore {
 
     // 17. User Alerts & Notifications
     match /notifications/{notifId} {
-      allow read: if isSignedIn() && (isOwner(resource.data.userId) || isAdmin());
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow write: if isAdmin();
     }
 
@@ -371,7 +391,7 @@ service cloud.firestore {
     // 21. System Counters (Customer ID Generation & Global Sequences)
     match /counters/{counterId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if false; // Remove isSignedIn() write access - callable / admin SDK only
     }
 
     // 21b. Platform Usage Analytics Logs
@@ -387,16 +407,30 @@ service cloud.firestore {
     // clients never create a vendor doc directly.
     match /vendors/{vendorId} {
       allow read: if isAdmin() || isVendorOwner(vendorId);
-      allow list: if isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor');
+      allow list: if isAdmin();
       allow create: if isAdmin();
+      // Bank details cannot be written from client (strictly excluded from allow-list and barred via !hasAny)
       allow update: if isAdmin() ||
         (isVendorOwner(vendorId) &&
+         !incoming().diff(existing()).affectedKeys().hasAny(['settlement', 'bankDetails', 'commission', 'commissionRate', 'commissionRateBps', 'wallets', 'status', 'ownerUid', 'id', 'vendorId']) &&
          incoming().diff(existing()).affectedKeys().hasOnly([
            'storeName', 'businessName', 'ownerName', 'phone', 'description', 
            'website', 'addresses', 'legal', 'notificationPreferences', 
            'shippingPreferences', 'orderThresholds', 'logo', 'updatedAt'
          ]));
       allow delete: if isAdmin();
+
+      // Nested private bank / settlement details: readable ONLY by Admin; writable ONLY by backend callables (Admin SDK)
+      match /private/settlement {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    // Direct path for vendor private bank settlement details
+    match /vendors/{vendorId}/private/settlement {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // 22b. Vendor Wallets — never client-writable. Only the createOrder /
@@ -404,7 +438,7 @@ service cloud.firestore {
     match /vendor_wallets/{vendorId} {
       allow read: if isAdmin() || isVendorOwner(vendorId);
       allow list: if isAdmin() || (isSignedIn() && resource.data.vendorId == request.auth.uid);
-      allow write: if isAdmin();
+      allow write: if false;
     }
 
     // 23. Audit Logs
@@ -414,10 +448,12 @@ service cloud.firestore {
 
     // 24. Shipments (Delhivery Logistics & Multi-Vendor Tracking)
     match /shipments/{shipmentId} {
-      // Signed-in users can read shipments (or vendors can read where vendorId == request.auth.uid, admin can read all)
-      allow read: if isSignedIn();
-      // Client writes are restricted to authorized admins (automated updates occur via Cloud Functions / Admin SDK)
-      allow write: if isAdmin();
+      // Restrict read to order owner (userId), vendor (vendorId), and isAdmin(). No wide allow read: if isSignedIn().
+      allow read: if isAdmin() ||
+        (isSignedIn() && resource.data.userId == request.auth.uid) ||
+        (isSignedIn() && isVendorOwner(resource.data.vendorId));
+      // Client writes are strictly disabled - automated updates occur via Cloud Functions / Admin SDK
+      allow write: if false;
     }
 
     // 25. Field Operations Agents
@@ -448,8 +484,22 @@ service cloud.firestore {
     match /vendor_settlements/{settlementId} {
       // Admins can read all settlement batches; vendors can read only their own settlement records
       allow read: if isAdmin() || (isSignedIn() && resource.data.vendorId == request.auth.uid);
-      // Writes are restricted strictly to authorized admins or Cloud Functions / Admin SDK
-      allow write: if isAdmin();
+      // Settlements are never client-writable (written by backend callables / Admin SDK only)
+      allow write: if false;
+    }
+
+    // 29. Inventory Reservations (Zero-Trust Concurrency Locking)
+    match /reservations/{reservationId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      // Reservations are created and managed by Cloud Functions only
+      allow write: if false;
+    }
+
+    // 30. Order Refunds & Reversals
+    match /refunds/{refundId} {
+      allow read: if isAdmin() || (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.vendorId == request.auth.uid));
+      // Refunds are processed strictly via backend callable functions (Admin SDK)
+      allow write: if false;
     }
   }
 }
