@@ -4,7 +4,7 @@ import { functions } from '../../config/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
-import { X, ShoppingBag, Trash2, ArrowRight, ShieldCheck, CreditCard, Sparkles, CheckCircle2, MapPin, Truck, AlertCircle, Check, RefreshCw, AlertTriangle } from 'lucide-react';
+import { X, ShoppingBag, Trash2, ArrowRight, ShieldCheck, CreditCard, Sparkles, CheckCircle2, MapPin, Truck, AlertCircle, Check, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react';
 import { AddressService } from '../../services/AddressService';
 import { AddressEntity } from '../../types/backend';
 import { useStoreSettings } from '../../hooks/useStoreSettings';

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collectionGroup, query, where, orderBy, onSnapshot, updateDoc, doc, getDoc, arrayUnion } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { collectionGroup, query, where, orderBy, onSnapshot, doc, getDoc, arrayUnion } from 'firebase/firestore';
+import { db, functions } from '../../config/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../contexts/AuthContext';
 import { useVendor } from '../../hooks/useVendor';
 import { useApp } from '../../context/AppContext';
@@ -245,11 +246,12 @@ export const VendorOrders: React.FC = () => {
         return;
       }
       try {
-        await updateDoc(order.ref, {
-          orderStatus: 'rejected',
-          status: 'rejected',
-          rejectionReason: reason,
-          updatedAt: new Date().toISOString()
+        const updateVendorOrderStatusFn = httpsCallable(functions, 'updateVendorOrderStatus');
+        await updateVendorOrderStatusFn({
+          orderId: order.orderNumber,
+          vendorId: order.vendorId || vendorId || '',
+          newStatus: 'rejected',
+          rejectionReason: reason
         });
         addToast(`Order ${order.orderNumber} rejected. Reason logged.`, 'info');
       } catch (e: any) {
@@ -259,18 +261,12 @@ export const VendorOrders: React.FC = () => {
     }
 
     try {
-      const updatePayload: any = {
-        orderStatus: nextStatus,
-        status: nextStatus,
-        updatedAt: new Date().toISOString()
-      };
-
-      // Synchronize shipmentStatus if advancing to packed
-      if (nextStatus === 'packed' && order.shipmentStatus === 'pending') {
-        updatePayload.shipmentStatus = 'packed';
-      }
-
-      await updateDoc(order.ref, updatePayload);
+      const updateVendorOrderStatusFn = httpsCallable(functions, 'updateVendorOrderStatus');
+      await updateVendorOrderStatusFn({
+        orderId: order.orderNumber,
+        vendorId: order.vendorId || vendorId || '',
+        newStatus: nextStatus
+      });
       addToast(`Order ${order.orderNumber} transitioned to ${nextStatus.toUpperCase()}`, 'success');
     } catch (err: any) {
       console.error('Failed to update status:', err);
@@ -289,14 +285,14 @@ export const VendorOrders: React.FC = () => {
       });
       addToast(`EKART shipment created! AWB: ${res.waybill}`, 'success');
 
-      // Update vendor order to 'shipped'
-      await updateDoc(order.ref, {
-        orderStatus: 'shipped',
-        status: 'shipped',
-        shipmentStatus: 'shipped',
+      // Update vendor order to 'shipped' via authoritative Cloud Function
+      const updateVendorOrderStatusFn = httpsCallable(functions, 'updateVendorOrderStatus');
+      await updateVendorOrderStatusFn({
+        orderId: order.orderNumber,
+        vendorId: order.vendorId || vendorId || '',
+        newStatus: 'shipped',
         trackingNumber: res.waybill,
-        carrier: 'ekart',
-        updatedAt: new Date().toISOString()
+        carrier: 'ekart'
       });
     } catch (err: any) {
       console.error('Failed to create shipment:', err);

@@ -104,7 +104,7 @@ export const Home: React.FC = () => {
 
   // Production Catalog Policy: In production, prioritize live approved Firestore inventory.
   // SEED_PRODUCTS are preserved as an explicit fallback during initial catalog cold-start or offline dev.
-  const activeProducts = (realtimeProducts.length > 0 ? realtimeProducts : SEED_PRODUCTS).filter(p => p.active !== false && p.homepageVisible !== false);
+  const activeProducts = realtimeProducts.filter(p => p.active !== false && p.homepageVisible !== false);
 
 
   const getExactlyNine = (filterFn?: (p: Product) => boolean, seedOffset: number = 0): Product[] => {

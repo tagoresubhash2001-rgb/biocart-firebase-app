@@ -358,11 +358,11 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.match(rules, /match\s+\/users\/\{userId\}[\s\S]*?hasOnly\(\[[^\]]*'customerId'[^\]]*\]\)/);
     });
 
-    it('verifies firestore.rules declares signed-in read/write access for system counters', async () => {
+    it('verifies firestore.rules declares signed-in read access and disabled client writes for system counters', async () => {
       const fs = await import('node:fs');
       const rules = fs.readFileSync('firestore.rules', 'utf8');
       
-      assert.match(rules, /match\s+\/counters\/\{counterId\}\s*\{[\s\S]*?allow\s+read:\s*if\s+isSignedIn\(\);[\s\S]*?allow\s+write:\s*if\s+isSignedIn\(\);/);
+      assert.match(rules, /match\s+\/counters\/\{counterId\}\s*\{[\s\S]*?allow\s+read:\s*if\s+isSignedIn\(\);[\s\S]*?allow\s+write:\s*if\s+false;/);
     });
 
     it('verifies firestore.rules declares admin-only read/write access for shipping settings', async () => {
@@ -1246,7 +1246,7 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.match(rules, /request\.auth\.uid == vendorId/);
       assert.match(rules, /'ownerUid' in get\(\/databases\/\$\(database\)\/documents\/vendors\/\$\(vendorId\)\)\.data/);
       assert.match(rules, /data\.ownerUid == request\.auth\.uid/);
-      assert.match(rules, /allow list: if isAdmin\(\) \|\| \(isSignedIn\(\) && exists\(\/databases\/\$\(database\)\/documents\/users\/\$\(request\.auth\.uid\)\) && get\(\/databases\/\$\(database\)\/documents\/users\/\$\(request\.auth\.uid\)\)\.data\.role == 'vendor'\);/);
+      assert.match(rules, /allow list: if isAdmin\(\);/);
     });
 
     it('verifies useVendor hook supports multi-tier resolution (direct, ownerUid, email, admin fallback)', async () => {
@@ -1907,7 +1907,7 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
 
       assert.match(indexCode, /tuesdayVendorSettlement/);
       assert.match(indexCode, /retryVendorPayout/);
-      assert.match(indexCode, /razorpayPayoutWebhook/);
+      assert.match(indexCode, /cashfreePayoutWebhook/);
       assert.match(indexCode, /triggerManualSettlement/);
     });
 
@@ -2359,18 +2359,13 @@ describe('BioCart Automated Test Suite: Auth, Error Handling, and Roles', () => 
       assert.equal(page1.getHeight(), 432);
     });
 
-    it('4. verifies firestore.rules permits vendor order lifecycle and terminal cancellation gating', async () => {
+    it('4. verifies firestore.rules disables client direct writes to orders and vendor orders, requiring Cloud Functions', async () => {
       const fs = await import('node:fs');
       const rules = fs.readFileSync('firestore.rules', 'utf-8');
 
-      // Vendor orders update keys
-      assert.match(rules, /'orderStatus'/);
-      assert.match(rules, /'shipmentStatus'/);
-      assert.match(rules, /'rejectionReason'/);
-      assert.match(rules, /'cancellationReason'/);
-
-      // Terminal state locking on parent order
-      assert.match(rules, /existing\(\)\.status in \['placed', 'processing'\]/);
+      // Orders and vendor_orders writes are strictly disabled on the client side
+      assert.match(rules, /match\s+\/orders\/\{orderId\}\s*\{[\s\S]*?allow\s+create:\s*if\s+false;[\s\S]*?allow\s+update:\s*if\s+false;/);
+      assert.match(rules, /match\s+\/vendor_orders\/\{vendorId\}\s*\{[\s\S]*?allow\s+write:\s*if\s+false;/);
     });
 
     it('5. verifies multi-order selection, search, and date filters in VendorOrders', async () => {

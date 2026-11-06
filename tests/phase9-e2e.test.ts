@@ -1,4 +1,4 @@
-﻿import { describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
@@ -26,9 +26,10 @@ describe('Phase 9 Browser & Build Verification Tests', () => {
     assert.match(rules, /allow\s+read:\s*if\s+settingId\s+in\s+\[\'general\',\s*\'main\',\s*\'appearance\'\];/);
   });
 
-  it('4. verifies functions/src/delhivery.ts does not allow settings/shipping token override', () => {
-    const code = fs.readFileSync('functions/src/delhivery.ts', 'utf8');
-    assert.ok(!code.includes('token = d.delhiveryToken'), 'delhiveryToken from settings/shipping must not override Secret Manager');
+  it('4. verifies legacy carrier file is deleted and ekart.ts does not allow client token override', () => {
+    assert.strictEqual(fs.existsSync('functions/src/delhivery.ts'), false, 'functions/src/delhivery.ts must be completely deleted');
+    const ekartCode = fs.readFileSync('functions/src/ekart.ts', 'utf8');
+    assert.ok(!ekartCode.includes('token = d.delhiveryToken'), 'Client token override must not exist');
   });
 
   it('5. verifies functions/src/settlementEngine.ts does not allow settings/payments secret override', () => {

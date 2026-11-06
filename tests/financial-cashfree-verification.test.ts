@@ -25,7 +25,7 @@ describe('Financial Safety, Cashfree Integration & Carrier Verification', () => 
     const code = fs.readFileSync('functions/src/cashfree.ts', 'utf8');
     assert.match(code, /orderData\.userId !== request\.auth\.uid/);
     assert.match(code, /createHmac\('sha256'/);
-    assert.match(code, /signature !== expectedSignature/);
+    assert.match(code, /timingSafeEqual/);
     assert.match(code, /Math\.abs\(expectedPaise - receivedPaise\)/);
     assert.match(code, /payment_webhook_events/);
   });

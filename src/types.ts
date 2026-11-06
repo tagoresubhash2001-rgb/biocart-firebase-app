@@ -272,7 +272,7 @@ export interface PromotionalRibbonConfig {
 }
 
 export interface FinancialPolicyConfig {
-  commissionBasis: 'net_after_gateway_fee' | 'gross_order_value';
+  commissionBasis: 'net_after_gateway_fee' | 'gross_order_value' | 'gross_merchandise_value';
   gatewayFeeRateBps: number; // e.g. 200 for 2.0%
   gatewayFeeFlatPaise: number; // e.g. 0 paise
   gatewayFeeTaxRateBps: number; // e.g. 1800 for 18% GST on gateway fee

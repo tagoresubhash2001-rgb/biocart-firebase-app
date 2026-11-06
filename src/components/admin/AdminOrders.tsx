@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AdminService } from '../../services/AdminService';
-import { db } from '../../config/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { functions } from '../../config/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { ShoppingBag, Search, ExternalLink, Package, Filter, X, Eye, Truck, CheckCircle, Clock } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
@@ -32,20 +32,8 @@ export const AdminOrders: React.FC = () => {
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
       setUpdatingStatus(true);
-      const nowIso = new Date().toISOString();
-      const orderRef = doc(db, 'orders', orderId);
-      await updateDoc(orderRef, {
-        status: newStatus,
-        orderStatus: newStatus,
-        updatedAt: nowIso,
-        statusHistory: arrayUnion({
-          status: newStatus,
-          at: nowIso,
-          by: 'admin',
-          role: 'admin',
-          reason: `Admin updated status to ${newStatus}`
-        })
-      });
+      const updateOrderStatusFn = httpsCallable(functions, 'updateOrderStatus');
+      await updateOrderStatusFn({ orderId, newStatus });
       addToast(`Order ${orderId} status updated to ${newStatus}`, 'success');
       if (selectedOrder && (selectedOrder.id === orderId || selectedOrder.orderNumber === orderId)) {
         setSelectedOrder((prev: any) => prev ? { ...prev, status: newStatus, orderStatus: newStatus } : null);
