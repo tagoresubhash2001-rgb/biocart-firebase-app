@@ -33,7 +33,7 @@
     "id": "BC-BIZ-008/009",
     "title": "Order created as awaiting_payment with 2 vendor sub-orders",
     "pass": true,
-    "evidence": "BC-2026-EC29305A status=awaiting_payment err="
+    "evidence": "BC-2026-A57642A5 status=awaiting_payment err="
   },
   {
     "id": "LOGIC-01 timing",
@@ -45,7 +45,7 @@
     "id": "BC-VEN-048",
     "title": "Stock reserved (not sold) while waiting for payment",
     "pass": true,
-    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":5,\"reservedQuantity\":1,\"updatedAt\":\"2026-11-07T01:52:19.659Z\"}"
+    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":5,\"reservedQuantity\":1,\"updatedAt\":\"2026-11-07T08:06:47.296Z\"}"
   },
   {
     "id": "BC-VEN-071",
@@ -57,7 +57,7 @@
     "id": "BC-CUS-059",
     "title": "Same checkout submitted twice → same order, stock unchanged",
     "pass": true,
-    "evidence": "second=BC-2026-EC29305A reused=true"
+    "evidence": "second=BC-2026-A57642A5 reused=true"
   },
   {
     "id": "BC-SHP-003",
@@ -75,7 +75,7 @@
     "id": "BC-PAY-002/003",
     "title": "Real Cashfree order created with server amount ₹1600, session returned",
     "pass": true,
-    "evidence": "amount sent=1600 session=session_BC-2026-EC29305A err="
+    "evidence": "amount sent=1600 session=session_BC-2026-A57642A5 err="
   },
   {
     "id": "BC-CUS-060",
@@ -93,7 +93,7 @@
     "id": "BC-PAY-009",
     "title": "Before paying, verify says PENDING and books nothing",
     "pass": true,
-    "evidence": "{\"success\":false,\"orderId\":\"BC-2026-EC29305A\",\"orderStatus\":\"ACTIVE\",\"paymentStatus\":\"PENDING\"}"
+    "evidence": "{\"success\":false,\"orderId\":\"BC-2026-A57642A5\",\"orderStatus\":\"ACTIVE\",\"paymentStatus\":\"PENDING\"}"
   },
   {
     "id": "BC-PAY-005",
@@ -111,7 +111,7 @@
     "id": "Stock",
     "title": "After payment stock is sold (reserved→sold), not double-deducted",
     "pass": true,
-    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":4,\"reservedQuantity\":0,\"updatedAt\":\"2026-11-07T01:52:19.664Z\"}"
+    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":4,\"reservedQuantity\":0,\"updatedAt\":\"2026-11-07T08:06:47.302Z\"}"
   },
   {
     "id": "R1",
@@ -129,7 +129,7 @@
     "id": "LOGIC-02",
     "title": "Company wallet: commission ₹275 booked",
     "pass": true,
-    "evidence": "{\"commissionEarnedPaise\":27500,\"shippingIncomePaise\":0,\"couponSubsidyPaise\":0,\"customerCollectionsPaise\":160000,\"updatedAt\":\"2026-11-07T01:52:19.665Z\"}"
+    "evidence": "{\"commissionEarnedPaise\":27500,\"shippingIncomePaise\":0,\"couponSubsidyPaise\":0,\"customerCollectionsPaise\":160000,\"updatedAt\":\"2026-11-07T08:06:47.302Z\"}"
   },
   {
     "id": "LOGIC-11 / R8 / R9",
