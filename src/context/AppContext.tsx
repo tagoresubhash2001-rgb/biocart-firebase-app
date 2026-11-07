@@ -329,6 +329,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let newQty = quantity;
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
+      // A different size (e.g. 1kg → 5kg) of a product already in the cart replaces that line.
+      if (existingItem && product.selectedVariant && existingItem.selectedVariant && existingItem.selectedVariant !== product.selectedVariant) {
+        return prevCart.map((item) => (item.id === product.id ? { ...product, quantityInCart: quantity } : item));
+      }
       if (existingItem) {
         isExisting = true;
         newQty = (existingItem.quantityInCart || 0) + quantity;

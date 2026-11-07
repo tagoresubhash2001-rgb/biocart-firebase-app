@@ -42,14 +42,14 @@ interface VendorOrderSlice {
 }
 
 const ORDER_STAGES: { key: OrderWorkflowStatus; label: string; color: string }[] = [
-  { key: 'new', label: 'New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { key: 'accepted', label: 'Accepted', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  { key: 'processing', label: 'Processing', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  { key: 'packed', label: 'Packed', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { key: 'shipped', label: 'Shipped', color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { key: 'delivered', label: 'Delivered', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
-  { key: 'cancelled', label: 'Cancelled', color: 'bg-red-50 text-red-700 border-red-200' },
-  { key: 'rejected', label: 'Rejected', color: 'bg-slate-100 text-slate-700 border-slate-300' },
+  { key: 'new', label: '🆕 New', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { key: 'accepted', label: '✅ Accepted', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { key: 'processing', label: '⚙️ Processing', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { key: 'packed', label: '📦 Packed', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { key: 'shipped', label: '🚚 Shipped', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { key: 'delivered', label: '🏠 Delivered', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  { key: 'cancelled', label: '❌ Cancelled', color: 'bg-red-50 text-red-700 border-red-200' },
+  { key: 'rejected', label: '🚫 Rejected', color: 'bg-slate-100 text-slate-700 border-slate-300' },
 ];
 
 export const VendorOrders: React.FC = () => {
@@ -247,7 +247,7 @@ export const VendorOrders: React.FC = () => {
         vendorId: order.vendorId || vendorId || '',
         newStatus: nextStatus
       });
-      addToast(`Order ${order.orderNumber} transitioned to ${nextStatus.toUpperCase()}`, 'success');
+      addToast(`${({ accepted: '✅ Accepted', processing: '⚙️ Processing started', packed: '📦 Packed — now book EKART', rejected: '🚫 Rejected', cancelled: '❌ Cancelled' } as Record<string, string>)[nextStatus] || nextStatus}: ${order.orderNumber}`, 'success');
     } catch (err: any) {
       console.error('Failed to update status:', err);
       addToast(err?.message || 'Failed to update order status', 'error');
@@ -260,12 +260,24 @@ export const VendorOrders: React.FC = () => {
       addToast('Mark the order as Packed first, then book EKART.', 'warning');
       return;
     }
-    const weightInput = window.prompt('Packed parcel weight in grams (e.g. 1200):', '1000');
+    // Weight is taken automatically from what the customer ordered (size × quantity).
+    const autoWeight = Math.round(Number((order as any).totalWeightGrams) || 0);
+    const weightLabel = autoWeight >= 1000 ? `${(autoWeight / 1000).toLocaleString('en-IN')} kg` : `${autoWeight} g`;
+    const weightInput = window.prompt(
+      autoWeight > 0
+        ? `📦 Parcel weight from this order: ${weightLabel} (${autoWeight} g).\nPress OK to use it, or type a higher weight in grams if you add heavy packing:`
+        : 'This order has no product weight on record. Enter the packed parcel weight in grams (e.g. 1200):',
+      String(autoWeight > 0 ? autoWeight : 1000),
+    );
     if (!weightInput) return;
     const sizeInput = window.prompt('Parcel size in cm as Length x Width x Height (e.g. 20x15x10):', '20x15x10');
     if (!sizeInput) return;
     const weightGrams = Math.round(Number(weightInput.replace(/[^0-9.]/g, '')));
     const [lengthCm, widthCm, heightCm] = sizeInput.toLowerCase().split(/[x*×, ]+/).map((n) => Math.round(Number(n)));
+    if (autoWeight > 0 && weightGrams < autoWeight) {
+      addToast(`Weight cannot be less than the ordered products (${weightLabel}).`, 'warning');
+      return;
+    }
     if (!(weightGrams > 0) || !(lengthCm > 0) || !(widthCm > 0) || !(heightCm > 0)) {
       addToast('Please enter a valid weight and size (e.g. 1000 and 20x15x10).', 'warning');
       return;
@@ -496,14 +508,14 @@ export const VendorOrders: React.FC = () => {
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
             >
               <option value="all">All Order Stages</option>
-              <option value="new">New</option>
-              <option value="accepted">Accepted</option>
-              <option value="processing">Processing</option>
-              <option value="packed">Packed</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="rejected">Rejected</option>
+              <option value="new">🆕 New</option>
+              <option value="accepted">✅ Accepted</option>
+              <option value="processing">⚙️ Processing</option>
+              <option value="packed">📦 Packed</option>
+              <option value="shipped">🚚 Shipped</option>
+              <option value="delivered">🏠 Delivered</option>
+              <option value="cancelled">❌ Cancelled</option>
+              <option value="rejected">🚫 Rejected</option>
             </select>
           </div>
 
@@ -633,6 +645,9 @@ export const VendorOrders: React.FC = () => {
                             <span className="font-bold text-slate-900">×{it.quantity}</span>
                           </div>
                         ))}
+                        {Number((o as any).totalWeightGrams) > 0 && (
+                          <div className="text-[10px] text-slate-500 pt-0.5">⚖️ Parcel weight: {Number((o as any).totalWeightGrams) >= 1000 ? `${Number((o as any).totalWeightGrams) / 1000} kg` : `${(o as any).totalWeightGrams} g`}</div>
+                        )}
                       </td>
 
                       {/* Financials */}
@@ -657,13 +672,13 @@ export const VendorOrders: React.FC = () => {
                               onClick={() => handleTransitionStatus(o, 'accepted')}
                               className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold cursor-pointer"
                             >
-                              Accept
+                              ✅ Accept
                             </button>
                             <button
                               onClick={() => handleTransitionStatus(o, 'rejected')}
                               className="px-2 py-0.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded text-[10px] font-bold cursor-pointer"
                             >
-                              Reject
+                              ❌ Reject
                             </button>
                           </div>
                         )}
@@ -674,7 +689,7 @@ export const VendorOrders: React.FC = () => {
                               onClick={() => handleTransitionStatus(o, 'processing')}
                               className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold cursor-pointer"
                             >
-                              Start Processing
+                              ⚙️ Start Processing
                             </button>
                           </div>
                         )}
@@ -685,7 +700,7 @@ export const VendorOrders: React.FC = () => {
                               onClick={() => handleTransitionStatus(o, 'packed')}
                               className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold cursor-pointer"
                             >
-                              Mark Packed
+                              📦 Mark Packed
                             </button>
                           </div>
                         )}

@@ -24,15 +24,19 @@ import {
 } from './ledger';
 import { cashfreeRequest, CashfreeApiError } from './cashfreeApi';
 import { checkServiceability } from './ekartApi';
+import { unitWeightGrams } from './weight';
 
-interface CartItem { productId: string; quantity: number }
+interface CartItem { productId: string; quantity: number; variant: string | null }
 
 // ---------------------------------------------------------------------------
 // Validation helpers
 // ---------------------------------------------------------------------------
 function parseItems(raw: any): CartItem[] {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 50) throw new HttpsError('invalid-argument', 'Your cart is empty.');
-  const items = raw.map((it: any) => ({ productId: String(it?.productId || ''), quantity: Number(it?.quantity) }));
+  const items = raw.map((it: any) => ({
+    productId: String(it?.productId || ''), quantity: Number(it?.quantity),
+    variant: typeof it?.variant === 'string' && it.variant.trim() ? it.variant.trim().slice(0, 60) : null,
+  }));
   if (items.some((it) => !/^[A-Za-z0-9_-]{1,128}$/.test(it.productId) || !Number.isInteger(it.quantity) || it.quantity < 1 || it.quantity > 99)) {
     throw new HttpsError('invalid-argument', 'Some cart items are invalid. Please refresh your cart.');
   }
@@ -99,8 +103,16 @@ function buildPlan(
     const min = Number(p.minOrderQuantity) || 1;
     const max = Number(p.maxOrderQuantity) || 99;
     if (it.quantity < min || it.quantity > max) throw new HttpsError('out-of-range', `"${p.name}" can be ordered in quantities ${min}–${max}.`);
+    // Size / weight option: must be one the seller listed; defaults to the first one.
+    const options: string[] = Array.isArray(p.weightVariants) ? p.weightVariants.map((x: any) => String(x)) : [];
+    let variant: string | null = it.variant;
+    if (variant && options.length && !options.includes(variant)) {
+      throw new HttpsError('failed-precondition', `The size "${variant}" of "${p.name}" is no longer available. Please choose the size again.`, { productId: it.productId });
+    }
+    if (!variant && options.length) variant = String(p.selectedVariant && options.includes(p.selectedVariant) ? p.selectedVariant : options[0]);
     lines.push({
-      productId: pd.id, name: String(p.name || 'Product'), vendorId, category: String(p.category || ''),
+      productId: pd.id, name: variant ? `${String(p.name || 'Product')} (${variant})` : String(p.name || 'Product'), vendorId, category: String(p.category || ''),
+      variant: variant || undefined, unitWeightGrams: unitWeightGrams(p, variant) ?? undefined,
       pricePaise: Math.round(price * 100), quantity: it.quantity, hsnCode: p.hsnCode || '', codAllowed: p.codAllowed === true,
     });
   });
@@ -284,7 +296,7 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
     const orderItems = plan.lines.map((l) => ({
       productId: l.productId, name: l.name, vendorId: l.vendorId, quantity: l.quantity,
       price: rupees(l.pricePaise), pricePaise: l.pricePaise, total: rupees(l.pricePaise * l.quantity), totalPaise: l.pricePaise * l.quantity,
-      hsnCode: l.hsnCode || '',
+      hsnCode: l.hsnCode || '', variant: l.variant || null, unitWeightGrams: l.unitWeightGrams ?? null,
     }));
     t.set(orderRef, {
       id: orderId, orderNumber: orderId, invoiceNumber: orderId.replace('BC-', 'OC-'), userId: caller.uid, checkoutId,
@@ -318,7 +330,9 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
       t.set(orderRef.collection('vendor_orders').doc(v.vendorId), {
         vendorId: v.vendorId, vendorStoreName: vendor.storeName || vendor.businessName || v.vendorId,
         orderNumber: orderId, userId: caller.uid,
-        items: v.items.map((it) => ({ productId: it.productId, name: it.name, quantity: it.quantity, price: rupees(it.pricePaise), pricePaise: it.pricePaise, total: rupees(it.lineTotalPaise), discountPaise: it.discountPaise })),
+        items: v.items.map((it) => ({ productId: it.productId, name: it.name, variant: it.variant || null, unitWeightGrams: it.unitWeightGrams ?? null, quantity: it.quantity, price: rupees(it.pricePaise), pricePaise: it.pricePaise, total: rupees(it.lineTotalPaise), discountPaise: it.discountPaise })),
+        // Parcel weight for EKART = ordered size × quantity (null when a product has no weight on record).
+        totalWeightGrams: v.items.every((it) => (it.unitWeightGrams ?? 0) > 0) ? v.items.reduce((sum, it) => sum + (it.unitWeightGrams as number) * it.quantity, 0) : null,
         subtotal: rupees(v.subtotalPaise), subtotalPaise: v.subtotalPaise,
         vendorFundedDiscountPaise: v.vendorFundedDiscountPaise, platformFundedDiscountPaise: v.platformFundedDiscountPaise,
         customerPaidPaise: v.customerPaidPaise, commissionBasePaise: v.commissionBasePaise,

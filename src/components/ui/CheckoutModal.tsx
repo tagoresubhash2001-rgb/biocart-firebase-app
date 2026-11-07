@@ -165,7 +165,8 @@ export const CheckoutModal: React.FC = () => {
 
     const payloadItems = cart.map(item => ({
       productId: item.id,
-      quantity: item.quantityInCart || 1
+      quantity: item.quantityInCart || 1,
+      variant: item.selectedVariant || undefined,
     }));
 
     setQuotingOrder(true);
@@ -372,7 +373,7 @@ export const CheckoutModal: React.FC = () => {
         const createOrderFn = httpsCallable<any, { orderId: string; reused?: boolean }>(functions, 'createOrder');
         const resp = await createOrderFn({
           checkoutId,
-          items: cart.map((item) => ({ productId: item.id, quantity: item.quantityInCart || 1 })),
+          items: cart.map((item) => ({ productId: item.id, quantity: item.quantityInCart || 1, variant: item.selectedVariant || undefined })),
           shippingAddress: address,
           billingAddress: address,
           paymentMethod,

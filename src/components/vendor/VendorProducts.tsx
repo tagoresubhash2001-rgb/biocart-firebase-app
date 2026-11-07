@@ -81,7 +81,10 @@ export const VendorProducts: React.FC = () => {
     email: userProfile?.email || firebaseUser?.email || 'vendor@biocart.com'
   };
 
+  const [variantsText, setVariantsText] = useState<string | null>(null);
+
   const handleOpenCreateModal = () => {
+    setVariantsText(null);
     const activeVendorId = vendorId || userProfile?.uid || firebaseUser?.uid || 'biocart';
     setEditingProduct({
       name: '',
@@ -120,6 +123,7 @@ export const VendorProducts: React.FC = () => {
   };
 
   const handleOpenEditModal = async (product: Product) => {
+    setVariantsText(null);
     setEditingProduct({ ...product });
     setIsModalOpen(true);
     // Show the real stock (inventory), not the copy stored on the product document.
@@ -149,6 +153,17 @@ export const VendorProducts: React.FC = () => {
       return;
     }
 
+    const variants = Array.from(new Set(String(variantsText ?? (editingProduct.weightVariants || []).join(','))
+      .split(',').map((v) => v.trim()).filter(Boolean))).slice(0, 12);
+    if (variants.length === 0) {
+      addToast('Add at least one pack size, e.g. 500g or 1kg', 'warning');
+      return;
+    }
+    const noUnit = variants.filter((v) => !/\d\s*(kg|kgs|g|gm|gms|gram|grams|ml|l|ltr|litre|liter)\b/i.test(v));
+    if (noUnit.length && !window.confirm(`These sizes have no weight unit: ${noUnit.join(', ')}.\nAdd g / kg / ml / L (e.g. 500g, 1kg) so EKART weight is automatic.\n\nPress OK to save anyway (you will type the parcel weight at dispatch), or Cancel to fix it.`)) {
+      return;
+    }
+
     try {
       setIsSaving(true);
       const resolvedVendorId = vendorId || userProfile?.uid || firebaseUser?.uid || editingProduct.vendorId || 'biocart';
@@ -157,6 +172,8 @@ export const VendorProducts: React.FC = () => {
         ...editingProduct,
         vendorId: resolvedVendorId,
         name: editingProduct.name.trim(),
+        weightVariants: variants,
+        selectedVariant: variants.includes(String(editingProduct.selectedVariant || '')) ? editingProduct.selectedVariant : variants[0],
         source: editingProduct.source || 'vendor_created',
         approvalStatus: editingProduct.approvalStatus || (isNew ? 'pending' : 'pending')
       };
@@ -537,6 +554,20 @@ export const VendorProducts: React.FC = () => {
                   />
                   <p className="text-[10px] text-slate-500 mt-1">Shown as "Out of stock" to customers when this reaches 0. Changing only stock does not need admin re-approval.</p>
                 </div>
+              </div>
+
+              {/* Sizes / weights the customer can pick — also used as the EKART parcel weight */}
+              <div>
+                <label className="block text-[#777777] mb-1">Pack sizes / weights * <span className="text-slate-400">(separate with commas)</span></label>
+                <input
+                  type="text"
+                  id="vendor-weight-variants"
+                  placeholder="e.g. 250g, 500g, 1kg, 2kg  or  500ml, 1L"
+                  value={variantsText ?? (editingProduct.weightVariants || []).join(', ')}
+                  onChange={(e) => setVariantsText(e.target.value)}
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-emerald-500"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">⚖️ Write the weight with its unit (g, kg, ml, L). The EKART parcel weight is calculated automatically from the size the customer orders × quantity.</p>
               </div>
 
               {/* Cash on Delivery — only possible when BioCart admin has COD switched on */}

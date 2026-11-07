@@ -88,7 +88,10 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
   const alias = vendor.ekartPickupAlias;
   if (!alias) throw new HttpsError('failed-precondition', 'Your pickup address is not registered with EKART yet. Ask BioCart admin to register it (Vendors → Register EKART pickup).');
 
-  const weight = Math.round(Number(request.data?.weightGrams) || 0);
+  // Parcel weight comes from the order itself (ordered size × quantity, e.g. 2 × 1kg = 2000 g).
+  // The seller may add packing weight, but can never declare less than the products weigh.
+  const orderWeight = Math.round(Number(so.totalWeightGrams) || 0);
+  const weight = Math.max(Math.round(Number(request.data?.weightGrams) || 0), orderWeight);
   const L = Math.round(Number(request.data?.lengthCm) || 0), W = Math.round(Number(request.data?.widthCm) || 0), H = Math.round(Number(request.data?.heightCm) || 0);
   if (weight < 1 || L < 1 || W < 1 || H < 1) throw new HttpsError('invalid-argument', 'Enter the packed parcel weight (grams) and size (cm).');
 

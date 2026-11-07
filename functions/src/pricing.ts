@@ -22,6 +22,10 @@ export interface PricingLineInput {
   quantity: number;
   hsnCode?: string;
   codAllowed?: boolean;
+  /** Size / weight option the customer picked, e.g. "1kg". */
+  variant?: string;
+  /** Weight of one unit in grams (for the EKART parcel). */
+  unitWeightGrams?: number;
 }
 
 export interface PricingCoupon {

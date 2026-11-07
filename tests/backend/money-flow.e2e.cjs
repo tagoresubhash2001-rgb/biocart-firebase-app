@@ -102,7 +102,7 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   const ravi = (await call('createVendorAccount', ADMIN, { businessName: 'Ravi Organics', ownerName: 'Ravi', email: 'ravi@org.in', phone: '9000000002', commissionRate: 20 })).data.uid;
   store.set('vendors/suspended1', { id: 'suspended1', storeName: 'Old Seller', status: 'suspended', commission: { baseRateBps: 1000 } });
   const P = (id, name, price, vendorId, extra = {}) => { store.set(`products/${id}`, { id, name, price, mrp: price, vendorId, active: true, approvalStatus: 'approved', category: 'Food', ...extra }); store.set(`inventory/${id}`, { productId: id, vendorId, availableQuantity: 5, quantity: 5, reservedQuantity: 0 }); };
-  P('rice', 'Organic Rice', 100, 'biocart'); P('honey', 'Organic Honey', 900, vamsi); P('oil', 'Cold Pressed Oil', 700, ravi);
+  P('rice', 'Organic Rice', 100, 'biocart'); P('honey', 'Organic Honey', 900, vamsi, { weightVariants: ['500g', '1kg'], selectedVariant: '500g' }); P('oil', 'Cold Pressed Oil', 700, ravi);
   P('ghee', 'Pending Ghee', 400, vamsi, { approvalStatus: 'pending', source: 'vendor_created' }); P('old', 'Old Item', 300, 'suspended1');
 
   const noCommission = await call('quoteOrder', null, { items: [{ productId: 'rice', quantity: 1 }] });
@@ -112,7 +112,7 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   // ---------- quotes ----------
   const q1 = await call('quoteOrder', null, { items: [{ productId: 'rice', quantity: 1 }] });
   check('R3', '₹100 cart → ₹99 shipping, customer pays ₹199, no GST added', q1.ok && q1.data.shippingAmount === 99 && q1.data.totalAmount === 199 && q1.data.taxAmount === 0, JSON.stringify(q1.data && { sub: q1.data.subtotal, ship: q1.data.shippingAmount, total: q1.data.totalAmount }));
-  const cart = [{ productId: 'honey', quantity: 1 }, { productId: 'oil', quantity: 1 }];
+  const cart = [{ productId: 'honey', quantity: 1, variant: '1kg' }, { productId: 'oil', quantity: 1 }];
   const q2 = await call('quoteOrder', null, { items: cart });
   check('R3', '₹1,600 cart → free shipping, total ₹1,600', q2.ok && q2.data.shippingAmount === 0 && q2.data.totalAmount === 1600, JSON.stringify(q2.data && { ship: q2.data.shippingAmount, total: q2.data.totalAmount }));
   P('edge', 'Edge Item', 1498, vamsi);
@@ -200,7 +200,7 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   store.set(`vendors/${vamsi}`, { ...get(`vendors/${vamsi}`), addresses: { pickupAddress: { line1: 'Farm Road 1', city: 'Tenali', state: 'AP', pincode: '522201' } } });
   const reg = await call('registerEkartPickupAddress', ADMIN, { vendorId: vamsi });
   const cust2 = await call('createEkartShipment', CUST, { orderNumber: oid, vendorId: vamsi, weightGrams: 1000, lengthCm: 20, widthCm: 15, heightCm: 10 });
-  const ship = await call('createEkartShipment', VAMSI, { orderNumber: oid, vendorId: vamsi, weightGrams: 1000, lengthCm: 20, widthCm: 15, heightCm: 10 });
+  const ship = await call('createEkartShipment', VAMSI, { orderNumber: oid, vendorId: vamsi, weightGrams: 300, lengthCm: 20, widthCm: 15, heightCm: 10 });
   const ship2 = await call('createEkartShipment', VAMSI, { orderNumber: oid, vendorId: vamsi, weightGrams: 1000, lengthCm: 20, widthCm: 15, heightCm: 10 });
   const awb = ship.data?.waybill;
   const sentPayload = ek.shipments[awb] || {};
@@ -208,6 +208,9 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
     `noAlias=${noAlias.err?.slice(0, 60)} | customer=${cust2.err?.slice(0, 40)} | awb=${awb} | bookings=${Object.keys(ek.shipments).length}`);
   check('BC-SHP-005', 'EKART payload uses order address + prepaid + COD 0', sentPayload.drop_location?.pin === 522001 && sentPayload.payment_mode === 'Prepaid' && sentPayload.cod_amount === 0 && sentPayload.pickup_location?.name === get(`vendors/${vamsi}`).ekartPickupAlias, JSON.stringify({ drop: sentPayload.drop_location, mode: sentPayload.payment_mode, pickup: sentPayload.pickup_location }));
   const vso = vendorOrder(oid, vamsi);
+  check('FIX-WEIGHT', 'EKART weight comes from the ordered size: honey 1kg × 1 → 1000 g sent to EKART even if the seller typed 300 g; item shows the size',
+    vso.totalWeightGrams === 1000 && vso.items[0].name === 'Organic Honey (1kg)' && Number(sentPayload.weight) === 1000 && Number(ek.estimates[0]?.weight) === 1000,
+    `orderWeight=${vso.totalWeightGrams} item=${vso.items[0].name} sent=${sentPayload.weight} est=${ek.estimates[0]?.weight}`);
   check('FIX-COURIER', 'EKART rate-card charge (cheapest, ₹60) is taken from the seller: ₹765 share → ₹705 pending; BioCart share untouched',
     ship.data?.courierCharge === 60 && vso.courierChargePaise === 6000 && wallet(vamsi).pending === 70500 && ek.estimates[0]?.pickupPincode === '522201' && ek.estimates[0]?.dropPincode === '522001' && get('company_wallet/main').commissionEarnedPaise === 27500,
     `charge=${ship.data?.courierCharge} so=${vso.courierChargePaise} pending=${wallet(vamsi).pending} est=${JSON.stringify(ek.estimates[0] || {}).slice(0, 80)}`);

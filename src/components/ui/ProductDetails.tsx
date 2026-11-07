@@ -217,7 +217,8 @@ export const ProductDetails: React.FC = () => {
     }
     const productWithVariant = {
       ...product,
-      name: selectedVariant ? `${product.name} (${selectedVariant})` : product.name
+      name: selectedVariant ? `${product.name} (${selectedVariant})` : product.name,
+      selectedVariant: selectedVariant || product.selectedVariant,
     };
     addToCart(productWithVariant, quantity);
     setQuantity(1);
