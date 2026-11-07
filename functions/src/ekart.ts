@@ -11,8 +11,36 @@ import * as crypto from 'node:crypto';
 import { db, FieldValue, REGION, EKART_SECRETS, getCaller, isAdminCaller, requireAdmin, callerOwnsVendor, nowIso, rupees, cleanPhone, cleanPincode, audit } from './core';
 import {
   checkServiceability, createShipment, cancelShipment, downloadLabelPdf, trackShipment, addAddress, addWebhook, listWebhooks,
-  verifyEkartHmac, ekartWebhookSecret, normaliseEkartStatus, EkartApiError,
+  verifyEkartHmac, ekartWebhookSecret, normaliseEkartStatus, EkartApiError, estimateCourierCharge,
 } from './ekartApi';
+import { bookCourierCharge, EarningsState } from './ledger';
+
+/**
+ * Books the EKART courier charge (vendor's cost) on the sub-order and the vendor wallet, once per kind.
+ * Returns the amount booked (0 when already booked).
+ */
+export async function applyCourierCharge(orderId: string, vendorId: string, kind: 'forward' | 'rto', amountPaise: number, source: Record<string, any>) {
+  if (!(amountPaise > 0)) return 0;
+  const ref = db().collection('orders').doc(orderId).collection('vendor_orders').doc(vendorId);
+  return db().runTransaction(async (t) => {
+    const ss = await t.get(ref);
+    if (!ss.exists) return 0;
+    const so = ss.data()!;
+    if (so.courierCharges?.[kind] != null) return 0;
+    const state = (so.earnings?.state || 'none') as EarningsState;
+    if (state === 'none' || state === 'reversed') {
+      // money for this order is not (or no longer) in the wallet: recover from the next settlement
+      bookCourierCharge(t, orderId, vendorId, kind, amountPaise, 'settled');
+    } else {
+      bookCourierCharge(t, orderId, vendorId, kind, amountPaise, state);
+    }
+    t.update(ref, {
+      [`courierCharges.${kind}`]: amountPaise, courierChargePaise: FieldValue.increment(amountPaise),
+      [`courierChargeSource.${kind}`]: source, updatedAt: nowIso(),
+    });
+    return amountPaise;
+  });
+}
 import { markSubOrderDelivered, recomputeParentStatus } from './orders';
 
 const WEBHOOK_URL = process.env.EKART_WEBHOOK_URL || 'https://asia-southeast1-bio-cart.cloudfunctions.net/ekartWebhook';
@@ -127,7 +155,22 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
     statusHistory: FieldValue.arrayUnion({ status: 'shipped', at: ts, by: caller.uid, role: 'vendor', reason: `EKART AWB ${booked.trackingId}` }),
   });
   await recomputeParentStatus(orderId);
-  return { success: true, waybill: booked.trackingId, shipmentId: sRef.id, status: 'pickup_pending', carrier: 'ekart', trackingUrl };
+
+  // EKART's rate card for this parcel → the seller's courier charge (shown to the seller and admin).
+  let courierChargePaise = 0;
+  try {
+    const pickupPin = String(vendor.addresses?.pickupAddress?.pinCode || vendor.addresses?.pickupAddress?.pincode || sellerAddr.pinCode || sellerAddr.pincode || '');
+    const est = await estimateCourierCharge({
+      pickupPin, dropPin: String(f.zip), weightGrams: weight, lengthCm: L, widthCm: W, heightCm: H,
+      cod: f.paymentMode === 'COD', codAmount: codRupees, invoiceAmount: Math.max(1, totalRupees),
+    });
+    await sRef.set({ courierEstimate: { forwardPaise: est.forwardPaise, rtoTotalPaise: est.rtoTotalPaise, courierGroup: est.courierGroup || null, breakdown: est.breakdown, at: nowIso() } }, { merge: true });
+    courierChargePaise = await applyCourierCharge(orderId, vendorId, 'forward', est.forwardPaise, { type: 'ekart_rate_card', awb: booked.trackingId });
+  } catch (e: any) {
+    console.warn('[EKART] rate estimate failed; admin must enter the courier charge', friendly(e));
+    await ref.set({ courierChargeStatus: 'needs_admin', courierChargeError: friendly(e).slice(0, 200) }, { merge: true });
+  }
+  return { success: true, waybill: booked.trackingId, shipmentId: sRef.id, status: 'pickup_pending', carrier: 'ekart', trackingUrl, courierCharge: rupees(courierChargePaise) };
 });
 
 /** Applies authoritative Ekart tracking data to the shipment + sub-order. */
@@ -160,6 +203,12 @@ async function applyTracking(sRef: FirebaseFirestore.DocumentReference, track: a
       const soUpdate: Record<string, any> = { shipmentStatus: st, updatedAt: nowIso() };
       if (['rto_delivered', 'lost', 'damaged'].includes(st)) { soUpdate.status = 'rto'; soUpdate.orderStatus = 'rto'; soUpdate.needsAdminAction = `Shipment ${st.replace('_', ' ')} — decide refund/replacement`; }
       await soRef.set(soUpdate, { merge: true });
+      // Parcel coming back: EKART bills the return trip too (rate card RTO total minus the forward part already charged).
+      if (st === 'rto_in_progress' || st === 'rto_delivered') {
+        const est = s.courierEstimate || {};
+        const extra = Math.max(0, Number(est.rtoTotalPaise || 0) - Number(est.forwardPaise || 0));
+        if (extra > 0) await applyCourierCharge(s.parentOrderId, s.vendorId, 'rto', extra, { type: 'ekart_rate_card_rto', awb: s.awb }).catch((e) => console.warn('[EKART] RTO charge failed', e));
+      }
       if (soUpdate.status) await recomputeParentStatus(s.parentOrderId);
     }
   }
@@ -285,4 +334,40 @@ export const registerEkartWebhook = onCall({ region: REGION, secrets: EKART_SECR
   const r = await addWebhook(WEBHOOK_URL, secret.slice(0, 30)).catch((e) => { throw new HttpsError('unavailable', friendly(e)); });
   await audit(caller.uid, 'ekart_webhook_registered', 'settings', 'ekart', { id: r?.id });
   return { success: true, id: r?.id || null };
+});
+
+
+/**
+ * Admin: enter or correct the EKART courier charge for a seller's parcel (e.g. from EKART's invoice).
+ * The difference against what was already charged is booked to the seller's wallet.
+ */
+export const setCourierCharge = onCall({ region: REGION }, async (request) => {
+  const caller = await requireAdmin(request.auth);
+  const orderId = String(request.data?.orderId || '');
+  const vendorId = String(request.data?.vendorId || '');
+  const kind = request.data?.kind === 'rto' ? 'rto' : 'forward';
+  const target = Math.round(Number(request.data?.amount) * 100);
+  const reason = String(request.data?.reason || '').trim();
+  if (!orderId || !vendorId) throw new HttpsError('invalid-argument', 'Order and seller are required.');
+  if (!Number.isFinite(target) || target < 0 || target > 1_000_000) throw new HttpsError('invalid-argument', 'Enter the courier charge in rupees (0–10,000).');
+  if (reason.length < 5) throw new HttpsError('invalid-argument', 'Please write a short reason (e.g. "EKART invoice #123").');
+  const ref = db().collection('orders').doc(orderId).collection('vendor_orders').doc(vendorId);
+  const result = await db().runTransaction(async (t) => {
+    const ss = await t.get(ref);
+    if (!ss.exists) throw new HttpsError('not-found', 'Seller order not found.');
+    const so = ss.data()!;
+    const current = Number(so.courierCharges?.[kind] || 0);
+    const delta = target - current;
+    if (delta === 0) return { changed: false, current };
+    const state = (so.earnings?.state || 'none') as EarningsState;
+    bookCourierCharge(t, orderId, vendorId, current === 0 && so.courierCharges?.[kind] == null ? kind : 'correction', delta,
+      state === 'none' || state === 'reversed' ? 'settled' : state, `_${Date.now()}`);
+    t.update(ref, {
+      [`courierCharges.${kind}`]: target, courierChargePaise: FieldValue.increment(delta), courierChargeStatus: 'set_by_admin',
+      [`courierChargeSource.${kind}`]: { type: 'admin', by: caller.uid, reason, at: nowIso() }, updatedAt: nowIso(),
+    });
+    return { changed: true, current, target };
+  });
+  await audit(caller.uid, 'courier_charge_set', 'vendor_order', `${orderId}_${vendorId}`, { kind, ...result, reason });
+  return { success: true, ...result };
 });

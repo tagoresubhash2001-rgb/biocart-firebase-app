@@ -22,6 +22,7 @@ import {
 import { FinancialControlCenter } from './FinancialControlCenter';
 import { VendorFinancials } from './VendorFinancials';
 import { RealTimeAnalyticsCharts } from './RealTimeAnalyticsCharts';
+import { BioCartMoneyPanel } from './BioCartMoneyPanel';
 
 export const AdminFinancials: React.FC = () => {
   // Global Date-Range State
@@ -229,6 +230,7 @@ export const AdminFinancials: React.FC = () => {
         </div>
       ) : (
         <>
+          {activeTab === 'overview' && <BioCartMoneyPanel />}
           {activeTab === 'overview' && (
             <FinancialControlCenter
               summary={financialSummary}

@@ -262,7 +262,12 @@ export const AdminOrders: React.FC = () => {
                         <span className="font-bold text-slate-900">{so.vendorStoreName || so.vendorId}</span>
                         <span className="px-2 py-0.5 rounded-full bg-slate-100 font-bold uppercase text-[10px]">{so.status}</span>
                       </div>
-                      <div className="flex justify-between text-slate-500"><span>Items ₹{so.subtotal} · commission {so.commissionPercent}% (₹{so.commissionAmount})</span><span>Vendor ₹{so.vendorPayable}</span></div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-slate-600 bg-slate-50 rounded-lg p-2" id="admin-suborder-money">
+                        <span>Product value</span><span className="text-right">₹{((so.commissionBasePaise ?? so.subtotalPaise ?? 0) / 100).toFixed(2)}</span>
+                        <span>BioCart commission ({so.commissionPercent}%)</span><span className="text-right text-emerald-700">₹{((so.commissionPaise || 0) / 100).toFixed(2)}</span>
+                        <span>EKART courier (seller pays){so.courierChargeStatus === 'needs_admin' ? ' — enter it' : ''}</span><span className="text-right text-rose-600">− ₹{((so.courierChargePaise || 0) / 100).toFixed(2)}</span>
+                        <span className="font-bold text-slate-900">Seller gets</span><span className="text-right font-bold text-slate-900">₹{(((so.vendorPayablePaise || 0) - (so.courierChargePaise || 0)) / 100).toFixed(2)}</span>
+                      </div>
                       <div className="flex justify-between text-slate-500"><span>Earnings: {so.earnings?.state || '—'}</span><span>{so.awbNumber ? `AWB ${so.awbNumber}` : so.shipmentStatus}</span></div>
                       {so.needsAdminAction && <div className="text-amber-700 font-semibold">{so.needsAdminAction}</div>}
                       <div className="flex flex-wrap gap-2 pt-1">
@@ -272,6 +277,18 @@ export const AdminOrders: React.FC = () => {
                             disabled={updatingStatus}
                             className="px-2 py-1 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 font-semibold disabled:opacity-40 cursor-pointer"
                           >Refund this seller's items</button>
+                        )}
+                        {so.awbNumber && (
+                          <button
+                            onClick={() => {
+                              const amt = window.prompt(`EKART delivery charge for this parcel in ₹ (now ₹${((so.courierCharges?.forward || 0) / 100).toFixed(2)}):`);
+                              if (amt === null) return;
+                              const r = askReason('Reason / EKART invoice reference:', 5); if (!r) return;
+                              callAction('setCourierCharge', { orderId: selectedOrder.id, vendorId: so.id, kind: 'forward', amount: Number(amt), reason: r }, 'Courier charge saved.');
+                            }}
+                            disabled={updatingStatus}
+                            className="px-2 py-1 rounded-lg border border-slate-300 hover:bg-slate-50 font-semibold disabled:opacity-40 cursor-pointer"
+                          >Set courier charge</button>
                         )}
                         {so.status === 'shipped' && (
                           <button

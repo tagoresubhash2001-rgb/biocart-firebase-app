@@ -72,11 +72,12 @@ export const VendorDashboardHome: React.FC = () => {
     .sort((a, b) => String(b.confirmedAt || b.updatedAt || '').localeCompare(String(a.confirmedAt || a.updatedAt || ''))), [subOrders]);
 
   const newOrders = paidOrders.filter((o) => o.status === 'new').length;
+  const reversedCount = paidOrders.filter((o) => o.earnings?.state === 'reversed' || ['cancelled', 'rejected', 'rto'].includes(String(o.status))).length;
   const commissionPaid = Number(wallet.lifetimeCommission || 0);
 
   const cards = [
     { label: 'Pending (waiting for delivery)', value: rs(wallet.pending), note: 'Becomes available when EKART marks the order delivered', icon: Clock, color: 'text-amber-500' },
-    { label: 'Available for next payout', value: rs(wallet.available), note: `Paid in the settlement on ${nextSettlementLabel()}`, icon: CheckCircle2, color: 'text-emerald-600' },
+    { label: 'Delivered – ready for payout', value: rs(wallet.available), note: `Paid in the settlement on ${nextSettlementLabel()}`, icon: CheckCircle2, color: 'text-emerald-600' },
     { label: 'Being paid now', value: rs(wallet.settling), note: 'In a settlement; BioCart is transferring it', icon: Wallet, color: 'text-blue-500' },
     { label: 'Paid to your bank (total)', value: rs(wallet.paidOut), note: Number(wallet.adjustmentDue || 0) > 0 ? `Refund adjustment to deduct: ${rs(wallet.adjustmentDue)}` : 'With UTR in Wallet → Settlements', icon: Banknote, color: 'text-indigo-500' },
   ];
@@ -110,7 +111,7 @@ export const VendorDashboardHome: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-start">
           <div><p className="text-slate-500 text-sm">Paid orders</p><h3 className="text-2xl font-bold text-slate-900">{paidOrders.length}</h3>
             <p className="text-[11px] text-slate-500">{newOrders > 0 ? `${newOrders} new — accept them in My Orders` : 'No new orders waiting'}</p></div>
@@ -120,10 +121,15 @@ export const VendorDashboardHome: React.FC = () => {
           <div><p className="text-slate-500 text-sm">My products</p><h3 className="text-2xl font-bold text-slate-900">{productCount}</h3></div>
           <Package className="w-6 h-6 text-indigo-500" />
         </div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200" id="vendor-reversed-card">
+          <p className="text-slate-500 text-sm">Cancelled / not delivered</p>
+          <h3 className="text-xl font-bold text-slate-900">{reversedCount} orders · {rs(wallet.lifetimeReversedPaise)}</h3>
+          <p className="text-[11px] text-slate-500">Money reversed for refunded, rejected or returned (RTO) orders. EKART charges already used stay payable.</p>
+        </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <p className="text-slate-500 text-sm">Total sales / BioCart commission</p>
           <h3 className="text-xl font-bold text-slate-900">{rs(wallet.lifetimeGross)} <span className="text-sm font-medium text-rose-600">− {rs(commissionPaid)}</span></h3>
-          <p className="text-[11px] text-slate-500">Commission rate set by BioCart in your agreement</p>
+          <p className="text-[11px] text-slate-500">EKART courier charges so far: {rs(wallet.lifetimeCourierCharges)}</p>
         </div>
       </div>
 
@@ -142,7 +148,8 @@ export const VendorDashboardHome: React.FC = () => {
                   <th className="text-left px-4 py-2">Order</th>
                   <th className="text-right px-4 py-2">Product value</th>
                   <th className="text-right px-4 py-2">BioCart commission</th>
-                  <th className="text-right px-4 py-2">Your share</th>
+                  <th className="text-right px-4 py-2">EKART courier</th>
+                  <th className="text-right px-4 py-2">You get</th>
                   <th className="text-left px-4 py-2">Payout status</th>
                 </tr>
               </thead>
@@ -150,12 +157,14 @@ export const VendorDashboardHome: React.FC = () => {
                 {paidOrders.slice(0, 10).map((o) => {
                   const base = Number(o.commissionBasePaise ?? o.subtotalPaise ?? 0);
                   const comm = Number(o.commissionPaise ?? o.commissionAmountPaise ?? 0);
-                  const share = Number(o.vendorPayablePaise ?? 0);
+                  const courier = Number(o.courierChargePaise || 0);
+                  const share = Number(o.vendorPayablePaise ?? 0) - courier;
                   return (
                     <tr key={o.id} className="border-t border-slate-100">
                       <td className="px-4 py-2 font-mono">{o.orderNumber || o.id}<div className="text-[10px] text-slate-400 font-sans">{(o.items || []).map((i: any) => `${i.name} ×${i.quantity}`).join(', ')}</div></td>
                       <td className="px-4 py-2 text-right">{rs(base)}</td>
                       <td className="px-4 py-2 text-right text-rose-600">− {rs(comm)}{o.commissionPercent != null ? ` (${o.commissionPercent}%)` : ''}</td>
+                      <td className="px-4 py-2 text-right text-rose-600">{courier ? `− ${rs(courier)}` : (o.awbNumber ? 'calculating' : 'after booking')}</td>
                       <td className="px-4 py-2 text-right font-bold text-emerald-700">{rs(share)}</td>
                       <td className="px-4 py-2">{STATE_LABEL[String(o.earnings?.state || 'none')] || o.earnings?.state}</td>
                     </tr>
@@ -164,7 +173,8 @@ export const VendorDashboardHome: React.FC = () => {
               </tbody>
             </table>
             <p className="px-5 py-3 text-[11px] text-slate-500 border-t border-slate-100">
-              Shipping charges and the Cashfree payment fee are BioCart's — they are never taken from your share.
+              Order value = price of your products (the customer's delivery charge is BioCart's and is not part of it).
+              BioCart keeps its commission and pays the Cashfree payment fee from it. The EKART courier charge for your parcel (EKART rate card) is taken from your share.
               Your share moves to "Available" after delivery and is paid in the Tuesday 6 PM settlement for the previous Tue–Mon week.
             </p>
           </div>

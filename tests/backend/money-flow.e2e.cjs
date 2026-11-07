@@ -21,7 +21,7 @@ Object.assign(process.env, {
 
 // ---------------- mocked external APIs ----------------
 const cf = { orders: {}, refunds: {}, calls: [] };
-const ek = { shipments: {}, calls: [], track: {} };
+const ek = { shipments: {}, calls: [], track: {}, estimates: [] };
 global.fetch = async (url, opts = {}) => {
   const u = new URL(url); const body = opts.body ? JSON.parse(opts.body) : null; const m = opts.method || 'GET';
   const json = (status, data) => ({ ok: status < 300, status, text: async () => JSON.stringify(data), json: async () => data, arrayBuffer: async () => Buffer.from('%PDF-1.4 label') });
@@ -56,6 +56,10 @@ global.fetch = async (url, opts = {}) => {
       return json(200, { status: pin !== '999999', pincode: Number(pin), remark: '', details: { cod: true, max_cod_amount: 25000, forward_pickup: true, forward_drop: pin !== '999999', city: 'Guntur', state: 'AP' } });
     }
     if (u.pathname === '/api/v2/address') return json(200, { status: true, alias: body.alias, remark: 'ok' });
+    if (u.pathname === '/data/v3/serviceability') { ek.estimates.push(body); return json(200, [
+      { courierGroup: 'EKART_SURFACE', forwardDeliveredCharges: { totalForwardDeliveredEstimate: '60.00' }, rtoDeliveredCharges: { totalRTODeliveredEstimate: '110.00' } },
+      { courierGroup: 'EKART_EXPRESS', forwardDeliveredCharges: { totalForwardDeliveredEstimate: '95.00' }, rtoDeliveredCharges: { totalRTODeliveredEstimate: '180.00' } },
+    ]); }
     if (u.pathname === '/api/v1/package/create') {
       const id = '500999A' + (Object.keys(ek.shipments).length + 1000);
       ek.shipments[id] = body; return json(200, { status: true, remark: 'Successfully created shipment', tracking_id: id, vendor: 'EKART', barcodes: { wbn: 'W' + id, order: body.order_number } });
@@ -203,13 +207,17 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   check('BC-SHP-001/004/006', 'Real EKART booking: pickup alias required, only owner vendor, AWB from EKART, no double booking', !noAlias.ok && reg.ok && !cust2.ok && ship.ok && awb?.startsWith('500999A') && ship2.data?.waybill === awb && Object.keys(ek.shipments).length === 1,
     `noAlias=${noAlias.err?.slice(0, 60)} | customer=${cust2.err?.slice(0, 40)} | awb=${awb} | bookings=${Object.keys(ek.shipments).length}`);
   check('BC-SHP-005', 'EKART payload uses order address + prepaid + COD 0', sentPayload.drop_location?.pin === 522001 && sentPayload.payment_mode === 'Prepaid' && sentPayload.cod_amount === 0 && sentPayload.pickup_location?.name === get(`vendors/${vamsi}`).ekartPickupAlias, JSON.stringify({ drop: sentPayload.drop_location, mode: sentPayload.payment_mode, pickup: sentPayload.pickup_location }));
+  const vso = vendorOrder(oid, vamsi);
+  check('FIX-COURIER', 'EKART rate-card charge (cheapest, ₹60) is taken from the seller: ₹765 share → ₹705 pending; BioCart share untouched',
+    ship.data?.courierCharge === 60 && vso.courierChargePaise === 6000 && wallet(vamsi).pending === 70500 && ek.estimates[0]?.pickupPincode === '522201' && ek.estimates[0]?.dropPincode === '522001' && get('company_wallet/main').commissionEarnedPaise === 27500,
+    `charge=${ship.data?.courierCharge} so=${vso.courierChargePaise} pending=${wallet(vamsi).pending} est=${JSON.stringify(ek.estimates[0] || {}).slice(0, 80)}`);
   check('Status', 'Sub-order shipped; parent partially shipped', vendorOrder(oid, vamsi).status === 'shipped' && get(`orders/${oid}`).status === 'partially_shipped', `${vendorOrder(oid, vamsi).status} / ${get(`orders/${oid}`).status}`);
 
   // EKART says Delivered → webhook (unsigned is fine: we re-read from EKART API)
   ek.track[awb] = { _id: awb, track: { status: 'Delivered', ctime: Date.now(), desc: 'Delivered Successfully', details: [{ status: 'Picked Up', ctime: Date.now() - 86400000, desc: 'Picked' }, { status: 'Delivered', ctime: Date.now(), desc: 'Delivered Successfully' }] } };
   const fakeHook = await http('ekartWebhook', { id: 'NOT_A_REAL_AWB', status: 'Delivered' });
   await http('ekartWebhook', { id: awb, status: 'Delivered' });
-  check('LOGIC-13/17', 'Delivery comes from EKART tracking API; vendor earnings → available', vendorOrder(oid, vamsi).status === 'delivered' && vendorOrder(oid, vamsi).earnings.state === 'eligible' && wallet(vamsi).available === 76500 && wallet(vamsi).pending === 0,
+  check('LOGIC-13/17', 'Delivery comes from EKART tracking API; vendor earnings → available', vendorOrder(oid, vamsi).status === 'delivered' && vendorOrder(oid, vamsi).earnings.state === 'eligible' && wallet(vamsi).available === 70500 && wallet(vamsi).pending === 0,
     `forged hook=${fakeHook.code}; vamsi status=${vendorOrder(oid, vamsi).status} earnings=${vendorOrder(oid, vamsi).earnings.state} wallet=${JSON.stringify({ p: wallet(vamsi).pending, a: wallet(vamsi).available })}`);
 
   // Ravi rejects → partial refund via Cashfree, idempotent
@@ -231,14 +239,14 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   const sid = `${r.cycleId}_${vamsi}`;
   const st = get(`vendor_settlements/${sid}`);
   const again = await settlement.runSettlementCycle(nextTue, 'test');
-  check('LOGIC-06/07/08', 'Delivered order settles in the next Tue–Mon cycle, once', st?.status === 'ready_for_payment' && st.amountPaise === 76500 && again.skipped === 'already_completed' && wallet(vamsi).settling === 76500 && wallet(vamsi).available === 0,
+  check('LOGIC-06/07/08', 'Delivered order settles in the next Tue–Mon cycle, once', st?.status === 'ready_for_payment' && st.amountPaise === 70500 && again.skipped === 'already_completed' && wallet(vamsi).settling === 70500 && wallet(vamsi).available === 0,
     `current cycle created=${thisWeek.created}; next ${r.cycleId}: ${st?.status} ₹${st?.amount}; rerun=${again.skipped}`);
   check('LOGIC-06', 'Scheduler is Tuesday 18:00 Asia/Kolkata', fn.tuesdayVendorSettlement.__endpoint?.scheduleTrigger?.schedule === '0 18 * * 2' && fn.tuesdayVendorSettlement.__endpoint?.scheduleTrigger?.timeZone === 'Asia/Kolkata', JSON.stringify(fn.tuesdayVendorSettlement.__endpoint?.scheduleTrigger));
   const wrongAmt = await call('markSettlementPaid', ADMIN, { settlementId: sid, utr: 'AXIS1234567', paidOn: '2026-11-17', amountPaise: 70000 });
-  const vendorPays = await call('markSettlementPaid', VAMSI, { settlementId: sid, utr: 'AXIS1234567', paidOn: '2026-11-17', amountPaise: 76500 });
-  const payOk = await call('markSettlementPaid', ADMIN, { settlementId: sid, utr: 'AXIS1234567', paidOn: '2026-11-17', amountPaise: 76500 });
-  const payTwice = await call('markSettlementPaid', ADMIN, { settlementId: sid, utr: 'AXIS1234567', paidOn: '2026-11-17', amountPaise: 76500 });
-  check('R7 / BC-FIN-026/029', 'Manual payout: exact amount + UTR, admin only, once', !wrongAmt.ok && !vendorPays.ok && payOk.ok && !payTwice.ok && wallet(vamsi).paidOut === 76500 && wallet(vamsi).settling === 0 && vendorOrder(oid, vamsi).earnings.state === 'settled',
+  const vendorPays = await call('markSettlementPaid', VAMSI, { settlementId: sid, utr: 'AXIS1234567', paidOn: '2026-11-17', amountPaise: 70500 });
+  const payOk = await call('markSettlementPaid', ADMIN, { settlementId: sid, utr: 'AXIS1234567', paidOn: '2026-11-17', amountPaise: 70500 });
+  const payTwice = await call('markSettlementPaid', ADMIN, { settlementId: sid, utr: 'AXIS1234567', paidOn: '2026-11-17', amountPaise: 70500 });
+  check('R7 / BC-FIN-026/029', 'Manual payout: exact amount + UTR, admin only, once', !wrongAmt.ok && !vendorPays.ok && payOk.ok && !payTwice.ok && wallet(vamsi).paidOut === 70500 && wallet(vamsi).settling === 0 && vendorOrder(oid, vamsi).earnings.state === 'settled',
     `wrongAmt=${wrongAmt.err?.slice(0, 50)} | vendor=${vendorPays.err?.slice(0, 40)} | twice=${payTwice.err?.slice(0, 50)} | paidOut=${wallet(vamsi).paidOut}`);
   const retry = await call('retryVendorPayout', ADMIN, { settlementId: sid });
   check('No fake payouts', 'Automatic payout path refuses (no fabricated UTR)', !retry.ok, retry.err);

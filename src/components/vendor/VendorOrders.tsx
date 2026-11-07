@@ -637,9 +637,10 @@ export const VendorOrders: React.FC = () => {
 
                       {/* Financials */}
                       <td className="p-3 font-mono">
-                        <div className="font-bold text-emerald-700">₹{o.vendorPayable?.toFixed(2)}</div>
-                        <div className="text-[10px] text-slate-400">Gross: ₹{o.subtotal?.toFixed(2)}</div>
+                        <div className="text-[10px] text-slate-500">Order value: ₹{(((o as any).commissionBasePaise ?? (o as any).subtotalPaise ?? 0) / 100).toFixed(2)}</div>
                         <div className="text-[10px] text-rose-500">BioCart commission{o.commissionPercent != null ? ` (${o.commissionPercent}%)` : ''}: -₹{Number(o.commissionAmount || 0).toFixed(2)}</div>
+                        <div className="text-[10px] text-rose-500">EKART courier: {(o as any).courierChargePaise ? `-₹${(((o as any).courierChargePaise || 0) / 100).toFixed(2)}` : (o as any).awbNumber ? 'being calculated' : 'charged when you book EKART'}</div>
+                        <div className="font-bold text-emerald-700">You get: ₹{((((o as any).vendorPayablePaise || 0) - ((o as any).courierChargePaise || 0)) / 100).toFixed(2)}</div>
                         <div className="text-[10px] text-slate-500">{(o as any).earnings?.state === 'eligible' ? 'In next Tuesday payout' : (o as any).earnings?.state === 'in_settlement' ? 'In settlement — being paid' : (o as any).earnings?.state === 'settled' ? 'Paid to your bank' : (o as any).earnings?.state === 'reversed' ? 'Refunded — not payable' : 'Payable after delivery'}</div>
                       </td>
 

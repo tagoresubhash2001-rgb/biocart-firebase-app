@@ -916,7 +916,7 @@ export {
 } from './cashfree';
 export {
   checkEkartPincode, createEkartShipment, trackEkartShipment, getEkartLabel, cancelEkartShipment,
-  ekartWebhook, pollEkartShipments, registerEkartPickupAddress, registerEkartWebhook,
+  ekartWebhook, pollEkartShipments, registerEkartPickupAddress, registerEkartWebhook, setCourierCharge,
 } from './ekart';
 export { tuesdayVendorSettlement, triggerManualSettlement, markSettlementPaid, retryVendorPayout } from './settlement';
 export { updateFinancialPolicy, setProductStock } from './policyAdmin';

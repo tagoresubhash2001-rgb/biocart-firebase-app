@@ -83,6 +83,33 @@ export async function createShipment(payload: Record<string, any>): Promise<{ tr
   return { trackingId: data.tracking_id, wbn: data?.barcodes?.wbn, vendor: data?.vendor, remark: data?.remark };
 }
 
+export interface CourierEstimate { forwardPaise: number; rtoTotalPaise: number; courierGroup?: string; breakdown: any }
+
+const toPaise = (v: any) => Math.round((Number(v) || 0) * 100);
+
+/**
+ * EKART's own rate card for this parcel (Serviceability V3): forward delivery charge and
+ * the total if it comes back (RTO). Amounts include EKART's fuel surcharge and tax.
+ */
+export async function estimateCourierCharge(p: { pickupPin: string; dropPin: string; weightGrams: number; lengthCm: number; widthCm: number; heightCm: number; cod: boolean; codAmount: number; invoiceAmount: number }): Promise<CourierEstimate> {
+  const data = await ekartFetch('POST', '/data/v3/serviceability', {
+    pickupPincode: String(p.pickupPin), dropPincode: String(p.dropPin),
+    length: String(p.lengthCm), width: String(p.widthCm), height: String(p.heightCm), weight: String(p.weightGrams),
+    paymentType: p.cod ? 'COD' : 'Prepaid', serviceType: 'SURFACE',
+    codAmount: String(p.cod ? p.codAmount : 0), invoiceAmount: String(p.invoiceAmount),
+  });
+  const options: any[] = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+  const priced = options.filter((o) => Number(o?.forwardDeliveredCharges?.totalForwardDeliveredEstimate) > 0);
+  if (!priced.length) throw new EkartApiError(200, { message: 'EKART returned no price for this parcel' });
+  const best = priced.reduce((a, b) => Number(a.forwardDeliveredCharges.totalForwardDeliveredEstimate) <= Number(b.forwardDeliveredCharges.totalForwardDeliveredEstimate) ? a : b);
+  return {
+    forwardPaise: toPaise(best.forwardDeliveredCharges.totalForwardDeliveredEstimate),
+    rtoTotalPaise: toPaise(best?.rtoDeliveredCharges?.totalRTODeliveredEstimate),
+    courierGroup: best.courierGroup,
+    breakdown: { forward: best.forwardDeliveredCharges || null, rto: best.rtoDeliveredCharges || null, tat: best.tat || null },
+  };
+}
+
 export async function cancelShipment(trackingId: string): Promise<any> {
   return ekartFetch('DELETE', `/api/v1/package/cancel?tracking_id=${encodeURIComponent(trackingId)}`);
 }

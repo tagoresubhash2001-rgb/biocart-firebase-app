@@ -20,7 +20,7 @@ import {
 } from './core';
 import { priceOrder, PricingCoupon, PricingLineInput, PricingResult } from './pricing';
 import {
-  bookOrderAllocation, bookEarningsEligible, bookSubOrderReversal, bookShippingReversal, bookCustomerRefund, EarningsState,
+  bookOrderAllocation, bookEarningsEligible, bookSubOrderReversal, bookShippingReversal, bookCustomerRefund, EarningsState, netPayablePaise,
 } from './ledger';
 import { cashfreeRequest, CashfreeApiError } from './cashfreeApi';
 import { checkServiceability } from './ekartApi';
@@ -808,7 +808,7 @@ export async function markSubOrderDelivered(orderId: string, vendorId: string, d
       } else {
         update['earnings.state'] = 'eligible';
         update['earnings.eligibleAt'] = eligibleAt;
-        bookEarningsEligible(t, orderId, vendorId, so.vendorPayablePaise || 0);
+        bookEarningsEligible(t, orderId, vendorId, netPayablePaise(so));
       }
     }
     t.update(ref, update);
@@ -844,7 +844,7 @@ export const markCodRemitted = onCall({ region: REGION }, async (request) => {
     for (const d of subs.docs) {
       const so = d.data();
       if (so.earnings?.state === 'awaiting_cod_remittance') {
-        bookEarningsEligible(t, orderId, d.id, so.vendorPayablePaise || 0);
+        bookEarningsEligible(t, orderId, d.id, netPayablePaise(so));
         t.update(d.ref, { 'earnings.state': 'eligible', 'earnings.eligibleAt': ts, updatedAt: ts });
       }
     }
