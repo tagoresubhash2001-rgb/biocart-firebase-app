@@ -21,6 +21,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { MultiImageGalleryManager } from '../ui/MultiImageGalleryManager';
+import { imgSrc, onImgError } from '../../utils/image';
 
 export const AdminProducts: React.FC = () => {
   const { userProfile } = useAuth();
@@ -399,7 +400,7 @@ export const AdminProducts: React.FC = () => {
                 filteredProducts.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-3 font-medium text-slate-900 flex items-center gap-3 max-w-[240px]">
-                      <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-contain bg-slate-100 flex-shrink-0" />
+                      <img src={imgSrc(p.image)} onError={onImgError} decoding="async" alt={p.name} className="w-10 h-10 rounded-lg object-contain bg-slate-100 flex-shrink-0" />
                       <div>
                         <p className="truncate font-semibold text-slate-800">{p.name}</p>
                         <p className="text-[10px] text-[#777777] truncate">{p.vendorName || 'BioCart Direct'}</p>

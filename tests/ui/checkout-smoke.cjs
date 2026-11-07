@@ -9,7 +9,7 @@ const { chromium } = require('playwright');
 
 const ROOT = process.env.BIOCART_ROOT || path.join(__dirname, '..', '..');
 const DIST = path.join(ROOT, 'dist');
-const OUT = path.join(ROOT, 'docs', 'evidence');
+const OUT = path.join(ROOT, 'test-results');
 const types = { '.js': 'text/javascript', '.css': 'text/css', '.html': 'text/html', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.json': 'application/json', '.ico': 'image/x-icon' };
 
 function serve() {
@@ -30,7 +30,7 @@ function serve() {
   fs.mkdirSync(OUT, { recursive: true });
   const srv = await serve();
   const base = `http://127.0.0.1:${srv.address().port}`;
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(process.env.PW_CHROME ? { executablePath: process.env.PW_CHROME } : {});
   const failures = [];
   for (const viewport of [{ width: 1280, height: 900, name: 'desktop' }, { width: 375, height: 800, name: 'mobile' }]) {
     const page = await browser.newPage({ viewport });

@@ -47,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-evidence
-          path: docs/evidence/
+          path: test-results/
 
   deploy_production:
     needs: validate_and_test

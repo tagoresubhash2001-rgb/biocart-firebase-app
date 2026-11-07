@@ -177,7 +177,7 @@ export const Home: React.FC = () => {
             titleLine3: cms.hero.titleLine3,
             subtitle: cms.hero.subtitle,
             badgeText: cms.hero.badgeText,
-            imageUrl: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?auto=format&fit=crop&w=1920&q=80',
+            imageUrl: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?auto=format&fit=crop&w=1400&q=70',
             primaryButtonText: cms.hero.primaryButtonText,
             primaryButtonUrl: '#shop',
             secondaryButtonText: cms.hero.secondaryButtonText,
@@ -239,11 +239,11 @@ export const Home: React.FC = () => {
       >
         <img 
           key={activeBanner?.id || currentSlideIndex}
-          src={activeBanner?.imageUrl || "https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?auto=format&fit=crop&w=1920&q=80"}
+          src={activeBanner?.imageUrl || "https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?auto=format&fit=crop&w=1400&q=70"}
           alt={activeBanner?.title || "BioCart Premium Organic Farming"}
           fetchPriority="high"
           loading="eager"
-          decoding="sync"
+          decoding="async"
           className="absolute inset-0 w-full h-full object-cover object-center z-0 transition-opacity duration-1000 ease-in-out"
         />
         {/* Semi-transparent high-contrast dark overlay */}

@@ -203,14 +203,14 @@
 
 /* Glassmorphism utility */
 .glass {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .dark .glass {
-  background: rgba(18, 24, 29, 0.7);
+  background: rgba(18, 24, 29, 0.94);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -608,3 +608,14 @@ html:not(.dark) .bg-white {
   }
 }
 
+
+/* ---------- Smooth scrolling on phones, tablets and laptops ----------
+   Frosted-glass blur over moving content is the most expensive thing a browser
+   paints while scrolling, so it is switched off everywhere. */
+*, *::before, *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Off-screen footer and long sections are painted only when needed */
+footer { content-visibility: auto; contain-intrinsic-size: 1px 600px; }

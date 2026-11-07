@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
-import { Leaf, Heart, ShoppingBag, User, Menu, X, Search } from 'lucide-react';
+import { Heart, ShoppingBag, User, Menu, X, Search } from 'lucide-react';
 import { BioCartLogo } from '../ui/BioCartLogo';
 
 export const DynamicIslandNav: React.FC = () => {
@@ -22,7 +22,6 @@ export const DynamicIslandNav: React.FC = () => {
   } = useApp();
 
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Use refs to handle scroll state without triggering unnecessary component re-renders
@@ -98,8 +97,6 @@ export const DynamicIslandNav: React.FC = () => {
     setCartOpen(true);
   }, [setCartOpen]);
 
-  const handleHoverStart = useCallback(() => setIsHovered(true), []);
-  const handleHoverEnd = useCallback(() => setIsHovered(false), []);
 
   const handleToggleMobileMenu = useCallback(() => {
     setIsMobileMenuOpen((prev) => !prev);
@@ -140,7 +137,6 @@ export const DynamicIslandNav: React.FC = () => {
     setSearchQuery('');
   }, [setSearchQuery]);
 
-  const isCollapsed = isScrolled && !isHovered;
 
   // Render static links component using useMemo to prevent re-renders unless currentTab/subView changes
   const desktopLinksMarkup = useMemo(() => {
@@ -208,172 +204,73 @@ export const DynamicIslandNav: React.FC = () => {
         className="fixed top-4 md:top-5 lg:top-6 left-0 right-0 z-50 flex justify-center px-4 md:px-6 pointer-events-none select-none" 
         id="dynamic-island-wrapper"
       >
-        <motion.nav
-          onMouseEnter={handleHoverStart}
-          onMouseLeave={handleHoverEnd}
-          animate={{
-            width: isCollapsed ? '160px' : '95%',
-            maxWidth: isCollapsed ? '160px' : '1120px',
-            height: isCollapsed ? '48px' : '64px',
-            borderRadius: isCollapsed ? '24px' : '32px',
-            backgroundColor: theme === 'light' 
-              ? (isScrolled ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.85)') 
-              : (isScrolled ? 'rgba(18, 24, 29, 0.96)' : 'rgba(18, 24, 29, 0.88)'),
-            backdropFilter: isScrolled ? 'blur(16px)' : 'blur(12px)',
-            boxShadow: isScrolled
-              ? '0 20px 40px -12px rgba(15, 61, 46, 0.18), 0 0 1px 1px rgba(15, 61, 46, 0.05)'
-              : '0 4px 24px -5px rgba(0, 0, 0, 0.04)',
-          }}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 220, mass: 0.8 }}
-          style={{ willChange: 'transform, width, height, background-color, backdrop-filter, border-radius' }}
-          className="flex items-center justify-between border border-white/40 dark:border-white/10 overflow-hidden w-full pointer-events-auto transition-all duration-300 rounded-full px-5 md:px-7"
+        <nav
+          className={`flex items-center justify-between w-full max-w-[1120px] h-14 md:h-16 rounded-full px-4 md:px-7 pointer-events-auto border transition-shadow duration-200 ${
+            theme === 'light' ? 'bg-white/95 border-black/5' : 'bg-[#12181d]/95 border-white/10'
+          } ${isScrolled ? 'shadow-[0_12px_30px_-12px_rgba(15,61,46,0.25)]' : 'shadow-[0_4px_20px_-6px_rgba(0,0,0,0.06)]'}`}
           id="dynamic-island-nav"
         >
-          {/* ZONE 1: Left Brand Logo (Morphs to spinning leaf when collapsed) */}
-          <div className="flex items-center shrink-0" id="nav-left-zone">
-            <AnimatePresence mode="wait">
-              {!isCollapsed ? (
-                <motion.div
-                  key="expanded-logo"
-                  initial={{ opacity: 0, x: -10, scale: 0.95 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: -10, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  onClick={handleLogoClick}
-                  className="cursor-pointer"
-                >
-                  <BioCartLogo size="sm" showTagline={true} onDesktopOnlyTagline={true} className="scale-95 origin-left" />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="collapsed-leaf"
-                  initial={{ opacity: 0, scale: 0.6, rotate: -45 }}
-                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                  exit={{ opacity: 0, scale: 0.6, rotate: 45 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                  className="flex items-center justify-center p-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-full cursor-pointer hover:scale-110 active:scale-95"
-                  onClick={handleHoverStart}
-                  title="Click to Expand Navigation"
-                >
-                  <Leaf className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400 animate-spin-slow" />
-                </motion.div>
-              )}
-            </AnimatePresence>
+          {/* Left: logo */}
+          <div className="flex items-center shrink-0 cursor-pointer" id="nav-left-zone" onClick={handleLogoClick}>
+            <BioCartLogo size="sm" showTagline={true} onDesktopOnlyTagline={true} className="scale-95 origin-left" />
           </div>
 
-          {/* ZONE 2: Centered Links & Search (Only shown when expanded) */}
-          <AnimatePresence>
-            {!isCollapsed && (
-              <motion.div
-                key="center-links-search"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.96 }}
-                transition={{ duration: 0.15 }}
-                className="hidden md:flex items-center gap-4"
-                id="nav-desktop-center-container"
-              >
-                {desktopLinksMarkup}
-                {desktopSearchMarkup}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* ZONE 3: Right Action Buttons (Swaps with compact cart/expand menu when collapsed) */}
-          <div className="flex items-center gap-3 shrink-0" id="nav-right-zone">
-            <AnimatePresence mode="wait">
-              {!isCollapsed ? (
-                <motion.div
-                  key="expanded-actions"
-                  initial={{ opacity: 0, x: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: 10, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className="flex items-center gap-2 md:gap-3"
-                  id="nav-action-buttons"
-                >
-                  {/* Wishlist Icon */}
-
-                  <button
-                    onClick={handleWishlistClick}
-                    className="relative p-2 text-black dark:text-slate-300 hover:text-nature-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer"
-                    id="wishlist-nav-btn"
-                  >
-                    <Heart className="w-4 h-4" />
-                    {wishlist.length > 0 && (
-                      <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
-                    )}
-                  </button>
-
-                  {/* Cart Icon */}
-                  <button
-                    onClick={handleCartClick}
-                    className="relative p-2 text-black dark:text-slate-300 hover:text-[#004643] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer"
-                    id="cart-nav-btn"
-                  >
-                    <ShoppingBag className="w-4 h-4" />
-                    {totalCartItems > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-[#004643] text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full scale-90 shadow-sm">
-                        {totalCartItems}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Profile / Account Icon */}
-                  <button
-                    onClick={handleProfileClick}
-                    className={`p-2 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer ${
-                      subView === 'dashboard'
-                        ? 'bg-[#004643] text-white !text-white'
-                        : 'text-black dark:text-slate-300 hover:text-[#004643] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
-                    }`}
-                    id="profile-nav-btn"
-                  >
-                    <User className="w-4 h-4" />
-                    {user && (
-                      <span className="hidden lg:inline text-xs font-semibold max-w-[80px] truncate">
-                        {user.name.split(' ')[0]}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Mobile Menu Toggle */}
-                  <button
-                    onClick={handleToggleMobileMenu}
-                    className="md:hidden p-2 text-black dark:text-slate-300 hover:text-nature-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer"
-                    id="mobile-menu-toggle-btn"
-                  >
-                    {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                  </button>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="collapsed-actions"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.15 }}
-                  className="flex items-center gap-1"
-                  id="nav-scrolled-compact-content"
-                >
-                  {/* Compact Cart Button */}
-                  <button
-                    onClick={handleCartClick}
-                    className="relative p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer hover:scale-110 active:scale-95"
-                    id="compact-cart-btn"
-                  >
-                    <ShoppingBag className="w-4.5 h-4.5 text-nature-800 dark:text-white" />
-                    {totalCartItems > 0 && (
-                      <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-emerald-800 rounded-full animate-pulse" />
-                    )}
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          {/* Centre: links + search (desktop) */}
+          <div className="hidden md:flex items-center gap-4" id="nav-desktop-center-container">
+            {desktopLinksMarkup}
+            {desktopSearchMarkup}
           </div>
-        </motion.nav>
+
+          {/* Right: actions */}
+          <div className="flex items-center gap-2 md:gap-3 shrink-0" id="nav-action-buttons">
+            <button
+              onClick={handleWishlistClick}
+              className="relative p-2 text-black dark:text-slate-300 hover:text-nature-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer"
+              id="wishlist-nav-btn"
+              aria-label="Wishlist"
+            >
+              <Heart className="w-4 h-4" />
+              {wishlist.length > 0 && <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full" />}
+            </button>
+
+            <button
+              onClick={handleCartClick}
+              className="relative p-2 text-black dark:text-slate-300 hover:text-[#004643] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer"
+              id="cart-nav-btn"
+              aria-label="Cart"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {totalCartItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#004643] text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full scale-90 shadow-sm">
+                  {totalCartItems}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={handleProfileClick}
+              className={`p-2 rounded-full transition-colors flex items-center gap-1.5 cursor-pointer ${
+                subView === 'dashboard'
+                  ? 'bg-[#004643] text-white !text-white'
+                  : 'text-black dark:text-slate-300 hover:text-[#004643] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
+              }`}
+              id="profile-nav-btn"
+              aria-label="Account"
+            >
+              <User className="w-4 h-4" />
+              {user && <span className="hidden lg:inline text-xs font-semibold max-w-[80px] truncate">{user.name.split(' ')[0]}</span>}
+            </button>
+
+            <button
+              onClick={handleToggleMobileMenu}
+              className="md:hidden p-2 text-black dark:text-slate-300 hover:text-nature-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer"
+              id="mobile-menu-toggle-btn"
+              aria-label="Menu"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+        </nav>
       </div>
 
       {/* Mobile Menu Backdrop & Drawer */}
@@ -383,7 +280,7 @@ export const DynamicIslandNav: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 md:hidden"
+            className="fixed inset-0 bg-black/40 z-30 md:hidden"
             onClick={handleCloseMobileMenu}
             id="mobile-menu-overlay"
           >

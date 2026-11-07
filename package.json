@@ -7,7 +7,7 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist test-results",
     "prebuild": "tsx scripts/generate-sitemap.ts",
     "lint": "tsc --noEmit",
     "test": "npm --prefix functions run build && node tests/backend/money-flow.e2e.cjs",

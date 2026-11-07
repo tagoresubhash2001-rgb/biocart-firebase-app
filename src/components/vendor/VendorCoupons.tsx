@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { BioCartLoader } from '../ui/BioCartLoader';
 import { MASTER_CATEGORIES } from '../../data/categoryCatalog';
+import { imgSrc, onImgError } from '../../utils/image';
 
 export const VendorCoupons: React.FC = () => {
   const { vendorId, loading: vendorLoading } = useVendor();
@@ -768,7 +769,7 @@ export const VendorCoupons: React.FC = () => {
                                 }}
                                 className="w-3.5 h-3.5 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
                               />
-                              <img src={p.image} alt={p.name} className="w-6 h-6 object-cover rounded" />
+                              <img src={imgSrc(p.image)} onError={onImgError} decoding="async" alt={p.name} className="w-6 h-6 object-cover rounded" />
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-slate-800 truncate">{p.name}</p>
                                 <p className="text-[10px] text-slate-400">₹{p.price} • {p.category}</p>

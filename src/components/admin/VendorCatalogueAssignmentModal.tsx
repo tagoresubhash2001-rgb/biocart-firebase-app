@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { BioCartLoading } from '../ui/BioCartLoading';
+import { imgSrc, onImgError } from '../../utils/image';
 
 interface VendorCatalogueAssignmentModalProps {
   isOpen: boolean;
@@ -155,7 +156,7 @@ export const VendorCatalogueAssignmentModal: React.FC<VendorCatalogueAssignmentM
                     <div className="flex items-center gap-3">
                       {prod.image ? (
                         <img
-                          src={prod.image}
+                          src={imgSrc(prod.image)} onError={onImgError} decoding="async"
                           alt={prod.name}
                           className="w-10 h-10 rounded-xl object-cover bg-slate-100 border border-slate-200"
                         />

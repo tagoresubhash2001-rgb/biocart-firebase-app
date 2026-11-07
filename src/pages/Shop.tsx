@@ -150,7 +150,7 @@ export const Shop: React.FC = () => {
             className="w-full h-full"
           >
             <img 
-              src="https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?auto=format&fit=crop&w=1920&q=80" 
+              src="https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?auto=format&fit=crop&w=1400&q=70" 
               alt="Premium BioCart product showcase" 
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"

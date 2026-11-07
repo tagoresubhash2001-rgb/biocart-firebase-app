@@ -16,3 +16,6 @@ biocart-release.zip
 
 *.secret*
 .secret.local
+
+# test output (screenshots, results)
+test-results/

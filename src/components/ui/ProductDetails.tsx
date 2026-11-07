@@ -12,6 +12,7 @@ import { AdminService } from '../../services/AdminService';
 import { Product } from '../../types';
 import { ProductCard } from './ProductCard';
 import { isProductSellable } from '../../utils/productAvailability';
+import { imgSrc, onImgError } from '../../utils/image';
 
 
 export const ProductDetails: React.FC = () => {
@@ -291,7 +292,7 @@ export const ProductDetails: React.FC = () => {
               id="gallery-zoom-viewport"
             >
               <img
-                src={currentMainImage}
+                src={imgSrc(currentMainImage)} onError={onImgError} decoding="async"
                 alt={`${product.name} - View ${activeImageIdx + 1}`}
                 referrerPolicy="no-referrer"
                 className={`w-full h-full object-contain p-4 sm:p-6 transition-transform duration-100 ${
@@ -369,7 +370,7 @@ export const ProductDetails: React.FC = () => {
                   }`}
                   aria-label={`View product image ${idx + 1}`}
                 >
-                  <img src={img} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
+                  <img src={imgSrc(img)} onError={onImgError} decoding="async" alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
                 </button>
               ))}
             </div>
@@ -837,7 +838,7 @@ export const ProductDetails: React.FC = () => {
                       bundleChecked[idx] ? 'border-emerald-600 scale-105' : 'border-slate-200 opacity-40'
                     }`}
                   >
-                    <img src={item.image} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
+                    <img src={imgSrc(item.image)} onError={onImgError} decoding="async" alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
                     {bundleChecked[idx] && (
                       <div className="absolute top-1 right-1 bg-emerald-600 text-white rounded-full p-0.5">
                         <ShieldCheck className="w-2.5 h-2.5" />
@@ -997,7 +998,7 @@ export const ProductDetails: React.FC = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <img
-                src={currentMainImage}
+                src={imgSrc(currentMainImage)} onError={onImgError} decoding="async"
                 alt={product.name}
                 referrerPolicy="no-referrer"
                 className="max-h-[75vh] max-w-[85vw] object-contain transition-transform duration-200 select-none"
@@ -1042,7 +1043,7 @@ export const ProductDetails: React.FC = () => {
                       activeImageIdx === idx ? 'border-emerald-400 scale-105' : 'border-transparent opacity-50 hover:opacity-80'
                     }`}
                   >
-                    <img src={img} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
+                    <img src={imgSrc(img)} onError={onImgError} decoding="async" alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
                   </button>
                 ))}
               </div>

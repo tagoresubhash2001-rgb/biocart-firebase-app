@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { CategoryItem } from '../../types';
+import { imgSrc, onImgError } from '../../utils/image';
 
 export interface CategoryCircularNavProps {
   categories: CategoryItem[];
@@ -86,12 +87,9 @@ export const CategoryCircularNav: React.FC<CategoryCircularNavProps> = ({
               }`}
             >
               <img 
-                src={cat.image} 
+                src={imgSrc(cat.image)} onError={onImgError} decoding="async" 
                 alt={cat.name}
                 loading="lazy"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/assets/products/prod_soil_mix.png';
-                }}
                 className={`w-full h-full object-cover object-center transition-all duration-500 group-hover:scale-110 ${
                   isActive ? 'brightness-100' : 'brightness-95 group-hover:brightness-100'
                 }`} 

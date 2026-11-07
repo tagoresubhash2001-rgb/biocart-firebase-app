@@ -137,7 +137,7 @@ export const VendorConsole: React.FC = () => {
   return (
     <AuthGuard>
       <RoleGuard allowedRoles={['vendor', 'admin', 'super_admin']}>
-        <VendorLayout activeSection={activeSection} onSectionChange={handleSectionChange} vendorData={vendorData}>
+        <VendorLayout activeSection={activeSection} onSectionChange={handleSectionChange} vendorData={vendorData} vendorId={vendorId}>
           {renderContent()}
         </VendorLayout>
       </RoleGuard>

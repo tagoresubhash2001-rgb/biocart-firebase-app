@@ -16,6 +16,7 @@ import { ShippingService, PincodeCheckResult } from '../../services/ShippingServ
 import { CouponService, CouponValidationResult } from '../../services/CouponService';
 import { CouponEntity } from '../../types/backend';
 import { Tag } from 'lucide-react';
+import { imgSrc, onImgError } from '../../utils/image';
 
 export const CheckoutModal: React.FC = () => {
   const { settings } = useStoreSettings();
@@ -510,7 +511,7 @@ export const CheckoutModal: React.FC = () => {
                           className="flex items-center gap-4 p-3 bg-slate-50 dark:bg-charcoal-800/40 rounded-2xl border border-slate-150 dark:border-white/5"
                         >
                           <img
-                            src={item.image}
+                            src={imgSrc(item.image)} onError={onImgError} decoding="async"
                             alt={item.name}
                             referrerPolicy="no-referrer"
                             className="w-16 h-16 object-cover rounded-xl flex-shrink-0"

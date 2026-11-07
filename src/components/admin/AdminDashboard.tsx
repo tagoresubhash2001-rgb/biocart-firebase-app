@@ -31,6 +31,7 @@ import {
   MarketplaceFinancialSummary
 } from '../../services/AnalyticsService';
 import { RealTimeAnalyticsCharts } from './RealTimeAnalyticsCharts';
+import { imgSrc, onImgError } from '../../utils/image';
 
 interface AdminDashboardProps {
   onNavigate: (section: AdminSection) => void;
@@ -575,7 +576,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               {products.slice(0, 6).map((product) => (
                 <tr key={product.id} className="hover:bg-slate-50 transition-colors">
                   <td className="p-3 font-medium text-slate-900 flex items-center gap-3">
-                    <img src={product.image} alt={product.name} className="w-8 h-8 rounded-lg object-cover bg-slate-100" />
+                    <img src={imgSrc(product.image)} onError={onImgError} decoding="async" alt={product.name} className="w-8 h-8 rounded-lg object-cover bg-slate-100" />
                     <span className="truncate max-w-[200px]">{product.name}</span>
                   </td>
                   <td className="p-3 text-slate-500">{product.category}</td>

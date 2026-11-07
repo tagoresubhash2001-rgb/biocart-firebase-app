@@ -288,6 +288,6 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
 
   const fails = results.filter((x) => !x.pass).length;
   console.log(`\nSUMMARY: ${results.length - fails} pass / ${fails} fail of ${results.length} checks`);
-  require('fs').writeFileSync(path.join(__dirname, '..', '..', 'docs', 'evidence', 'money-flow-results.json'), JSON.stringify(results, null, 2));
+  require('fs').mkdirSync(path.join(__dirname, '..', '..', 'test-results'), { recursive: true }); require('fs').writeFileSync(path.join(__dirname, '..', '..', 'test-results', 'money-flow-results.json'), JSON.stringify(results, null, 2));
   process.exit(fails ? 1 : 0);
 })().catch((e) => { console.error('HARNESS ERROR', e); process.exit(2); });

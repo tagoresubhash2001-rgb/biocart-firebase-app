@@ -27,14 +27,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     : 0);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-10px' }}
-      transition={{ type: 'spring', stiffness: 140, damping: 18 }}
-      whileHover={{ y: -6, boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.12)' }}
+    <div
       onClick={() => onQuickView(product)}
-      className="group relative flex flex-col bg-white dark:bg-charcoal-900 border border-slate-150 dark:border-white/5 rounded-3xl hover:-translate-y-1.5 hover:shadow-xl hover:shadow-nature-900/10 transition-all duration-300 ease-[cubic-bezier(0.215,0.61,0.355,1)] overflow-hidden p-3.5 space-y-3.5 transition-all duration-300 h-full cursor-pointer"
+      className="group relative flex flex-col bg-white dark:bg-charcoal-900 border border-slate-150 dark:border-white/5 rounded-3xl md:hover:-translate-y-1 md:hover:shadow-xl hover:shadow-nature-900/10 transition-[transform,box-shadow] duration-200 overflow-hidden p-3.5 space-y-3.5 h-full cursor-pointer"
       id={`product-card-${product.id}`}
     >
       {/* Image Container with Badges */}
@@ -43,7 +38,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           src={product.image}
           fallbackSrc="https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&w=1200&q=80"
           alt={product.name}
-          className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-contain p-2 md:group-hover:scale-105 transition-transform duration-300"
         />
         
         {/* Quality and Eco Badges */}
@@ -190,6 +185,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

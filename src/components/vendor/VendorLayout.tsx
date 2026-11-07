@@ -2,7 +2,8 @@ import { ErrorBoundary } from '../ui/ErrorBoundary';
 import React, { useState } from 'react';
 import { BioCartLogo } from '../ui/BioCartLogo';
 import { useAuth } from '../../contexts/AuthContext';
-import { LayoutDashboard, Package, ShoppingBag, Wallet, Settings, Tag, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingBag, Wallet, Settings, Tag, LogOut, Menu, X, BellRing } from 'lucide-react';
+import { useNewOrderAlerts, enableOrderNotifications, notificationsSupported } from '../../hooks/useNewOrderAlerts';
 
 export type VendorSection = 'dashboard' | 'products' | 'orders' | 'coupons' | 'wallet' | 'settings';
 
@@ -10,12 +11,15 @@ interface Props {
   activeSection: VendorSection;
   onSectionChange: (section: VendorSection) => void;
   vendorData?: any | null;
+  vendorId?: string | null;
   children: React.ReactNode;
 }
 
-export const VendorLayout: React.FC<Props> = ({ activeSection, onSectionChange, vendorData, children }) => {
+export const VendorLayout: React.FC<Props> = ({ activeSection, onSectionChange, vendorData, vendorId, children }) => {
   const { userProfile, firebaseUser, logout } = useAuth();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { newCount, latest, dismiss } = useNewOrderAlerts(vendorId || vendorData?.id || null);
+  const [alertsOn, setAlertsOn] = useState(() => notificationsSupported() && Notification.permission === 'granted');
 
   // Resolved canonical business name and owner name
   const displayBusinessName = vendorData?.storeName || vendorData?.businessName || (userProfile as any)?.businessName || 'BioCart Partner';
@@ -57,7 +61,7 @@ export const VendorLayout: React.FC<Props> = ({ activeSection, onSectionChange, 
       {isMobileOpen && (
         <div
           onClick={() => setIsMobileOpen(false)}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 md:hidden transition-opacity"
+          className="fixed inset-0 bg-slate-900/40 z-40 md:hidden transition-opacity"
           aria-hidden="true"
         />
       )}
@@ -100,7 +104,10 @@ export const VendorLayout: React.FC<Props> = ({ activeSection, onSectionChange, 
               }`}
             >
               <item.icon className="w-5 h-5" />
-              {item.label}
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.id === 'orders' && newCount > 0 && (
+                <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-rose-600 text-white text-[11px] font-bold flex items-center justify-center">{newCount}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -115,6 +122,24 @@ export const VendorLayout: React.FC<Props> = ({ activeSection, onSectionChange, 
       <main className="flex-1 md:ml-64 p-4 md:p-8 overflow-x-hidden">
         <ErrorBoundary>
           <div className="max-w-7xl mx-auto">
+            {latest && (
+              <div className="mb-4 flex items-center gap-3 p-4 rounded-2xl bg-emerald-600 text-white shadow-lg" id="vendor-new-order-alert" role="alert">
+                <BellRing className="w-6 h-6 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-white">New order received!</p>
+                  <p className="text-xs text-emerald-50 truncate">{latest.label}</p>
+                </div>
+                <button onClick={() => { onSectionChange('orders'); dismiss(); }} className="px-3 py-2 rounded-xl bg-white text-emerald-700 text-xs font-bold">Open orders</button>
+                <button onClick={dismiss} aria-label="Close" className="p-1 text-white/80 hover:text-white"><X className="w-4 h-4" /></button>
+              </div>
+            )}
+            {!alertsOn && notificationsSupported() && (
+              <div className="mb-4 flex flex-wrap items-center gap-3 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs" id="vendor-enable-alerts">
+                <BellRing className="w-4 h-4" />
+                <span className="flex-1">Turn on order alerts to get a sound and a pop-up as soon as a customer pays for an order.</span>
+                <button onClick={async () => setAlertsOn(await enableOrderNotifications())} className="px-3 py-1.5 rounded-lg bg-amber-600 text-white font-bold">Turn on alerts</button>
+              </div>
+            )}
             {children}
           </div>
         </ErrorBoundary>
