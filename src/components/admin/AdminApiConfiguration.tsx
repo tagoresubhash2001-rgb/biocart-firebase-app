@@ -26,7 +26,7 @@ export const AdminApiConfiguration: React.FC = () => {
   const { addToast } = useApp();
 
   const [creds, setCreds] = useState<LogisticsApiCredentials>({
-    clientId: 'EKART_6ad475992206ede3ee451b66',
+    clientId: '',
     sellerName: 'Biocart',
     childName: 'BIOCART',
     email: 'sinfoxmedia@gmail.com',
@@ -193,7 +193,7 @@ export const AdminApiConfiguration: React.FC = () => {
               required
               value={creds.clientId}
               onChange={(e) => setCreds({ ...creds, clientId: e.target.value })}
-              placeholder="e.g. EKART_6ad475992206ede3ee451b66"
+              placeholder="e.g. EKART_xxxxxxxxxxxxxxxx"
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono font-semibold focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 transition-all"
             />
             <p className="text-[10px] text-slate-500">Official merchant identifier issued by logistics carrier.</p>
