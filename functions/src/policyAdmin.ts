@@ -15,6 +15,11 @@ export const updateFinancialPolicy = onCall({ region: REGION }, async (request) 
   if (d.shippingFee !== undefined) next.shippingFeePaise = rupeesToPaise(d.shippingFee, 'Shipping fee (₹)', 1000);
   if (d.freeShippingThreshold !== undefined) next.freeShippingThresholdPaise = rupeesToPaise(d.freeShippingThreshold, 'Free-shipping threshold (₹)', 100000);
   if (d.codEnabled !== undefined) next.codEnabled = d.codEnabled === true;
+  if (d.freeShippingEnabled !== undefined) next.freeShippingEnabled = d.freeShippingEnabled === true;
+  if (d.codMinOrder !== undefined) next.codMinOrderPaise = rupeesToPaise(d.codMinOrder, 'COD minimum order (₹)', 100000);
+  if (d.codMaxOrder !== undefined) next.codMaxOrderPaise = rupeesToPaise(d.codMaxOrder, 'COD maximum order (₹)', 100000);
+  const minP = next.codMinOrderPaise ?? cur.codMinOrderPaise, maxP = next.codMaxOrderPaise ?? cur.codMaxOrderPaise;
+  if (minP > maxP) throw new HttpsError('invalid-argument', 'COD minimum cannot be more than the COD maximum.');
   if (d.payoutHoldDaysAfterDelivery !== undefined) {
     const n = Number(d.payoutHoldDaysAfterDelivery);
     if (!Number.isInteger(n) || n < 0 || n > 30) throw new HttpsError('invalid-argument', 'Hold days must be 0–30.');

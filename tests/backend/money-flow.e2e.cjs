@@ -116,6 +116,23 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   store.set('products/edge', { ...get('products/edge'), price: 1499 });
   const q4 = await call('quoteOrder', null, { items: [{ productId: 'edge', quantity: 1 }] });
   check('R3', '₹1,498 → ₹99 shipping; ₹1,499 → free', q3.data?.shippingAmount === 99 && q4.data?.shippingAmount === 0, `1498→${q3.data?.shippingAmount}, 1499→${q4.data?.shippingAmount}`);
+  // Admin delivery/COD options (Marketplace Money Rules)
+  const setRules = await call('updateFinancialPolicy', ADMIN, { freeShippingThreshold: 999, codEnabled: true, codMinOrder: 200, codMaxOrder: 1000 });
+  store.set('products/edge', { ...get('products/edge'), price: 999, codAllowed: true });
+  const q999 = await call('quoteOrder', null, { items: [{ productId: 'edge', quantity: 1 }] });
+  store.set('products/edge', { ...get('products/edge'), price: 50 });
+  const qCodLow = await call('quoteOrder', null, { items: [{ productId: 'edge', quantity: 1 }] });
+  await call('updateFinancialPolicy', ADMIN, { freeShippingEnabled: false });
+  const qOff = await call('quoteOrder', null, { items: cart });
+  const badRange = await call('updateFinancialPolicy', ADMIN, { codMinOrder: 2000 });
+  const vendorTry = await call('updateFinancialPolicy', tok('uid_1'), { shippingFee: 0 });
+  check('FIX-RULES', 'Admin can move free delivery to ₹999, switch free delivery off, and set a COD order range (vendors cannot)',
+    setRules.ok && q999.data?.shippingAmount === 0 && q999.data?.codAvailable === true && qCodLow.data?.codAvailable === false
+    && qOff.data?.shippingAmount === 99 && qOff.data?.freeShippingEnabled === false && !badRange.ok && !vendorTry.ok,
+    `999→ship ${q999.data?.shippingAmount} cod ${q999.data?.codAvailable}; ₹149 cod ${qCodLow.data?.codAvailable}; off→₹1600 ship ${qOff.data?.shippingAmount}; badRange=${badRange.ok}; vendor=${vendorTry.ok}`);
+  // restore the default rules for the rest of the suite
+  await call('updateFinancialPolicy', ADMIN, { freeShippingEnabled: true, freeShippingThreshold: 1499, codEnabled: false, codMinOrder: 0, codMaxOrder: 5000 });
+  store.set('products/edge', { ...get('products/edge'), price: 1499, codAllowed: false });
   const qs = await call('quoteOrder', null, { items: [{ productId: 'old', quantity: 1 }] });
   const qp = await call('quoteOrder', null, { items: [{ productId: 'ghee', quantity: 1 }] });
   check('BC-ADM-021/032', 'Suspended-vendor and unapproved products are rejected', !qs.ok && !qp.ok, `suspended: ${qs.err} | pending: ${qp.err}`);

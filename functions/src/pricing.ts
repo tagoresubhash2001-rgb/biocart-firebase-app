@@ -36,6 +36,8 @@ export interface PricingCoupon {
 export interface PricingPolicy {
   shippingFeePaise: number;
   freeShippingThresholdPaise: number;
+  /** false = free delivery switched off by admin; shipping is always charged */
+  freeShippingEnabled?: boolean;
 }
 
 export interface VendorSplit {
@@ -86,6 +88,7 @@ export function allocateProportionally(total: number, weights: number[]): number
 
 export function shippingFor(subtotalPaise: number, policy: PricingPolicy): number {
   if (subtotalPaise <= 0) return 0;
+  if (policy.freeShippingEnabled === false) return policy.shippingFeePaise;
   return subtotalPaise >= policy.freeShippingThresholdPaise ? 0 : policy.shippingFeePaise;
 }
 

@@ -144,7 +144,8 @@ function buildPlan(
   } catch (e: any) {
     throw new HttpsError('failed-precondition', e?.message || 'Could not price this cart.');
   }
-  const codAllowedForCart = policy.codEnabled && lines.every((l) => l.codAllowed === true);
+  const codAllowedForCart = policy.codEnabled && lines.every((l) => l.codAllowed === true)
+    && pricing.totalPaise >= policy.codMinOrderPaise && pricing.totalPaise <= policy.codMaxOrderPaise;
   return { pricing, lines, vendors, coupon, codAllowedForCart };
 }
 
@@ -175,10 +176,12 @@ function quoteResponse(plan: Plan, policy: MarketplacePolicy) {
     shippingAmount: rupees(p.shippingPaise), shippingAmountPaise: p.shippingPaise,
     totalAmount: rupees(p.totalPaise), totalAmountPaise: p.totalPaise,
     freeShippingThreshold: rupees(policy.freeShippingThresholdPaise),
+    freeShippingEnabled: policy.freeShippingEnabled,
     shippingFee: rupees(policy.shippingFeePaise),
     minOrderValue: 0,
     codAvailable: plan.codAllowedForCart,
-    codMinValue: 0, codMaxValue: 49999,
+    codEnabled: policy.codEnabled,
+    codMinValue: rupees(policy.codMinOrderPaise), codMaxValue: rupees(policy.codMaxOrderPaise),
     couponCode: plan.coupon?.code || null,
     vendors: p.vendorSplits.map((v) => ({ vendorId: v.vendorId, storeName: plan.vendors[v.vendorId]?.storeName || plan.vendors[v.vendorId]?.businessName || v.vendorId, subtotal: rupees(v.subtotalPaise) })),
   };
@@ -294,7 +297,7 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
       totalAmount: rupees(p.totalPaise), totalAmountPaise: p.totalPaise,
       couponCode: plan.coupon?.code || null,
       pricingSnapshot: {
-        policyVersion: policy.policyVersion, shippingFeePaise: policy.shippingFeePaise, freeShippingThresholdPaise: policy.freeShippingThresholdPaise,
+        policyVersion: policy.policyVersion, shippingFeePaise: policy.shippingFeePaise, freeShippingThresholdPaise: policy.freeShippingThresholdPaise, freeShippingEnabled: policy.freeShippingEnabled,
         taxInclusive: true, commissionByVendor: Object.fromEntries(p.vendorSplits.map((v) => [v.vendorId, v.commissionRateBps])),
       },
       financialSummary: { totalPlatformCommissionPaise: p.totalCommissionPaise, totalVendorPayablePaise: p.totalVendorPayablePaise, platformCouponSubsidyPaise: p.platformCouponSubsidyPaise, gatewayFeePaise: null, gatewayFeeStatus: 'pending_reconciliation' },

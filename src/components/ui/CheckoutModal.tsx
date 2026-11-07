@@ -4,6 +4,7 @@ const GST_INVOICE_REQUESTS_ENABLED = false;
 import React, { useState, useEffect } from 'react';
 import { functions, auth } from '../../config/firebase';
 import { sendEmailVerification } from 'firebase/auth';
+import { StateInput, CityInput } from './LocationInputs';
 import { httpsCallable } from 'firebase/functions';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
@@ -143,10 +144,12 @@ export const CheckoutModal: React.FC = () => {
     shippingAmount: number;
     totalAmount: number;
     freeShippingThreshold: number;
+    freeShippingEnabled?: boolean;
     minOrderValue?: number;
     codMinValue?: number;
     codMaxValue?: number;
     codAvailable?: boolean;
+    codEnabled?: boolean;
   } | null>(null);
   const [quotingOrder, setQuotingOrder] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -214,7 +217,8 @@ export const CheckoutModal: React.FC = () => {
   const minOrderReq = authoritativeQuote?.minOrderValue ?? (settings.orderThresholds?.minOrderValue ?? 0);
   const codMinVal = authoritativeQuote?.codMinValue ?? (settings.orderThresholds?.codMinValue ?? 299);
   const codMaxVal = authoritativeQuote?.codMaxValue ?? (settings.orderThresholds?.codMaxValue ?? 5000);
-  const codAllowedGlobal = authoritativeQuote?.codAvailable ?? (settings.orderThresholds?.codAvailable !== false);
+  // COD is decided only by the server quote (admin switch + range + every product allows it).
+  const codAllowedGlobal = authoritativeQuote?.codAvailable === true;
 
   const shippingFee = authoritativeQuote?.shippingAmount ?? (fallbackSubtotal >= freeThreshold ? 0 : 99);
   const couponDiscountVal = authoritativeQuote?.discountAmount ?? couponDiscount;
@@ -616,7 +620,7 @@ export const CheckoutModal: React.FC = () => {
                           {shippingFee === 0 ? <span className="text-emerald-600">FREE</span> : `₹${shippingFee}`}
                         </span>
                       </div>
-                      {shippingFee > 0 && subtotal < freeThreshold && (
+                      {shippingFee > 0 && authoritativeQuote?.freeShippingEnabled !== false && subtotal < freeThreshold && (
                         <div className="text-[11px] text-emerald-700 dark:text-emerald-400" id="free-shipping-hint">
                           Add ₹{Math.max(0, freeThreshold - subtotal)} more for FREE delivery (free on orders of ₹{freeThreshold} and above)
                         </div>
@@ -748,26 +752,8 @@ export const CheckoutModal: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-charcoal-600 dark:text-slate-300">City</label>
-                      <input
-                        type="text"
-                        required
-                        value={shippingCity}
-                        onChange={(e) => setShippingCity(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-950 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl focus:border-nature-600 focus:outline-none text-xs"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-charcoal-600 dark:text-slate-300">State</label>
-                      <input
-                        type="text"
-                        required
-                        value={shippingState}
-                        onChange={(e) => setShippingState(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-950 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl focus:border-nature-600 focus:outline-none text-xs"
-                      />
-                    </div>
+                    <StateInput idPrefix="checkout" state={shippingState} onStateChange={setShippingState} inputClassName="w-full px-4 py-2.5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-950 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl focus:border-nature-600 focus:outline-none text-xs" />
+                    <CityInput idPrefix="checkout" state={shippingState} city={shippingCity} onStateChange={setShippingState} onCityChange={setShippingCity} inputClassName="w-full px-4 py-2.5 bg-slate-50 dark:bg-charcoal-800 text-charcoal-950 dark:text-white border border-slate-200 dark:border-white/10 rounded-xl focus:border-nature-600 focus:outline-none text-xs" />
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-semibold text-charcoal-600 dark:text-slate-300">PIN Code</label>
@@ -808,7 +794,7 @@ export const CheckoutModal: React.FC = () => {
                       </div>
                       {pincodeStatus.serviceable && (
                         <span className="text-[10px] font-semibold">
-                          {shippingFee === 0 ? 'FREE delivery' : `Delivery ₹${shippingFee} · FREE from ₹${freeThreshold}`}
+                          {shippingFee === 0 ? 'FREE delivery' : (authoritativeQuote?.freeShippingEnabled === false ? `Delivery ₹${shippingFee}` : `Delivery ₹${shippingFee} · FREE from ₹${freeThreshold}`)}
                         </span>
                       )}
                     </div>
@@ -863,7 +849,7 @@ export const CheckoutModal: React.FC = () => {
                   <h4 className="font-display font-bold text-sm uppercase tracking-wider text-charcoal-500 border-b border-slate-100 dark:border-white/5 pb-2">
                     Select Payment
                   </h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={`grid ${authoritativeQuote?.codEnabled === true ? "grid-cols-2" : "grid-cols-1"} gap-3`}>
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('cashfree')}
@@ -876,6 +862,7 @@ export const CheckoutModal: React.FC = () => {
                       <CreditCard className="w-5 h-5 text-nature-700" />
                       <span className="text-xs font-semibold">Cashfree Payments (UPI, Cards, NetBanking)</span>
                     </button>
+                    {authoritativeQuote?.codEnabled === true && (
                     <button
                       type="button"
                       disabled={!isCodEligible}
@@ -894,10 +881,11 @@ export const CheckoutModal: React.FC = () => {
                       <span className="text-xs font-semibold">Cash on Delivery (COD)</span>
                       {!isCodEligible && (
                         <span className="text-[10px] text-slate-500 font-normal">
-                          {!codAllowedGlobal ? 'Not available for this order' : `Up to ₹${codMaxVal}`}
+                          {`Available for orders ₹${codMinVal}–₹${codMaxVal}`}
                         </span>
                       )}
                     </button>
+                    )}
                   </div>
                 </div>
 

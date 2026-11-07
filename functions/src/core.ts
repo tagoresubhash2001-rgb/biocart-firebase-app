@@ -51,6 +51,9 @@ export interface MarketplacePolicy {
   policyVersion: string;
   shippingFeePaise: number;            // R3: ₹99
   freeShippingThresholdPaise: number;  // R3: free at ₹1,499 and above
+  freeShippingEnabled: boolean;        // admin can switch free delivery off (shipping always charged)
+  codMinOrderPaise: number;            // COD allowed only for order totals in [min, max]
+  codMaxOrderPaise: number;
   codEnabled: boolean;                 // R4: admin master switch, OFF by default
   payoutHoldDaysAfterDelivery: number; // R5: default 0
   reservationMinutes: number;          // unpaid order stock hold
@@ -60,6 +63,9 @@ export const DEFAULT_POLICY: MarketplacePolicy = {
   policyVersion: '2026-11-r1',
   shippingFeePaise: 9900,
   freeShippingThresholdPaise: 149900,
+  freeShippingEnabled: true,
+  codMinOrderPaise: 0,
+  codMaxOrderPaise: 500000,
   codEnabled: false,
   payoutHoldDaysAfterDelivery: 0,
   reservationMinutes: 20,
@@ -73,7 +79,10 @@ export async function loadPolicy(): Promise<MarketplacePolicy> {
     policyVersion: typeof d.policyVersion === 'string' ? d.policyVersion : DEFAULT_POLICY.policyVersion,
     shippingFeePaise: int(d.shippingFeePaise, DEFAULT_POLICY.shippingFeePaise),
     freeShippingThresholdPaise: int(d.freeShippingThresholdPaise, DEFAULT_POLICY.freeShippingThresholdPaise),
+    freeShippingEnabled: d.freeShippingEnabled !== false,
     codEnabled: d.codEnabled === true,
+    codMinOrderPaise: int(d.codMinOrderPaise, DEFAULT_POLICY.codMinOrderPaise),
+    codMaxOrderPaise: int(d.codMaxOrderPaise, DEFAULT_POLICY.codMaxOrderPaise) || DEFAULT_POLICY.codMaxOrderPaise,
     payoutHoldDaysAfterDelivery: int(d.payoutHoldDaysAfterDelivery, DEFAULT_POLICY.payoutHoldDaysAfterDelivery),
     reservationMinutes: int(d.reservationMinutes, DEFAULT_POLICY.reservationMinutes) || DEFAULT_POLICY.reservationMinutes,
   };

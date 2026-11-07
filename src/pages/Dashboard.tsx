@@ -48,6 +48,7 @@ import { AddressEntity } from '../types/backend';
 import { ProductCard } from '../components/ui/ProductCard';
 import { ShippingService, TrackingResult } from '../services/ShippingService';
 import { BioCartLoader } from '../components/ui/BioCartLoader';
+import { StateInput, CityInput } from '../components/ui/LocationInputs';
 
 type DashboardTab = 'overview' | 'profile' | 'orders' | 'track' | 'wishlist' | 'addresses' | 'security';
 
@@ -1936,29 +1937,8 @@ export const Dashboard: React.FC = () => {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-700">City / District *</label>
-                          <input
-                            type="text"
-                            required
-                            value={addrFormCity}
-                            onChange={(e) => setAddrFormCity(e.target.value)}
-                            placeholder="Guntur"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-emerald-600 focus:outline-none"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-700">State *</label>
-                          <input
-                            type="text"
-                            required
-                            value={addrFormState}
-                            onChange={(e) => setAddrFormState(e.target.value)}
-                            placeholder="Andhra Pradesh"
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-emerald-600 focus:outline-none"
-                          />
-                        </div>
+                        <StateInput idPrefix="profile" state={addrFormState} onStateChange={setAddrFormState} labelClassName="text-xs font-semibold text-slate-700" inputClassName="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-emerald-600 focus:outline-none" />
+                        <CityInput idPrefix="profile" state={addrFormState} city={addrFormCity} onStateChange={setAddrFormState} onCityChange={setAddrFormCity} labelClassName="text-xs font-semibold text-slate-700" inputClassName="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-emerald-600 focus:outline-none" />
 
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-slate-700">Postal PIN Code *</label>
