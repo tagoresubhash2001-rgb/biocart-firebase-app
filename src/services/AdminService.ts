@@ -121,9 +121,13 @@ export class AdminService {
           homepageVisible: data.homepageVisible !== false,
           shopVisible: data.shopVisible !== false,
           active: data.active !== false,
+          approvalStatus: data.approvalStatus || undefined,
+          source: data.source || undefined,
+          status: data.status || undefined,
+          rejectionReason: data.rejectionReason || undefined,
           createdAt: data.createdAt || new Date().toISOString(),
           updatedAt: data.updatedAt || new Date().toISOString()
-        });
+        } as Product);
       });
       callback(products);
     }, (error) => {
@@ -513,6 +517,16 @@ export class AdminService {
   // ==========================================
   // PRODUCT CRUD OPERATIONS
   // ==========================================
+
+  /** Approve / reject a product without touching price, stock or any other field. */
+  static async setProductApproval(productId: string, status: 'approved' | 'rejected', reason?: string, actor?: { id: string; email: string }): Promise<void> {
+    const activeActor = this.resolveActor(actor);
+    const now = new Date().toISOString();
+    await updateDoc(doc(db, 'products', productId), status === 'approved'
+      ? { approvalStatus: 'approved', active: true, approvedAt: now, rejectionReason: '', updatedAt: now }
+      : { approvalStatus: 'rejected', active: false, rejectedAt: now, rejectionReason: reason || 'Does not meet catalog standards', updatedAt: now });
+    await this.logAuditAction(activeActor.id, activeActor.email, `Product ${status}: ${productId}`, 'product', productId);
+  }
 
   static async saveProduct(product: Partial<Product>, actor?: { id: string; email: string }): Promise<string> {
     const activeActor = this.resolveActor(actor);

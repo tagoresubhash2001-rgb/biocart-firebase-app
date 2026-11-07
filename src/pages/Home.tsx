@@ -17,6 +17,8 @@ import {
   Megaphone, ExternalLink
 } from 'lucide-react';
 import { renderSafeLineBreaks } from '../utils/textUtils';
+import { isProductSellable } from '../utils/productAvailability';
+
 
 export const Home: React.FC = () => {
   const { cms } = useHomepageCMS();
@@ -104,7 +106,7 @@ export const Home: React.FC = () => {
 
   // Production Catalog Policy: In production, prioritize live approved Firestore inventory.
   // SEED_PRODUCTS are preserved as an explicit fallback during initial catalog cold-start or offline dev.
-  const activeProducts = realtimeProducts.filter(p => p.active !== false && p.homepageVisible !== false);
+  const activeProducts = realtimeProducts.filter(p => isProductSellable(p) && p.homepageVisible !== false);
 
 
   const getExactlyNine = (filterFn?: (p: Product) => boolean, seedOffset: number = 0): Product[] => {

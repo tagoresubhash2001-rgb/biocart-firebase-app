@@ -11,6 +11,8 @@ import {
 import { AdminService } from '../../services/AdminService';
 import { Product } from '../../types';
 import { ProductCard } from './ProductCard';
+import { isProductSellable } from '../../utils/productAvailability';
+
 
 export const ProductDetails: React.FC = () => {
   const {
@@ -40,6 +42,7 @@ export const ProductDetails: React.FC = () => {
   // Accordion and Realtime Catalog
   const [expandedFaqIdx, setExpandedFaqIdx] = useState<number | null>(null);
   const [realtimeProducts, setRealtimeProducts] = useState<Product[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
 
   // Pincode delivery estimation simulation
   const [pincode, setPincode] = useState('');
@@ -47,8 +50,9 @@ export const ProductDetails: React.FC = () => {
 
   React.useEffect(() => {
     const unsub = AdminService.subscribeToProducts((list) => {
+      setCatalogLoaded(true);
       if (list && list.length > 0) {
-        setRealtimeProducts(list);
+        setRealtimeProducts(list.filter(isProductSellable));
       } else if (import.meta.env.VITE_USE_SEED_FALLBACK === 'true') {
         // Fallback to canonical seed catalog only when explicitly configured
         import('../../data/seedData').then(m => {
@@ -124,6 +128,8 @@ export const ProductDetails: React.FC = () => {
   }
 
   const safeProduct: Product = activeProductDetails;
+  // Only approved, active products can be bought (same rule as the server).
+  const isSellable = catalogLoaded && realtimeProducts.some((p) => p.id === safeProduct.id);
 
   // Related products from canonical catalog with smart fallback
   const relatedProducts = React.useMemo(() => {
@@ -201,7 +207,11 @@ export const ProductDetails: React.FC = () => {
     setZoomPos({ x, y });
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (): boolean => {
+    if (!isSellable) {
+      addToast(catalogLoaded ? 'This product is not available for purchase right now.' : 'Loading product availability, please try again in a moment.', 'warning');
+      return false;
+    }
     const productWithVariant = {
       ...product,
       name: selectedVariant ? `${product.name} (${selectedVariant})` : product.name
@@ -209,11 +219,11 @@ export const ProductDetails: React.FC = () => {
     addToCart(productWithVariant, quantity);
     setQuantity(1);
     addToast(`Added ${quantity} item(s) to your cart`, 'success');
+    return true;
   };
 
   const handleBuyNow = () => {
-    handleAddToCart();
-    setCartOpen(true);
+    if (handleAddToCart()) setCartOpen(true);
   };
 
   const handleAddBundleToCart = () => {
@@ -469,6 +479,9 @@ export const ProductDetails: React.FC = () => {
 
           {/* Action Purchase Block */}
           <div className="space-y-3 pt-2" id="purchase-actions-box">
+            {catalogLoaded && !isSellable && (
+                <p className="w-full text-xs font-semibold text-red-600" id="details-unavailable-note">This product is not available for purchase right now.</p>
+              )}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {/* Quantity Selector */}
               <div className="flex items-center justify-between border border-slate-200 dark:border-white/10 rounded-xl bg-slate-50 dark:bg-charcoal-900 p-1 w-full sm:w-auto">
@@ -494,7 +507,8 @@ export const ProductDetails: React.FC = () => {
               {/* Add to Cart */}
               <button
                 onClick={handleAddToCart}
-                className="flex-grow flex items-center justify-center gap-2 py-3.5 px-6 bg-slate-100 hover:bg-slate-200 border border-slate-200 dark:bg-charcoal-800 dark:hover:bg-charcoal-700 text-charcoal-950 dark:text-white rounded-xl font-bold shadow-sm transition-all cursor-pointer hover:shadow-md active:scale-95"
+                disabled={catalogLoaded && !isSellable}
+                className="disabled:opacity-50 disabled:cursor-not-allowed flex-grow flex items-center justify-center gap-2 py-3.5 px-6 bg-slate-100 hover:bg-slate-200 border border-slate-200 dark:bg-charcoal-800 dark:hover:bg-charcoal-700 text-charcoal-950 dark:text-white rounded-xl font-bold shadow-sm transition-all cursor-pointer hover:shadow-md active:scale-95"
                 id="details-add-to-cart-cta"
               >
                 <ShoppingBag className="w-4.5 h-4.5" />
@@ -504,7 +518,8 @@ export const ProductDetails: React.FC = () => {
               {/* Buy Now Direct Button */}
               <button
                 onClick={handleBuyNow}
-                className="py-3.5 px-6 bg-[#004643] hover:bg-[#003532] text-white rounded-xl font-bold shadow-md transition-all cursor-pointer hover:shadow-lg active:scale-95 !text-white"
+                disabled={catalogLoaded && !isSellable}
+                className="disabled:opacity-50 disabled:cursor-not-allowed py-3.5 px-6 bg-[#004643] hover:bg-[#003532] text-white rounded-xl font-bold shadow-md transition-all cursor-pointer hover:shadow-lg active:scale-95 !text-white"
                 id="details-buy-now-cta"
               >
                 <span className="!text-white">Buy Now</span>

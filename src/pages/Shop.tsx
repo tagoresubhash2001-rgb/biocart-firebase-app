@@ -14,6 +14,8 @@ import {
   Search, SlidersHorizontal, Grid3X3, Grid2X2, ArrowUpDown, 
   AlertCircle
 } from 'lucide-react';
+import { isProductSellable } from '../utils/productAvailability';
+
 
 export const Shop: React.FC = () => {
   const [realtimeReviews, setRealtimeReviews] = React.useState<any[]>([]);
@@ -101,7 +103,7 @@ export const Shop: React.FC = () => {
     return [...defaultList, ...activeCats];
   }, [realtimeCategories]);
 
-  const allProducts = realtimeProducts.filter(p => p.active !== false && p.shopVisible !== false);
+  const allProducts = realtimeProducts.filter(p => isProductSellable(p) && p.shopVisible !== false);
 
 
   const filteredProducts = useMemo(() => {

@@ -197,12 +197,7 @@ export const AdminProducts: React.FC = () => {
 
   const handleApproveProduct = async (product: Product) => {
     try {
-      await AdminService.saveProduct({
-        ...product,
-        approvalStatus: 'approved',
-        active: true,
-        approvedAt: new Date().toISOString()
-      }, actor);
+      await AdminService.setProductApproval(product.id, 'approved', undefined, actor);
       addToast(`Product "${product.name}" approved for public storefront`, 'success');
     } catch (err: any) {
       addToast(err?.message || 'Failed to approve product', 'error');
@@ -213,13 +208,7 @@ export const AdminProducts: React.FC = () => {
     const reason = window.prompt('Enter reason for rejecting this product:');
     if (reason === null) return;
     try {
-      await AdminService.saveProduct({
-        ...product,
-        approvalStatus: 'rejected',
-        active: false,
-        rejectionReason: reason || 'Does not meet catalog standards',
-        rejectedAt: new Date().toISOString()
-      }, actor);
+      await AdminService.setProductApproval(product.id, 'rejected', reason || undefined, actor);
       addToast(`Product "${product.name}" marked as rejected`, 'info');
     } catch (err: any) {
       addToast(err?.message || 'Failed to reject product', 'error');

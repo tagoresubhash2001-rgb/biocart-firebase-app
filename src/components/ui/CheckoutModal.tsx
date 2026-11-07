@@ -132,6 +132,7 @@ export const CheckoutModal: React.FC = () => {
   // Authoritative Backend Quote State & Lifecycle Status
   const [quoteStatus, setQuoteStatus] = useState<'idle' | 'loading' | 'valid' | 'failed'>('idle');
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoteProblemProductId, setQuoteProblemProductId] = useState<string | null>(null);
   const [authoritativeQuote, setAuthoritativeQuote] = useState<{
     subtotal: number;
     discountAmount: number;
@@ -163,6 +164,7 @@ export const CheckoutModal: React.FC = () => {
     setQuotingOrder(true);
     setQuoteStatus('loading');
     setQuoteError(null);
+    setQuoteProblemProductId(null);
     setAuthoritativeQuote(null); // Clear stale quote
 
     const quoteFn = httpsCallable<any, any>(functions, 'quoteOrder');
@@ -183,7 +185,8 @@ export const CheckoutModal: React.FC = () => {
       .catch(err => {
         console.error('Backend quoteOrder error:', err);
         setQuoteStatus('failed');
-        setQuoteError(err?.message || 'Unable to generate secure order quote from server. Please retry.');
+        setQuoteProblemProductId(typeof err?.details?.productId === 'string' ? err.details.productId : null);
+        setQuoteError(String(err?.message || 'Unable to generate secure order quote from server. Please retry.').replace(/\s*\[\d{3}\]\s*$/, ''));
       })
       .finally(() => {
         setQuotingOrder(false);
@@ -884,6 +887,16 @@ export const CheckoutModal: React.FC = () => {
                 {quoteStatus === 'failed' && (
                   <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 rounded-xl text-xs text-red-700 dark:text-red-300 flex items-center justify-between">
                     <span>{quoteError || 'Could not verify prices with server.'}</span>
+                    {quoteProblemProductId && cart.some((c) => c.id === quoteProblemProductId) ? (
+                    <button
+                      type="button"
+                      onClick={() => removeFromCart(quoteProblemProductId)}
+                      className="ml-2 shrink-0 px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-[11px]"
+                      id="checkout-remove-unavailable"
+                    >
+                      Remove item
+                    </button>
+                    ) : (
                     <button
                       type="button"
                       onClick={fetchAuthoritativeQuote}
@@ -891,6 +904,7 @@ export const CheckoutModal: React.FC = () => {
                     >
                       Retry Quote
                     </button>
+                    )}
                   </div>
                 )}
 

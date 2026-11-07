@@ -77,23 +77,23 @@ function buildPlan(
   items.forEach((it, i) => {
     const pd = productDocs[i];
     const p = pd.exists ? pd.data() : null;
-    if (!p || !isProductApproved(p)) throw new HttpsError('failed-precondition', `"${p?.name || it.productId}" is no longer available. Please remove it from your cart.`);
+    if (!p || !isProductApproved(p)) throw new HttpsError('failed-precondition', `"${p?.name || it.productId}" is no longer available. Please remove it from your cart.`, { productId: it.productId });
     const price = Number(p.price);
-    if (!Number.isFinite(price) || price <= 0) throw new HttpsError('failed-precondition', `"${p.name}" has no valid price.`);
+    if (!Number.isFinite(price) || price <= 0) throw new HttpsError('failed-precondition', `"${p.name}" has no valid price.`, { productId: it.productId });
     const vendorId = vendorIdOf(p);
     const vd = vendorDocs.get(vendorId);
     const v = vd && vd.exists ? vd.data() : null;
     if (!v || !['active', 'approved'].includes(String(v.status || '').toLowerCase())) {
-      throw new HttpsError('failed-precondition', `"${p.name}" is temporarily unavailable from its seller.`);
+      throw new HttpsError('failed-precondition', `"${p.name}" is temporarily unavailable from its seller.`, { productId: it.productId });
     }
     const bps = vendorCommissionBps(v);
-    if (bps === null) throw new HttpsError('failed-precondition', `"${p.name}" cannot be sold yet (seller setup incomplete).`);
+    if (bps === null) throw new HttpsError('failed-precondition', `"${p.name}" cannot be sold yet (seller setup incomplete).`, { productId: it.productId });
     vendors[vendorId] = v; commission[vendorId] = bps;
     if (checkStock) {
       const inv = inventoryDocs[i].exists ? inventoryDocs[i].data()! : null;
       const avail = Number(inv?.availableQuantity ?? 0);
       if (!inv || avail < it.quantity) {
-        throw new HttpsError('out-of-range', avail > 0 ? `Only ${avail} left of "${p.name}".` : `"${p.name}" is out of stock.`);
+        throw new HttpsError('out-of-range', avail > 0 ? `Only ${avail} left of "${p.name}".` : `"${p.name}" is out of stock.`, { productId: it.productId });
       }
     }
     const min = Number(p.minOrderQuantity) || 1;
