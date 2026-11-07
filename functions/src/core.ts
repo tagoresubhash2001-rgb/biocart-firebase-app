@@ -7,6 +7,7 @@ import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
+import { setGlobalOptions } from 'firebase-functions/v2';
 
 if (getApps().length === 0) {
   initializeApp();
@@ -20,6 +21,12 @@ export function db(): Firestore {
 export { FieldValue };
 
 export const REGION = 'asia-southeast1';
+
+// Cap every function at 5 instances. Gen-2 defaults to 100 instances x 1 vCPU per
+// function, and with ~40 functions that exceeds the Cloud Run regional CPU quota
+// ("Quota exceeded for total allowable CPU per project per region"). 5 instances
+// x 80 concurrent requests each is far above BioCart's traffic and also caps cost.
+setGlobalOptions({ region: REGION, maxInstances: 5 });
 
 // ---------------------------------------------------------------------------
 // Secrets (Google Secret Manager). Values are only available inside handlers
