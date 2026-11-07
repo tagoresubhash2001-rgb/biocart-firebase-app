@@ -118,9 +118,19 @@ export const VendorProducts: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleOpenEditModal = (product: Product) => {
+  const handleOpenEditModal = async (product: Product) => {
     setEditingProduct({ ...product });
     setIsModalOpen(true);
+    // Show the real stock (inventory), not the copy stored on the product document.
+    try {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const { db } = await import('../../config/firebase');
+      const inv = await getDoc(doc(db, 'inventory', product.id));
+      if (inv.exists()) {
+        const qty = Number(inv.data()?.quantity ?? inv.data()?.availableQuantity);
+        if (Number.isFinite(qty)) setEditingProduct((cur) => (cur && cur.id === product.id ? { ...cur, stockQuantity: qty } : cur));
+      }
+    } catch { /* keep the product copy */ }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -131,6 +141,10 @@ export const VendorProducts: React.FC = () => {
     }
     if (!editingProduct.price || editingProduct.price <= 0) {
       addToast('Please enter a valid price', 'warning');
+      return;
+    }
+    if (!Number.isInteger(Number(editingProduct.stockQuantity)) || Number(editingProduct.stockQuantity) < 0) {
+      addToast('Please enter the stock quantity (0 or more)', 'warning');
       return;
     }
 
@@ -506,6 +520,21 @@ export const VendorProducts: React.FC = () => {
                     onChange={(e) => setEditingProduct({ ...editingProduct, mrp: Number(e.target.value) })}
                     className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-emerald-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[#777777] mb-1">Stock Quantity (units available) *</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    step={1}
+                    id="vendor-stock-quantity"
+                    value={editingProduct.stockQuantity ?? 0}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, stockQuantity: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:border-emerald-500 font-semibold"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Shown as "Out of stock" to customers when this reaches 0. Changing only stock does not need admin re-approval.</p>
                 </div>
               </div>
 

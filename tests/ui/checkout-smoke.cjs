@@ -53,16 +53,20 @@ function serve() {
       await page.locator('button:visible:has(svg.lucide-menu)').first().click();
       await page.locator('#mobile-menu-cart').click();
     }
-    await page.waitForTimeout(800);
-    const proceed = page.locator('button:has-text("Checkout"), button:has-text("Proceed")').first();
-    await proceed.click({ timeout: 10000 });
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(OUT, `ui-checkout-loading-${viewport.name}.png`) });
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(2200);
     await page.screenshot({ path: path.join(OUT, `ui-checkout-ready-${viewport.name}.png`) });
-    const body = await page.innerText('body');
-    const ok = errors.length === 0 && /Authorize & Pay|Pay/i.test(body) && body.includes('248');
-    console.log(`${ok ? 'PASS' : 'FAIL'}  checkout renders (${viewport.name}) — runtime errors: ${errors.length ? errors.join(' | ') : 'none'}; total ₹248 shown: ${body.includes('248')}`);
+    const cartBody = await page.innerText('body');
+    const noGstLine = !/Applicable Taxes \(GST\)/.test(cartBody);
+    // A guest who presses "Proceed" must be taken to sign-in (not left stuck on the address form).
+    const proceed = page.locator('button:has-text("Proceed")').first();
+    await proceed.click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    const signInShown = await page.locator('#auth-modal-overlay').isVisible().catch(() => false);
+    await page.screenshot({ path: path.join(OUT, `ui-checkout-signin-${viewport.name}.png`) });
+    const ok = errors.length === 0 && cartBody.includes('248') && noGstLine && signInShown;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  checkout renders (${viewport.name}) — runtime errors: ${errors.length ? errors.join(' | ') : 'none'}; total ₹248 shown: ${cartBody.includes('248')}; no GST line: ${noGstLine}; guest sent to sign-in: ${signInShown}`);
     if (!ok) failures.push(viewport.name);
     await page.close();
   }

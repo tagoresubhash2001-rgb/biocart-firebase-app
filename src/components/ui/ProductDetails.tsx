@@ -129,7 +129,9 @@ export const ProductDetails: React.FC = () => {
 
   const safeProduct: Product = activeProductDetails;
   // Only approved, active products can be bought (same rule as the server).
-  const isSellable = catalogLoaded && realtimeProducts.some((p) => p.id === safeProduct.id);
+  const liveProduct = realtimeProducts.find((p) => p.id === safeProduct.id);
+  const isSoldOut = !!liveProduct && (liveProduct.inStock === false || liveProduct.stockStatus === 'Out of Stock');
+  const isSellable = catalogLoaded && !!liveProduct && !isSoldOut;
 
   // Related products from canonical catalog with smart fallback
   const relatedProducts = React.useMemo(() => {
@@ -480,7 +482,7 @@ export const ProductDetails: React.FC = () => {
           {/* Action Purchase Block */}
           <div className="space-y-3 pt-2" id="purchase-actions-box">
             {catalogLoaded && !isSellable && (
-                <p className="w-full text-xs font-semibold text-red-600" id="details-unavailable-note">This product is not available for purchase right now.</p>
+                <p className="w-full text-xs font-semibold text-red-600" id="details-unavailable-note">{isSoldOut ? 'Sold out — this product is currently out of stock.' : 'This product is not available for purchase right now.'}</p>
               )}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {/* Quantity Selector */}

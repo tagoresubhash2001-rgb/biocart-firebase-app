@@ -2,7 +2,8 @@ declare const Cashfree: any;
 // BioCart is not GST-registered yet, so B2B GST tax invoices cannot be issued.
 const GST_INVOICE_REQUESTS_ENABLED = false;
 import React, { useState, useEffect } from 'react';
-import { functions } from '../../config/firebase';
+import { functions, auth } from '../../config/firebase';
+import { sendEmailVerification } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
@@ -28,7 +29,8 @@ export const CheckoutModal: React.FC = () => {
     addToast,
     setActiveOrderTrackId,
     setTab,
-    setSubView
+    setSubView,
+    setAuthModalOpen
   } = useApp();
 
   const [step, setStep] = useState<'cart' | 'checkout' | 'success' | 'pending'>('cart');
@@ -132,6 +134,7 @@ export const CheckoutModal: React.FC = () => {
   // Authoritative Backend Quote State & Lifecycle Status
   const [quoteStatus, setQuoteStatus] = useState<'idle' | 'loading' | 'valid' | 'failed'>('idle');
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const [quoteProblemProductId, setQuoteProblemProductId] = useState<string | null>(null);
   const [authoritativeQuote, setAuthoritativeQuote] = useState<{
     subtotal: number;
@@ -310,6 +313,13 @@ export const CheckoutModal: React.FC = () => {
     }
   };
 
+  const askToSignIn = () => {
+    addToast('Please sign in to continue your checkout. Your bag is saved.', 'warning');
+    try { sessionStorage.setItem('biocart-resume-checkout', '1'); } catch { /* ignore */ }
+    setCartOpen(false);
+    setAuthModalOpen(true);
+  };
+
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isProcessingPayment) return;
@@ -317,9 +327,20 @@ export const CheckoutModal: React.FC = () => {
       addToast('Delivery is not available to this PIN code yet.', 'error');
       return;
     }
-    if (!user) {
-      addToast('Please sign in or create an account to complete your checkout', 'warning');
-      return;
+    if (!user) { askToSignIn(); return; }
+    // The server only accepts orders from a verified email or phone. Refresh the sign-in first so a
+    // customer who verified a moment ago is not rejected, and help the others verify.
+    const fbUser = auth.currentUser;
+    if (fbUser && !fbUser.emailVerified && !fbUser.phoneNumber) {
+      try { await fbUser.reload(); } catch { /* offline: server will decide */ }
+      if (!auth.currentUser?.emailVerified) {
+        try { await sendEmailVerification(fbUser); } catch { /* already sent recently */ }
+        setNeedsEmailVerification(true);
+        addToast(`Please verify your email: we sent a link to ${fbUser.email}. Open it, then press Pay again.`, 'warning');
+        return;
+      }
+      await fbUser.getIdToken(true);
+      setNeedsEmailVerification(false);
     }
     if (!/^[6-9]\d{9}$/.test(shippingPhone.replace(/\D/g, '').slice(-10))) {
       addToast('Enter a valid 10-digit mobile number for delivery.', 'error');
@@ -595,10 +616,11 @@ export const CheckoutModal: React.FC = () => {
                           {shippingFee === 0 ? <span className="text-emerald-600">FREE</span> : `₹${shippingFee}`}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-charcoal-500">Applicable Taxes (GST)</span>
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Included in MRP (₹0)</span>
-                      </div>
+                      {shippingFee > 0 && subtotal < freeThreshold && (
+                        <div className="text-[11px] text-emerald-700 dark:text-emerald-400" id="free-shipping-hint">
+                          Add ₹{Math.max(0, freeThreshold - subtotal)} more for FREE delivery (free on orders of ₹{freeThreshold} and above)
+                        </div>
+                      )}
                       <div className="h-[1px] bg-slate-200 dark:bg-white/10 my-1" />
                       <div className="flex justify-between text-base font-bold">
                         <span className="text-charcoal-900 dark:text-white">Estimated Total</span>
@@ -615,7 +637,10 @@ export const CheckoutModal: React.FC = () => {
 
                     <button
                       disabled={isBelowMinOrder}
-                      onClick={() => setStep('checkout')}
+                      onClick={() => {
+                        if (!user) { askToSignIn(); return; }
+                        setStep('checkout');
+                      }}
                       className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-medium shadow-md transition-all ${
                         isBelowMinOrder
                           ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
@@ -777,15 +802,15 @@ export const CheckoutModal: React.FC = () => {
                         <Truck className="w-4 h-4 flex-shrink-0" />
                         <span className="font-semibold">
                           {pincodeStatus.serviceable
-                            ? 'EKART Express Delivery Available'
-                            : 'Limited Logistics Coverage'}
+                            ? `Delivery available to ${shippingZip} (EKART)`
+                            : 'Sorry, we do not deliver to this PIN code yet'}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider">
-                        {pincodeStatus.serviceable
-                          ? `COD: ${pincodeStatus.cod ? 'YES' : 'NO'}`
-                          : 'Standard Post Only'}
-                      </span>
+                      {pincodeStatus.serviceable && (
+                        <span className="text-[10px] font-semibold">
+                          {shippingFee === 0 ? 'FREE delivery' : `Delivery ₹${shippingFee} · FREE from ₹${freeThreshold}`}
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -905,6 +930,23 @@ export const CheckoutModal: React.FC = () => {
                       Retry Quote
                     </button>
                     )}
+                  </div>
+                )}
+
+                {needsEmailVerification && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center justify-between gap-2" id="checkout-verify-email">
+                    <span>Verify your email to place the order. We sent a link to {auth.currentUser?.email}. After opening it, press Pay again.</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const u = auth.currentUser;
+                        if (!u) return;
+                        try { await sendEmailVerification(u); addToast('Verification email sent again.', 'success'); } catch { addToast('Please wait a minute before asking for another email.', 'warning'); }
+                      }}
+                      className="shrink-0 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-[11px]"
+                    >
+                      Resend
+                    </button>
                   </div>
                 )}
 

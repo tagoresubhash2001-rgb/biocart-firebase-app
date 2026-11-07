@@ -243,6 +243,13 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   const cx = await call('cancelOrder', CUST, { orderId: o3.data.orderId, reason: 'Changed mind' });
   const refund3 = Object.values(cf.refunds).find((x) => String(x.refund_id) === cx.data?.refund?.refundId);
   check('BC-RET-001/006/007', 'Customer cancel before packing → full refund ₹199 incl. shipping, stock restored', cx.ok && refund3?.refund_amount === 199 && get('inventory/rice').availableQuantity === 5 && get(`orders/${o3.data.orderId}`).status === 'cancelled', `refund=${refund3?.refund_amount} rice=${get('inventory/rice').availableQuantity} status=${get(`orders/${o3.data.orderId}`).status}`);
+  // Sold-out badge follows real inventory (vendor stock 5 → customer reserves all 5 → product shows Out of Stock; expiry restores it)
+  const o4 = await call('createOrder', CUST, { items: [{ productId: 'rice', quantity: 5 }], shippingAddress: ADDR, paymentMethod: 'cashfree', checkoutId: 'chk_0000012' });
+  const soldOut = get('products/rice');
+  store.set(`orders/${o4.data?.orderId}`, { ...get(`orders/${o4.data?.orderId}`), reservationExpiresAt: '2020-01-01T00:00:00.000Z' });
+  await fn.releaseExpiredReservations.run({});
+  const restored = get('products/rice');
+  check('FIX-STOCK', 'Product shows Out of Stock when all units are taken, and comes back when the hold expires', o4.ok && soldOut.inStock === false && soldOut.stockStatus === 'Out of Stock' && restored.inStock === true && get('inventory/rice').availableQuantity === 5, `soldOut=${soldOut.stockStatus} restored=${restored.stockStatus} avail=${get('inventory/rice').availableQuantity} err=${o4.err || ''}`);
   const cxShipped = await call('cancelOrder', CUST, { orderId: oid, reason: 'late' });
   check('BC-RET-004', 'Customer cannot cancel after shipping', !cxShipped.ok, cxShipped.err);
 

@@ -338,6 +338,7 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
   if (!result.reused && paymentMethod === 'cod') {
     await allocateOrderFinancials(result.orderId, { type: 'cod' });
   }
+  if (!result.reused) await syncProductStockFlags(result.orderId);
   return { success: true, orderId: result.orderId, reused: result.reused, paymentMethod };
 });
 
@@ -407,11 +408,37 @@ export async function allocateOrderFinancials(orderId: string, proof: PaymentPro
       .catch((e) => console.error(`[allocate] auto-refund failed for ${orderId}`, e));
   }
   if (outcome.allocated) {
+    await syncProductStockFlags(orderId);
     await notifyVendorsOfNewOrder(orderId).catch((e) => console.warn('notify vendors failed', e));
     const { generateOrderConfirmation } = await import('./invoice');
     await generateOrderConfirmation(orderId).catch((e) => console.warn('confirmation document failed', e));
   }
   return outcome;
+}
+
+/**
+ * Keeps the customer-facing stock badge on each product (inStock / stockStatus) in line with the
+ * real inventory after stock is reserved, sold, released or restocked. Best-effort, never throws.
+ */
+export async function syncProductStockFlags(orderId: string) {
+  try {
+    const os = await db().collection('orders').doc(orderId).get();
+    const ids = Array.from(new Set(((os.data()?.items || []) as any[]).map((it) => String(it.productId || '')).filter(Boolean)));
+    await Promise.all(ids.map(async (productId) => {
+      const [inv, prod] = await Promise.all([
+        db().collection('inventory').doc(productId).get(),
+        db().collection('products').doc(productId).get(),
+      ]);
+      if (!inv.exists || !prod.exists) return;
+      const available = Math.max(0, Number(inv.data()?.availableQuantity ?? 0));
+      const stockStatus = available > 0 ? (available <= 10 ? 'Low Stock' : 'In Stock') : 'Out of Stock';
+      const p = prod.data() || {};
+      if (p.stockStatus === stockStatus && p.inStock === available > 0) return;
+      await prod.ref.update({ inStock: available > 0, stockStatus, updatedAt: nowIso() });
+    }));
+  } catch (e) {
+    console.warn(`[stock] could not refresh product stock flags for ${orderId}`, e);
+  }
 }
 
 async function notifyVendorsOfNewOrder(orderId: string) {
@@ -431,6 +458,12 @@ async function notifyVendorsOfNewOrder(orderId: string) {
 // Reservation expiry
 // ---------------------------------------------------------------------------
 export async function releaseReservation(orderId: string, newStatus: string, reason: string, actor = 'system') {
+  const released = await releaseReservationTx(orderId, newStatus, reason, actor);
+  if (released) await syncProductStockFlags(orderId);
+  return released;
+}
+
+async function releaseReservationTx(orderId: string, newStatus: string, reason: string, actor: string) {
   const orderRef = db().collection('orders').doc(orderId);
   return db().runTransaction(async (t) => {
     const os = await t.get(orderRef);
@@ -595,6 +628,7 @@ export async function initiateRefund(req: RefundRequest): Promise<{ refundId: st
     await callCashfreeRefund(refundId);
     const fresh = (await refundRef.get()).data()!;
     await recomputeParentStatus(orderId).catch(() => undefined);
+    await syncProductStockFlags(orderId);
     return { refundId, status: fresh.status, amountPaise: fresh.amountPaise };
   }
   await recomputeParentStatus(orderId).catch(() => undefined);

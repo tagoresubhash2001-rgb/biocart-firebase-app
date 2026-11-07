@@ -193,6 +193,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeBlogSlug, setActiveBlogSlug] = useState<string | null>(null);
   const [isCartOpen, setCartOpen] = useState(false);
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
+  // After a customer signs in from checkout, bring them straight back to their bag.
+  React.useEffect(() => {
+    if (!user) return;
+    let resume = false;
+    try { resume = sessionStorage.getItem('biocart-resume-checkout') === '1'; sessionStorage.removeItem('biocart-resume-checkout'); } catch { /* ignore */ }
+    if (resume) setCartOpen(true);
+  }, [user]);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'forgot' | 'phone'>('login');
 
 
@@ -404,7 +411,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await loginWithGoogle();
       setAuthModalOpen(false);
-      setSubViewState('dashboard');
+      let resume = false;
+      try { resume = sessionStorage.getItem('biocart-resume-checkout') === '1'; } catch { /* ignore */ }
+      if (!resume) setSubViewState('dashboard');
     } catch (err: any) {
       console.error('Firebase Google Auth failed:', err);
     }
