@@ -93,6 +93,8 @@ export const VendorOrders: React.FC = () => {
       const list: VendorOrderSlice[] = [];
       snap.forEach((docSnap: any) => {
         const data = docSnap.data();
+        // Vendors only see orders that are paid (or COD-confirmed). Unpaid/expired checkouts are hidden.
+        if (['awaiting_payment', 'payment_expired'].includes(String(data.status || ''))) return;
         list.push({ 
           id: docSnap.id, 
           ref: docSnap.ref, 
@@ -120,19 +122,8 @@ export const VendorOrders: React.FC = () => {
       setOrders(parsed);
       setOrderQueryError(null);
 
-      // Hydrate parent orders cache for customer addresses & payment methods
-      parsed.forEach(async (vo) => {
-        if (!parentOrdersCache[vo.orderNumber]) {
-          try {
-            const pSnap = await getDoc(doc(db, 'orders', vo.orderNumber));
-            if (pSnap.exists()) {
-              setParentOrdersCache(prev => ({ ...prev, [vo.orderNumber]: pSnap.data() }));
-            }
-          } catch (e) {
-            console.warn(`Could not cache parent order ${vo.orderNumber}:`, e);
-          }
-        }
-      });
+      // Delivery details come from the order's fulfilment snapshot (vendors cannot read parent orders).
+      setParentOrdersCache(Object.fromEntries(parsed.map((vo: any) => [vo.orderNumber, { shippingAddress: vo.fulfilment || {}, paymentMethod: vo.paymentMethod }])));
     }, (err) => {
       console.warn('Vendor orders composite query failed, attempting unindexed query:', err);
       const fallbackQ = query(
@@ -144,18 +135,7 @@ export const VendorOrders: React.FC = () => {
         setOrders(parsed);
         setOrderQueryError(null);
 
-        parsed.forEach(async (vo) => {
-          if (!parentOrdersCache[vo.orderNumber]) {
-            try {
-              const pSnap = await getDoc(doc(db, 'orders', vo.orderNumber));
-              if (pSnap.exists()) {
-                setParentOrdersCache(prev => ({ ...prev, [vo.orderNumber]: pSnap.data() }));
-              }
-            } catch (e) {
-              console.warn(`Could not cache parent order ${vo.orderNumber}:`, e);
-            }
-          }
-        });
+        setParentOrdersCache(Object.fromEntries(parsed.map((vo: any) => [vo.orderNumber, { shippingAddress: vo.fulfilment || {}, paymentMethod: vo.paymentMethod }])));
       }, (fallbackErr: any) => {
         console.error('Vendor orders subscription error:', fallbackErr);
         setOrderQueryError(fallbackErr?.message || 'Unable to load orders. Permissions or indexing may be required.');
@@ -276,24 +256,28 @@ export const VendorOrders: React.FC = () => {
 
   // EKART Shipment Dispatch
   const handleCreateShipment = async (order: VendorOrderSlice) => {
+    if (String((order as any).status || order.orderStatus) !== 'packed') {
+      addToast('Mark the order as Packed first, then book EKART.', 'warning');
+      return;
+    }
+    const weightInput = window.prompt('Packed parcel weight in grams (e.g. 1200):', '1000');
+    if (!weightInput) return;
+    const sizeInput = window.prompt('Parcel size in cm as Length x Width x Height (e.g. 20x15x10):', '20x15x10');
+    if (!sizeInput) return;
+    const weightGrams = Math.round(Number(weightInput.replace(/[^0-9.]/g, '')));
+    const [lengthCm, widthCm, heightCm] = sizeInput.toLowerCase().split(/[x*×, ]+/).map((n) => Math.round(Number(n)));
+    if (!(weightGrams > 0) || !(lengthCm > 0) || !(widthCm > 0) || !(heightCm > 0)) {
+      addToast('Please enter a valid weight and size (e.g. 1000 and 20x15x10).', 'warning');
+      return;
+    }
     setShippingActionOrder(order.orderNumber);
     try {
       const res = await ShippingService.createShipment({
         orderNumber: order.orderNumber,
         vendorId: order.vendorId || vendorId || '',
-        goodsDescription: order.items.map(i => i.name).join(', ').substring(0, 50)
+        weightGrams, lengthCm, widthCm, heightCm,
       });
-      addToast(`EKART shipment created! AWB: ${res.waybill}`, 'success');
-
-      // Update vendor order to 'shipped' via authoritative Cloud Function
-      const updateVendorOrderStatusFn = httpsCallable(functions, 'updateVendorOrderStatus');
-      await updateVendorOrderStatusFn({
-        orderId: order.orderNumber,
-        vendorId: order.vendorId || vendorId || '',
-        newStatus: 'shipped',
-        trackingNumber: res.waybill,
-        carrier: 'ekart'
-      });
+      addToast(`EKART shipment booked! Tracking ID: ${res.waybill}`, 'success');
     } catch (err: any) {
       console.error('Failed to create shipment:', err);
       addToast(err.message || 'Failed to dispatch with EKART', 'error');
@@ -800,10 +784,10 @@ export const VendorOrders: React.FC = () => {
             customer={{
               name: shippingAddr.name || shippingAddr.fullName || 'Customer',
               phone: shippingAddr.phoneNumber || shippingAddr.phone || 'N/A',
-              street: [shippingAddr.street, shippingAddr.addressLine2, shippingAddr.landmark].filter(Boolean).join(', ') || 'Address on record',
+              street: [shippingAddr.address || shippingAddr.street, shippingAddr.addressLine2, shippingAddr.landmark].filter(Boolean).join(', ') || 'Address on record',
               city: shippingAddr.city || '',
               state: shippingAddr.state || '',
-              postalCode: shippingAddr.postalCode || shippingAddr.pincode || '',
+              postalCode: shippingAddr.zip || shippingAddr.postalCode || shippingAddr.pincode || '',
               country: shippingAddr.country || 'India',
             }}
             items={activePackingSlipOrder.items.map(it => ({

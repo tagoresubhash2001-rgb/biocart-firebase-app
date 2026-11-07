@@ -17,6 +17,8 @@ import {
   DollarSign
 } from 'lucide-react';
 import { AdminService } from '../../services/AdminService';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../config/firebase';
 import { useApp } from '../../context/AppContext';
 
 export interface SettlementBatchItem {
@@ -26,7 +28,7 @@ export interface SettlementBatchItem {
   vendorName?: string;
   amountPaise: number;
   currency?: string;
-  status: 'paid' | 'processing' | 'failed' | 'needs_review';
+  status: 'paid' | 'processing' | 'failed' | 'needs_review' | 'ready_for_payment' | 'offset_by_adjustments';
   providerReferenceId?: string;
   utr?: string;
   failureReason?: string;
@@ -61,6 +63,40 @@ export const AdminPayouts: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  const [runningCycle, setRunningCycle] = useState(false);
+
+  // Manual payout mode: admin pays from the bank, then records the UTR here.
+  const handleMarkPaid = async (item: SettlementBatchItem) => {
+    const utr = window.prompt(`Pay ₹${(item.amountPaise / 100).toLocaleString('en-IN')} to ${item.vendorName || item.vendorId} from your bank, then enter the UTR / reference number:`);
+    if (!utr) return;
+    const paidOn = window.prompt('Payment date (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
+    if (!paidOn) return;
+    setRetryingId(item.id);
+    try {
+      const fn = httpsCallable<any, any>(functions, 'markSettlementPaid');
+      await fn({ settlementId: item.id, utr: utr.trim(), paidOn: paidOn.trim(), amountPaise: item.amountPaise });
+      addToast(`Settlement marked paid (UTR ${utr.trim().toUpperCase()}).`, 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'Could not mark as paid', 'error');
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
+  const handleRunCycle = async () => {
+    if (!window.confirm('Calculate settlements now for all delivered orders up to last Monday? (This normally runs automatically every Tuesday 6 PM.)')) return;
+    setRunningCycle(true);
+    try {
+      const fn = httpsCallable<any, any>(functions, 'triggerManualSettlement');
+      const res = await fn({});
+      addToast(res.data?.skipped ? `Cycle ${res.data.cycleId} was already calculated.` : `Cycle ${res.data?.cycleId}: ${res.data?.created ?? 0} vendor settlement(s) created.`, 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'Could not run the settlement cycle', 'error');
+    } finally {
+      setRunningCycle(false);
+    }
+  };
+
   const handleRetryPayout = async (settlementId: string) => {
     setRetryingId(settlementId);
     try {
@@ -83,7 +119,7 @@ export const AdminPayouts: React.FC = () => {
     .reduce((acc, curr) => acc + (curr.amountPaise || 0), 0);
 
   const processingPaise = settlements
-    .filter(s => s.status === 'processing')
+    .filter(s => s.status === 'processing' || s.status === 'ready_for_payment')
     .reduce((acc, curr) => acc + (curr.amountPaise || 0), 0);
 
   const failedPaise = settlements
@@ -213,7 +249,14 @@ export const AdminPayouts: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 w-full md:w-auto justify-end overflow-x-auto pb-1 md:pb-0">
-          {(['all', 'paid', 'processing', 'failed', 'needs_review'] as const).map((st) => (
+          <button
+            onClick={handleRunCycle}
+            disabled={runningCycle}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {runningCycle ? 'Calculating…' : 'Run settlement now'}
+          </button>
+          {(['all', 'ready_for_payment', 'paid', 'offset_by_adjustments', 'failed', 'needs_review'] as const).map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -223,7 +266,7 @@ export const AdminPayouts: React.FC = () => {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              {st === 'needs_review' ? 'Needs Review' : st}
+              {st === 'needs_review' ? 'Needs Review' : st === 'ready_for_payment' ? 'To pay' : st === 'offset_by_adjustments' ? 'Offset' : st}
             </button>
           ))}
         </div>
@@ -266,8 +309,10 @@ export const AdminPayouts: React.FC = () => {
                     paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
                     processing: 'bg-amber-50 text-amber-700 border-amber-200',
                     failed: 'bg-rose-50 text-rose-700 border-rose-200',
-                    needs_review: 'bg-purple-50 text-purple-700 border-purple-200'
-                  };
+                    needs_review: 'bg-purple-50 text-purple-700 border-purple-200',
+                    ready_for_payment: 'bg-sky-50 text-sky-700 border-sky-200',
+                    offset_by_adjustments: 'bg-slate-50 text-slate-600 border-slate-200'
+                  } as Record<string, string>;
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
@@ -314,7 +359,7 @@ export const AdminPayouts: React.FC = () => {
                           {item.status === 'processing' && <Clock className="w-3 h-3 text-amber-600" />}
                           {item.status === 'failed' && <AlertTriangle className="w-3 h-3 text-rose-600" />}
                           {item.status === 'needs_review' && <AlertTriangle className="w-3 h-3 text-purple-600" />}
-                          {item.status === 'needs_review' ? 'Needs Review' : item.status}
+                          {item.status === 'needs_review' ? 'Needs Review' : item.status === 'ready_for_payment' ? 'To pay' : item.status === 'offset_by_adjustments' ? 'Offset by refunds' : item.status}
                         </span>
                         {item.failureReason && (
                           <p className="text-[10px] text-rose-600 mt-1 max-w-xs truncate" title={item.failureReason}>
@@ -337,7 +382,17 @@ export const AdminPayouts: React.FC = () => {
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        {(item.status === 'failed' || item.status === 'needs_review') ? (
+                        {item.status === 'ready_for_payment' ? (
+                          <button
+                            onClick={() => handleMarkPaid(item)}
+                            disabled={retryingId === item.id || (item as any).needsBankDetails}
+                            title={(item as any).needsBankDetails ? 'Add the vendor bank details first (Vendors → Commercials)' : ''}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 hover:bg-sky-700 text-white transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            {retryingId === item.id ? 'Saving…' : (item as any).needsBankDetails ? 'Bank details missing' : 'Mark as paid (UTR)'}
+                          </button>
+                        ) : (item.status === 'failed' || item.status === 'needs_review') ? (
                           <button
                             onClick={() => handleRetryPayout(item.id)}
                             disabled={retryingId === item.id}

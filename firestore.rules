@@ -183,7 +183,7 @@ service cloud.firestore {
           'weightVariants', 'selectedVariant', 'category', 'categoryId', 'sku', 
           'features', 'benefits', 'usageInstructions', 'ingredients', 'materials', 
           'dimensions', 'badge', 'stockStatus', 'inStock', 'stockQuantity', 'faqs', 
-          'reviews', 'approvalStatus', 'approvalRequestedAt', 'source', 'updatedAt'
+          'reviews', 'approvalStatus', 'approvalRequestedAt', 'source', 'updatedAt', 'codAllowed', 'minOrderQuantity', 'maxOrderQuantity', 'hsnCode'
         ])
       );
       allow delete: if isAdmin();
@@ -198,7 +198,15 @@ service cloud.firestore {
     // 4. Stock Inventory Levels
     match /inventory/{inventoryId} {
       allow read: if true;
-      allow write: if isAdmin() || (isVendorOwner(incoming().vendorId) && (!('vendorId' in existing()) || existing().vendorId == incoming().vendorId));
+      allow create: if isAdmin() || (isVendorOwner(incoming().vendorId) &&
+        incoming().get('reservedQuantity', 0) == 0);
+      // Vendors may only change their own stock numbers; reservations are managed by the backend.
+      allow update: if isAdmin() || (isVendorOwner(existing().vendorId) &&
+        incoming().vendorId == existing().vendorId &&
+        incoming().get('reservedQuantity', 0) == existing().get('reservedQuantity', 0) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['availableQuantity', 'quantity', 'lowStockThreshold', 'stockStatus', 'sku', 'updatedAt']) &&
+        incoming().availableQuantity is int && incoming().availableQuantity >= 0);
+      allow delete: if isAdmin();
     }
 
     // 5. Product Variations
@@ -342,7 +350,7 @@ service cloud.firestore {
 
     // Explicit allowlist for public storefront settings (general, main, appearance)
     match /settings/{settingId} {
-      allow read: if settingId in ['general', 'main', 'appearance'];
+      allow read: if settingId in ['general', 'main', 'appearance', 'financialPolicy'];
       allow write: if isAdmin();
     }
 
@@ -406,7 +414,7 @@ service cloud.firestore {
     // createVendorAccount Cloud Function (Admin SDK, bypasses rules) —
     // clients never create a vendor doc directly.
     match /vendors/{vendorId} {
-      allow read: if isAdmin() || isVendorOwner(vendorId);
+      allow get: if isAdmin() || isVendorOwner(vendorId);
       allow list: if isAdmin();
       allow create: if isAdmin();
       // Bank details cannot be written from client (strictly excluded from allow-list and barred via !hasAny)
@@ -497,10 +505,19 @@ service cloud.firestore {
 
     // 30. Order Refunds & Reversals
     match /refunds/{refundId} {
-      allow read: if isAdmin() || (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.vendorId == request.auth.uid));
+      allow read: if isAdmin() || (isSignedIn() && (resource.data.userId == request.auth.uid || request.auth.uid in resource.data.get('vendorIds', [])));
       // Refunds are processed strictly via backend callable functions (Admin SDK)
       allow write: if false;
     }
+
+    // 31. Backend-only financial & integration records (admin read-only)
+    match /company_wallet/{docId} { allow read: if isAdmin(); allow write: if false; }
+    match /settlement_cycles/{docId} { allow read: if isAdmin(); allow write: if false; }
+    match /notification_events/{docId} { allow read: if isAdmin(); allow write: if false; }
+    match /payment_webhook_events/{docId} { allow read: if isAdmin(); allow write: if false; }
+    match /courier_webhook_events/{docId} { allow read: if isAdmin(); allow write: if false; }
+    match /checkout_sessions/{docId} { allow read, write: if false; }
+    match /rate_limits/{docId} { allow read, write: if false; }
   }
 }
 

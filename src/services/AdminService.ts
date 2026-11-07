@@ -569,21 +569,29 @@ export class AdminService {
     const batch = writeBatch(db);
     batch.set(productRef, payload, { merge: true });
 
-    // Atomic sync to inventory/{docId}
-    const invRef = doc(db, 'inventory', docId);
-    batch.set(invRef, {
-      id: docId,
-      productId: docId,
-      vendorId: payload.vendorId,
-      quantity: payload.stockQuantity,
-      availableQuantity: payload.stockQuantity,
-      reservedQuantity: 0,
-      inStock: payload.inStock,
-      stockStatus: payload.stockStatus,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
+    // New products get their inventory doc here. Existing products: stock is changed through the
+    // setProductStock callable so open checkout reservations are never overwritten.
+    if (isNew) {
+      const invRef = doc(db, 'inventory', docId);
+      batch.set(invRef, {
+        id: docId,
+        productId: docId,
+        vendorId: payload.vendorId,
+        quantity: payload.stockQuantity,
+        availableQuantity: payload.stockQuantity,
+        reservedQuantity: 0,
+        inStock: payload.inStock,
+        stockStatus: payload.stockStatus,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    }
 
     await batch.commit();
+    if (!isNew) {
+      const { httpsCallable } = await import('firebase/functions');
+      const { functions } = await import('../config/firebase');
+      await httpsCallable(functions, 'setProductStock')({ productId: docId, stockOnHand: payload.stockQuantity });
+    }
 
     await this.logAuditAction(
       activeActor.id,

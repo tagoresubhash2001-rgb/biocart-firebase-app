@@ -10,8 +10,9 @@
     "clean": "rm -rf dist server.js",
     "prebuild": "tsx scripts/generate-sitemap.ts",
     "lint": "tsc --noEmit",
-    "test": "tsx --test tests/auth-and-rules.test.ts tests/phase9-e2e.test.ts tests/financial-cashfree-verification.test.ts",
-    "verify": "tsc --noEmit && npm test && npm run build"
+    "test": "npm --prefix functions run build && node tests/backend/money-flow.e2e.cjs",
+    "verify": "tsc --noEmit && npm --prefix functions exec tsc -- --noEmit && npm test && npm run build && npm run test:ui",
+    "test:ui": "node tests/ui/checkout-smoke.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

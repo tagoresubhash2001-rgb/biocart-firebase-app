@@ -51,6 +51,13 @@ import { BioCartLoader } from '../components/ui/BioCartLoader';
 
 type DashboardTab = 'overview' | 'profile' | 'orders' | 'track' | 'wishlist' | 'addresses' | 'security';
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  awaiting_payment: 'Awaiting payment', confirmed: 'Confirmed', processing: 'Being packed',
+  partially_shipped: 'Partly shipped', shipped: 'Shipped', partially_delivered: 'Partly delivered',
+  delivered: 'Delivered', cancelled: 'Cancelled', payment_expired: 'Payment not completed',
+};
+const orderStatusLabel = (st?: string) => ORDER_STATUS_LABELS[String(st || '').toLowerCase()] || (st ? String(st) : 'Processing');
+
 export const Dashboard: React.FC = () => {
   const {
     user,
@@ -309,28 +316,28 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
+    if (!user?.uid) {
+      setTrackingShipments([]);
+      return;
+    }
+    // Customers can only read their own shipments (security rules require the userId filter).
     const colRef = collection(db, 'shipments');
-    const q = query(colRef, where('orderNumber', '==', activeId));
+    const byOrder = query(colRef, where('userId', '==', user.uid), where('orderNumber', '==', activeId));
+    const byAwb = query(colRef, where('userId', '==', user.uid), where('trackingNumber', '==', activeId));
+    let orderList: ShipmentItem[] = [];
+    let awbList: ShipmentItem[] = [];
+    const publish = () => setTrackingShipments(orderList.length ? orderList : awbList);
+    const unsubA = onSnapshot(byOrder, (snap) => {
+      orderList = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ShipmentItem));
+      publish();
+    }, (err) => console.warn('Shipments query failed:', err));
+    const unsubB = onSnapshot(byAwb, (snap) => {
+      awbList = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ShipmentItem));
+      publish();
+    }, (err) => console.warn('Shipments AWB query failed:', err));
 
-    const unsub = onSnapshot(q, (snap) => {
-      const list: ShipmentItem[] = [];
-      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as ShipmentItem));
-      if (list.length > 0) {
-        setTrackingShipments(list);
-      } else {
-        const awbQ = query(colRef, where('trackingNumber', '==', activeId));
-        onSnapshot(awbQ, (awbSnap) => {
-          const awbList: ShipmentItem[] = [];
-          awbSnap.forEach((d) => awbList.push({ id: d.id, ...d.data() } as ShipmentItem));
-          setTrackingShipments(awbList);
-        });
-      }
-    }, (err) => {
-      console.warn('Shipments query failed:', err);
-    });
-
-    return () => unsub();
-  }, [trackInputId, activeOrderTrackId]);
+    return () => { unsubA(); unsubB(); };
+  }, [trackInputId, activeOrderTrackId, user?.uid]);
 
   // Handle Google Linking
   const handleLinkGoogle = async () => {
@@ -624,7 +631,7 @@ export const Dashboard: React.FC = () => {
 
   // Calculate Metrics from REAL Customer Data
   const totalOrdersCount = orders.length;
-  const activeOrdersCount = orders.filter(o => ['pending', 'processing', 'shipped', 'placed'].includes(o.status?.toLowerCase())).length;
+  const activeOrdersCount = orders.filter(o => ['awaiting_payment', 'confirmed', 'processing', 'partially_shipped', 'shipped', 'partially_delivered'].includes(o.status?.toLowerCase())).length;
   const completedOrdersCount = orders.filter(o => ['delivered', 'completed'].includes(o.status?.toLowerCase())).length;
   const wishlistProducts = realtimeProducts.filter((p) => wishlist.includes(p.id));
   const currentTrackId = trackInputId || activeOrderTrackId || '';
@@ -1031,7 +1038,7 @@ export const Dashboard: React.FC = () => {
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                               : 'bg-amber-100 text-amber-800 border border-amber-200'
                           }`}>
-                            {ord.status || 'Processing'}
+                            {orderStatusLabel(ord.status)}
                           </span>
                           <span className="text-sm font-bold text-slate-900">₹{ord.totalAmount || ord.total || 0}</span>
                           <button
@@ -1345,7 +1352,17 @@ export const Dashboard: React.FC = () => {
                     )}
 
                     <div className="flex justify-end gap-2 pt-2">
-                      {['placed', 'processing', 'awaiting_payment'].includes((selectedOrderDetails.status || '').toLowerCase()) && (
+                      {selectedOrderDetails.pdfUrl && (
+                        <a
+                          href={selectedOrderDetails.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold transition-all"
+                        >
+                          Download order confirmation (PDF)
+                        </a>
+                      )}
+                      {['confirmed', 'processing', 'awaiting_payment'].includes((selectedOrderDetails.status || '').toLowerCase()) && (
                         <button
                           onClick={() => handleCancelOrder(selectedOrderDetails.id)}
                           disabled={cancellingOrderId === selectedOrderDetails.id}
@@ -1402,7 +1419,7 @@ export const Dashboard: React.FC = () => {
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                               : 'bg-amber-100 text-amber-800 border border-amber-200'
                           }`}>
-                            {order.status || 'Processing'}
+                            {orderStatusLabel(order.status)}
                           </span>
                           <span className="text-sm font-bold text-slate-900">₹{order.totalAmount || order.total || 0}</span>
                         </div>
@@ -1427,7 +1444,7 @@ export const Dashboard: React.FC = () => {
                           >
                             View Full Invoice & Snapshot
                           </button>
-                          {['placed', 'processing', 'awaiting_payment'].includes((order.status || '').toLowerCase()) && (
+                          {['confirmed', 'processing', 'awaiting_payment'].includes((order.status || '').toLowerCase()) && (
                             <button
                               onClick={() => handleCancelOrder(order.id)}
                               disabled={cancellingOrderId === order.id}
@@ -1623,7 +1640,7 @@ export const Dashboard: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-slate-500">Dispatch Node:</span>
-                      <strong className="text-emerald-900 ml-1.5">Guntur (Sindulis Agro Units)</strong>
+                      <strong className="text-emerald-900 ml-1.5">Tirupati (Sindulis Innovative Solutions)</strong>
                     </div>
                   </div>
 

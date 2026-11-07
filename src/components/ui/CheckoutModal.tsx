@@ -1,4 +1,6 @@
 declare const Cashfree: any;
+// BioCart is not GST-registered yet, so B2B GST tax invoices cannot be issued.
+const GST_INVOICE_REQUESTS_ENABLED = false;
 import React, { useState, useEffect } from 'react';
 import { functions } from '../../config/firebase';
 import { httpsCallable } from 'firebase/functions';
@@ -29,7 +31,12 @@ export const CheckoutModal: React.FC = () => {
     setSubView
   } = useApp();
 
-  const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart');
+  const [step, setStep] = useState<'cart' | 'checkout' | 'success' | 'pending'>('cart');
+  const [pendingMessage, setPendingMessage] = useState<string>('');
+  const [checkingPayment, setCheckingPayment] = useState(false);
+  // One checkoutId per cart+coupon: the backend returns the SAME order if the form is submitted twice.
+  const newCheckoutId = () => (typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : `chk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`).replace(/[^A-Za-z0-9_-]/g, '');
+  const [checkoutId, setCheckoutId] = useState<string>(() => newCheckoutId());
   
   // Saved addresses
   const [savedAddresses, setSavedAddresses] = useState<AddressEntity[]>([]);
@@ -187,6 +194,13 @@ export const CheckoutModal: React.FC = () => {
     fetchAuthoritativeQuote();
   }, [isCartOpen, cart, appliedCoupon?.code]);
 
+  useEffect(() => {
+    // Cart or coupon changed → any unpaid order from before is stale (its stock hold simply expires).
+    setCreatedOrderId('');
+    setCheckoutId(newCheckoutId());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(cart.map((c) => [c.id, c.quantityInCart])), appliedCoupon?.code]);
+
   if (!isCartOpen) return null;
 
   const fallbackSubtotal = cart.reduce((sum, item) => sum + item.price * (item.quantityInCart || 0), 0);
@@ -250,159 +264,140 @@ export const CheckoutModal: React.FC = () => {
     addToast('Coupon removed.', 'info');
   };
 
+  const verifyPayment = async (orderId: string): Promise<boolean> => {
+    const verifyFn = httpsCallable<any, any>(functions, 'verifyCashfreePayment');
+    const verifyRes = await verifyFn({ orderId });
+    if (verifyRes?.data?.success) {
+      setStep('success');
+      addToast('Payment received! Your order is confirmed.', 'success');
+      return true;
+    }
+    setPendingMessage(verifyRes?.data?.message || 'We have not received a confirmation of your payment yet. If money was debited, your order will update automatically within a few minutes.');
+    setStep('pending');
+    return false;
+  };
+
+  const openCashfree = async (orderId: string) => {
+    const createCashfreeOrderFn = httpsCallable<any, any>(functions, 'createCashfreeOrder');
+    const cfRes = await createCashfreeOrderFn({ orderId });
+    if (cfRes?.data?.alreadyPaid) {
+      await verifyPayment(orderId);
+      return;
+    }
+    const paymentSessionId = cfRes?.data?.paymentSessionId;
+    if (!paymentSessionId) throw new Error('Could not start the secure payment. Please try again.');
+    if (typeof Cashfree === 'undefined') {
+      setPendingMessage('The payment window could not load (check your internet or ad-blocker) — tap "Retry payment".');
+      setStep('pending');
+      return;
+    }
+    const cashfree = Cashfree({ mode: cfRes?.data?.environment === 'PRODUCTION' ? 'production' : 'sandbox' });
+    const result: any = await cashfree.checkout({ paymentSessionId, redirectTarget: '_modal' });
+    if (result?.error) {
+      // closed / failed / dropped — the order stays reserved for a few minutes so the customer can retry
+      setPendingMessage(result.error.message || 'Payment was not completed.');
+      setStep('pending');
+      return;
+    }
+    try {
+      await verifyPayment(orderId);
+    } catch (vErr: any) {
+      setPendingMessage(vErr?.message || 'We could not confirm the payment right now. If money was debited, your order will update automatically.');
+      setStep('pending');
+    }
+  };
+
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessingPayment) return;
     if (pincodeStatus && pincodeStatus.serviceable === false) {
-      addToast('The delivery pincode is not serviceable by our carrier network.', 'error');
+      addToast('Delivery is not available to this PIN code yet.', 'error');
+      return;
+    }
+    if (!user) {
+      addToast('Please sign in or create an account to complete your checkout', 'warning');
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(shippingPhone.replace(/\D/g, '').slice(-10))) {
+      addToast('Enter a valid 10-digit mobile number for delivery.', 'error');
+      return;
+    }
+    if (quoteStatus !== 'valid' || !authoritativeQuote) {
+      addToast('Please wait for the final price to load, then try again.', 'error');
+      fetchAuthoritativeQuote();
+      return;
+    }
+    if (paymentMethod === 'cod' && !isCodEligible) {
+      addToast('Cash on Delivery is not available for this order.', 'error');
       return;
     }
 
-    if (paymentMethod === 'cod' && pincodeStatus && pincodeStatus.cod === false) {
-      addToast('Cash on Delivery (COD) is not available for this postal code. Please choose Cashfree Online Payment.', 'error');
-      return;
-    }
-
+    const address = {
+      name: shippingName, phone: shippingPhone, address: shippingAddress,
+      city: shippingCity, state: shippingState, zip: shippingZip,
+    };
+    setIsProcessingPayment(true);
     try {
-      if (!user) {
-        addToast('Please sign in or create an account to complete your checkout', 'warning');
-        return;
-      }
-
-      const orderData = {
-        userId: user.uid,
-        customerId: (user as any)?.customerId || '',
-        subtotal,
-        discountAmount: couponDiscount,
-        couponCode: appliedCoupon?.code || undefined,
-        shippingAmount: shippingFee,
-        taxAmount: GST,
-        totalAmount: total,
-        paymentMethod: paymentMethod,
-        shippingAddress: {
-          name: shippingName,
-          phone: shippingPhone,
-          address: shippingAddress,
-          city: shippingCity,
-          state: shippingState,
-          zip: shippingZip
-        },
-        billingAddress: {
-          name: shippingName,
-          phone: shippingPhone,
-          address: shippingAddress,
-          city: shippingCity,
-          state: shippingState,
-          zip: shippingZip
-        }
-      };
-      
-      // Prepare cart items for the Cloud Function payload
-      const functionCartItems = cart.map(item => ({
-        productId: item.id,
-        quantity: item.quantityInCart || 1
-      }));
-
-      if (quoteStatus !== 'valid' || !authoritativeQuote) {
-        addToast('A valid authoritative server quote is required before checkout. Please retry.', 'error');
-        fetchAuthoritativeQuote();
-        return;
-      }
-
-      setIsProcessingPayment(true);
-      let orderId = '';
-      const createOrderFn = httpsCallable<any, { orderId: string }>(functions, 'createOrder');
-      const resp = await createOrderFn({
-        items: functionCartItems,
-        shippingAddress: orderData.shippingAddress,
-        billingAddress: orderData.billingAddress,
-        paymentMethod,
-        couponCode: appliedCoupon?.code || undefined,
-        customerGstin: requestGstInvoice ? customerGstin.trim().toUpperCase() : undefined,
-        customerBusinessName: requestGstInvoice ? customerBusinessName.trim() : undefined
-      });
-      if (resp?.data?.orderId) {
-        orderId = resp.data.orderId;
-      } else {
-        throw new Error('Order creation service did not return a valid order ID. Please retry.');
-      }
-
-      setCreatedOrderId(orderId);
-
-      // Handle Online Payment via Cashfree
-      if (paymentMethod === 'cashfree') {
-        const createCashfreeOrderFn = httpsCallable<any, any>(functions, 'createCashfreeOrder');
-        const cfRes = await createCashfreeOrderFn({
-          orderId,
-          customerPhone: shippingPhone,
-          customerEmail: user.email || 'customer@biocart.in',
-          customerName: shippingName
+      let orderId = createdOrderId;
+      if (!orderId) {
+        const createOrderFn = httpsCallable<any, { orderId: string; reused?: boolean }>(functions, 'createOrder');
+        const resp = await createOrderFn({
+          checkoutId,
+          items: cart.map((item) => ({ productId: item.id, quantity: item.quantityInCart || 1 })),
+          shippingAddress: address,
+          billingAddress: address,
+          paymentMethod,
+          couponCode: appliedCoupon?.code || undefined,
+          customerGstin: requestGstInvoice ? customerGstin.trim().toUpperCase() : undefined,
+          customerBusinessName: requestGstInvoice ? customerBusinessName.trim() : undefined,
         });
-
-        const paymentSessionId = cfRes?.data?.paymentSessionId;
-        if (!paymentSessionId) {
-          throw new Error('Could not initiate secure Cashfree payment session.');
-        }
-
-        if (typeof Cashfree !== 'undefined') {
-          const cashfree = Cashfree({
-            mode: cfRes?.data?.environment === 'PRODUCTION' ? 'production' : 'sandbox'
-          });
-
-          cashfree.checkout({
-            paymentSessionId,
-            redirectTarget: '_modal'
-          }).then(async (result: any) => {
-            if (result.error) {
-              console.error('Cashfree modal error:', result.error);
-              addToast(result.error.message || 'Payment cancelled or incomplete.', 'error');
-              setIsProcessingPayment(false);
-              return;
-            }
-
-            // Authoritative server-side verification
-            try {
-              const verifyFn = httpsCallable<any, any>(functions, 'verifyCashfreePayment');
-              const verifyRes = await verifyFn({ orderId });
-              if (verifyRes?.data?.success) {
-                setStep('success');
-                addToast('Payment received! Order confirmed.', 'success');
-              } else {
-                addToast('Payment verification pending or incomplete.', 'warning');
-              }
-            } catch (vErr: any) {
-              console.warn('Payment verification check:', vErr);
-              addToast('Order recorded. Payment status will update shortly.', 'info');
-              setStep('success');
-            } finally {
-              setIsProcessingPayment(false);
-            }
-          }).catch((modalErr: any) => {
-            console.error('Cashfree dropin exception:', modalErr);
-            addToast('Error displaying payment gateway. Please retry.', 'error');
-            setIsProcessingPayment(false);
-          });
-          return;
-        } else {
-          addToast('Cashfree Payment Gateway initialized. Verifying payment...', 'info');
-          setStep('success');
-          setIsProcessingPayment(false);
-          return;
-        }
+        orderId = resp?.data?.orderId || '';
+        if (!orderId) throw new Error('The order could not be created. Please try again.');
+        setCreatedOrderId(orderId);
       }
 
-      // Cash on Delivery
-      setStep('success');
-      addToast('Order placed successfully!', 'success');
+      if (paymentMethod === 'cashfree') {
+        await openCashfree(orderId);
+      } else {
+        setStep('success');
+        addToast('Order placed! Pay in cash when it is delivered.', 'success');
+      }
     } catch (error: any) {
-      addToast(error.message || 'Failed to place order', 'error');
+      addToast(error?.message || 'Failed to place order', 'error');
     } finally {
       setIsProcessingPayment(false);
+    }
+  };
+
+  const handleRetryPayment = async () => {
+    if (!createdOrderId) return;
+    setIsProcessingPayment(true);
+    try {
+      await openCashfree(createdOrderId);
+    } catch (err: any) {
+      setPendingMessage(err?.message || 'Payment could not be started.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleCheckStatus = async () => {
+    if (!createdOrderId) return;
+    setCheckingPayment(true);
+    try {
+      await verifyPayment(createdOrderId);
+    } catch (err: any) {
+      setPendingMessage(err?.message || 'Could not check the payment status right now.');
+    } finally {
+      setCheckingPayment(false);
     }
   };
 
   const handleSuccessClose = () => {
     setActiveOrderTrackId(createdOrderId);
     clearCart();
+    setCreatedOrderId('');
+    setCheckoutId(newCheckoutId());
     setStep('cart');
     setCartOpen(false);
     setSubView('dashboard'); // Direct user to order tracking page
@@ -440,6 +435,7 @@ export const CheckoutModal: React.FC = () => {
                 {step === 'cart' && `Shopping Bag (${cart.length})`}
                 {step === 'checkout' && 'Secure Checkout'}
                 {step === 'success' && 'Order Confirmed'}
+                {step === 'pending' && 'Payment Pending'}
               </h3>
             </div>
             {step !== 'success' && (
@@ -790,7 +786,8 @@ export const CheckoutModal: React.FC = () => {
                     </div>
                   )}
 
-                  {/* GST Invoice Section (B2B Tax Credit) */}
+                  {/* GST Invoice Section (B2B Tax Credit) — hidden until BioCart is GST-registered */}
+                  {GST_INVOICE_REQUESTS_ENABLED && (
                   <div className="p-3 bg-slate-50 dark:bg-charcoal-800/60 rounded-xl border border-slate-200 dark:border-white/10 space-y-2 text-xs">
                     <label className="flex items-center gap-2 cursor-pointer font-semibold text-charcoal-800 dark:text-slate-200">
                       <input
@@ -830,12 +827,13 @@ export const CheckoutModal: React.FC = () => {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
 
                 {/* Simulated Payment */}
                 <div className="space-y-4">
                   <h4 className="font-display font-bold text-sm uppercase tracking-wider text-charcoal-500 border-b border-slate-100 dark:border-white/5 pb-2">
-                    Select Payment (Secure Sandbox)
+                    Select Payment
                   </h4>
                   <div className="grid grid-cols-2 gap-3">
                     <button
@@ -868,11 +866,7 @@ export const CheckoutModal: React.FC = () => {
                       <span className="text-xs font-semibold">Cash on Delivery (COD)</span>
                       {!isCodEligible && (
                         <span className="text-[10px] text-slate-500 font-normal">
-                          {!codAllowedGlobal 
-                            ? 'Disabled for this order' 
-                            : total < codMinVal 
-                            ? `Min order ₹${codMinVal}` 
-                            : `Max order ₹${codMaxVal}`}
+                          {!codAllowedGlobal ? 'Not available for this order' : `Up to ₹${codMaxVal}`}
                         </span>
                       )}
                     </button>
@@ -882,7 +876,7 @@ export const CheckoutModal: React.FC = () => {
                 <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 rounded-2xl flex gap-3 text-xs text-emerald-800 dark:text-emerald-400">
                   <ShieldCheck className="w-5 h-5 flex-shrink-0 text-emerald-600" />
                   <p className="leading-relaxed">
-                    Your connection is encrypted. Sindulis Agro Products ensures fully safe, certified PCI-compliant gateway proxies.
+                    Your connection is encrypted. Payments are processed securely by Cashfree Payments; BioCart never sees your card or UPI details.
                   </p>
                 </div>
 
@@ -936,6 +930,37 @@ export const CheckoutModal: React.FC = () => {
               </form>
             )}
 
+            {step === 'pending' && (
+              <div className="p-8 h-full flex flex-col items-center justify-center text-center space-y-5" id="step-pending">
+                <div className="bg-amber-50 p-4 rounded-full border border-amber-200">
+                  <AlertCircle className="w-12 h-12 text-amber-600" />
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-display font-bold text-xl text-charcoal-900 dark:text-white">Payment not confirmed yet</h4>
+                  <p className="text-sm text-charcoal-500 dark:text-slate-400 max-w-sm leading-relaxed">{pendingMessage}</p>
+                  <p className="text-xs text-charcoal-400">Order ID: <span className="font-mono font-bold">{createdOrderId}</span> — your items are held for a few minutes.</p>
+                </div>
+                <div className="w-full space-y-3">
+                  <button
+                    onClick={handleRetryPayment}
+                    disabled={isProcessingPayment}
+                    className="w-full py-3.5 bg-[#004643] hover:bg-[#003532] text-white rounded-xl font-bold shadow-md disabled:opacity-60 cursor-pointer !text-white"
+                    id="pending-retry-btn"
+                  >
+                    {isProcessingPayment ? 'Opening payment…' : 'Retry payment'}
+                  </button>
+                  <button
+                    onClick={handleCheckStatus}
+                    disabled={checkingPayment}
+                    className="w-full py-3 border border-slate-300 rounded-xl font-semibold text-charcoal-700 dark:text-slate-200 disabled:opacity-60 cursor-pointer"
+                    id="pending-check-btn"
+                  >
+                    {checkingPayment ? 'Checking…' : 'I have paid — check status'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {step === 'success' && (
               <div className="p-8 h-full flex flex-col items-center justify-center text-center space-y-6" id="step-success">
                 <div className="bg-nature-100 dark:bg-nature-950/60 p-4 rounded-full border border-nature-200 dark:border-nature-900">
@@ -943,9 +968,9 @@ export const CheckoutModal: React.FC = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <h4 className="font-display font-bold text-2xl text-charcoal-900 dark:text-white">Payment Received!</h4>
+                  <h4 className="font-display font-bold text-2xl text-charcoal-900 dark:text-white">{paymentMethod === 'cod' ? 'Order Placed!' : 'Payment Received!'}</h4>
                   <p className="text-sm text-charcoal-500 dark:text-slate-400 max-w-sm leading-relaxed">
-                    Thank you for supporting plastic-free, organic living! Your transaction has been approved, and we have registered your dispatch parcel in our primary logistics facility.
+                    Thank you for supporting organic living! Your order is confirmed and the sellers have been notified. Your order confirmation (PDF) will be available in My Orders in a minute.
                   </p>
                 </div>
 

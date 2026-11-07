@@ -188,7 +188,7 @@ export const SEOManager: React.FC = () => {
       '@context': 'https://schema.org',
       '@type': 'Organization',
       name: 'BioCart',
-      legalName: 'Sindulis Agro Products Pvt. Ltd.',
+      legalName: 'Sindulis Innovative Solutions',
       url: CANONICAL_DOMAIN,
       logo: `${CANONICAL_DOMAIN}/assets/biocart_logo_official.png`,
       description: 'BioCart is India\'s premier certified organic gardening, biofertilizer, and sustainable horticulture input brand.',

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { MarketplaceRulesPanel } from './MarketplaceRulesPanel';
 import { AdminService, DEFAULT_STORE_SETTINGS } from '../../services/AdminService';
 import { StoreSettings } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -385,126 +386,7 @@ export const AdminSettings: React.FC = () => {
           </div>
         </div>
 
-        {/* Marketplace Commercial & Universal Order Thresholds */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-          <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
-            <h3 className="font-semibold text-sm text-slate-900">Universal Order, COD & Shipping Thresholds</h3>
-            <span className="text-[11px] font-mono px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md font-semibold">
-              Platform Defaults
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">Universal Min Order Value (₹)</label>
-              <input
-                type="number"
-                min={0}
-                value={settings.orderThresholds?.minOrderValue ?? 199}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  orderThresholds: {
-                    ...(settings.orderThresholds || { minOrderValue: 199, freeShippingThreshold: 499, codMinValue: 299, codMaxValue: 5000, codAvailable: true }),
-                    minOrderValue: Number(e.target.value)
-                  }
-                })}
-                className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono font-bold"
-              />
-              <p className="text-[10px] text-slate-500 mt-1">Default minimum order required across marketplace.</p>
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1 flex items-center gap-1.5">
-                <Truck className="w-3.5 h-3.5 text-emerald-600" /> Free Shipping Order Threshold (₹)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={settings.orderThresholds?.freeShippingThreshold ?? settings.freeShippingThreshold ?? 499}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setSettings({
-                    ...settings,
-                    freeShippingThreshold: val,
-                    orderThresholds: {
-                      ...(settings.orderThresholds || { minOrderValue: 199, freeShippingThreshold: 499, codMinValue: 299, codMaxValue: 5000, codAvailable: true }),
-                      freeShippingThreshold: val
-                    }
-                  });
-                }}
-                className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-emerald-700 font-mono font-bold"
-              />
-              <p className="text-[10px] text-slate-500 mt-1">Platform baseline for free customer shipping.</p>
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1 flex items-center gap-1.5">
-                <Percent className="w-3.5 h-3.5 text-amber-600" /> Default Platform Commission (%)
-              </label>
-              <input
-                type="number"
-                value={settings.defaultCommission}
-                onChange={(e) => setSettings({ ...settings, defaultCommission: Number(e.target.value) })}
-                className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-amber-700 font-bold"
-              />
-              <p className="text-[10px] text-slate-500 mt-1">Default marketplace take rate for standard vendors.</p>
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">Universal COD Min Value (₹)</label>
-              <input
-                type="number"
-                min={0}
-                value={settings.orderThresholds?.codMinValue ?? 299}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  orderThresholds: {
-                    ...(settings.orderThresholds || { minOrderValue: 199, freeShippingThreshold: 499, codMinValue: 299, codMaxValue: 5000, codAvailable: true }),
-                    codMinValue: Number(e.target.value)
-                  }
-                })}
-                className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono font-bold"
-              />
-              <p className="text-[10px] text-slate-500 mt-1">Minimum order total for Cash on Delivery.</p>
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">Universal COD Max Cap (₹)</label>
-              <input
-                type="number"
-                min={0}
-                value={settings.orderThresholds?.codMaxValue ?? 5000}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  orderThresholds: {
-                    ...(settings.orderThresholds || { minOrderValue: 199, freeShippingThreshold: 499, codMinValue: 299, codMaxValue: 5000, codAvailable: true }),
-                    codMaxValue: Number(e.target.value)
-                  }
-                })}
-                className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono font-bold"
-              />
-              <p className="text-[10px] text-slate-500 mt-1">Maximum cap to prevent courier RTO losses.</p>
-            </div>
-
-            <div className="flex items-center pt-5">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.orderThresholds?.codAvailable !== false}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    orderThresholds: {
-                      ...(settings.orderThresholds || { minOrderValue: 199, freeShippingThreshold: 499, codMinValue: 299, codMaxValue: 5000, codAvailable: true }),
-                      codAvailable: e.target.checked
-                    }
-                  })}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
-                />
-                <span className="text-xs font-bold text-slate-900">Enable Cash on Delivery (COD) Globally</span>
-              </label>
-            </div>
-          </div>
-        </div>
+        <MarketplaceRulesPanel />
 
         {/* Social Media Links */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">

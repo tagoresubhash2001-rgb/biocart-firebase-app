@@ -254,7 +254,7 @@ export const AuthModal: React.FC = () => {
             </h3>
             <p className="text-sm text-charcoal-500 dark:text-slate-400 text-center mt-1 px-2">
               {authModalMode === 'login' && 'Sign in to manage your sustainable garden items'}
-              {authModalMode === 'register' && 'Join Sindulis Agro Products Premium D2C Experience'}
+              {authModalMode === 'register' && 'Join BioCart — the organic marketplace'}
               {authModalMode === 'forgot' && 'Type email to dispatch instant secure reset credentials'}
               {authModalMode === 'phone' && (phoneStep === 'input' 
                 ? 'Enter your mobile number to receive a 6-digit verification code' 

@@ -1,6 +1,8 @@
 import { useAuth } from '../../contexts/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { AdminService } from '../../services/AdminService';
+import { doc as fsDoc, onSnapshot } from 'firebase/firestore';
+import { db as fsDb } from '../../config/firebase';
 import { StorageService } from '../../services/StorageService';
 import { Product, CategoryItem } from '../../types';
 import { useVendor } from '../../hooks/useVendor';
@@ -26,6 +28,8 @@ import { MultiImageGalleryManager } from '../ui/MultiImageGalleryManager';
 export const VendorProducts: React.FC = () => {
   const { userProfile, firebaseUser } = useAuth();
   const { vendorId, loading: vendorLoading } = useVendor();
+  const [codEnabledByAdmin, setCodEnabledByAdmin] = useState(false);
+  useEffect(() => onSnapshot(fsDoc(fsDb, 'settings', 'financialPolicy'), (snap) => setCodEnabledByAdmin((snap.data() as any)?.codEnabled === true), () => undefined), []);
   const { addToast } = useApp();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -483,7 +487,7 @@ export const VendorProducts: React.FC = () => {
                 
 
                 <div>
-                  <label className="block text-[#777777] mb-1">Selling Price (â‚¹) *</label>
+                  <label className="block text-[#777777] mb-1">Selling Price (₹) *</label>
                   <input
                     type="number"
                     required
@@ -494,7 +498,7 @@ export const VendorProducts: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[#777777] mb-1">MRP (â‚¹) *</label>
+                  <label className="block text-[#777777] mb-1">MRP (₹) *</label>
                   <input
                     type="number"
                     required
@@ -504,6 +508,19 @@ export const VendorProducts: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* Cash on Delivery — only possible when BioCart admin has COD switched on */}
+              <label className={`flex items-center gap-2 text-xs ${codEnabledByAdmin ? 'text-slate-800' : 'text-slate-400'}`}>
+                <input
+                  type="checkbox"
+                  disabled={!codEnabledByAdmin}
+                  checked={codEnabledByAdmin && (editingProduct as any).codAllowed === true}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, codAllowed: e.target.checked } as any)}
+                  className="h-4 w-4"
+                />
+                Allow Cash on Delivery for this product
+                {!codEnabledByAdmin && <span className="italic">(COD is switched off by BioCart admin)</span>}
+              </label>
 
               {/* Multi-Image Gallery Manager */}
               <MultiImageGalleryManager

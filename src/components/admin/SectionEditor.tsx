@@ -51,7 +51,7 @@ export const SectionEditor: React.FC<SectionEditorProps> = ({ section, onChange 
               titleLine2: section.data.titleLine2 || 'Healthy, Organic',
               titleLine3: section.data.titleLine3 || 'Life',
               subtitle: section.data.subtitle || 'Indulge in premium organic living with certified zero-chemical formulations.',
-              badgeText: section.data.badgeText || 'Sindulis Agro Products Presents',
+              badgeText: section.data.badgeText || 'BioCart Presents',
               imageUrl: section.data.imageUrl || 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?auto=format&fit=crop&w=1920&q=80',
               mobileImageUrl: section.data.mobileImageUrl || '',
               primaryButtonText: section.data.primaryButtonText || 'Explore Premium Collection',
