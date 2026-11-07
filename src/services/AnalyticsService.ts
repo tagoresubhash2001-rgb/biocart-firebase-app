@@ -282,63 +282,50 @@ export class AnalyticsService {
     let refundsAndChargebacksPaise = 0;
     let vendorEarningsAccruedPaise = 0;
 
+    // Only money that really happened counts: paid online orders and confirmed COD orders.
+    // Orders still waiting for payment, or whose payment window expired, are not sales.
+    const NOT_SALES = new Set(['awaiting_payment', 'payment_expired', 'pending_payment']);
+    let unpaidOrdersCount = 0;
     for (const order of inRangeOrders) {
+      const orderStatus = String(order.orderStatus || order.status || 'pending').toLowerCase();
+      const paymentStatus = String(order.paymentStatus || 'pending').toLowerCase();
+      const isSale = order.financialsAllocated === true || (!NOT_SALES.has(orderStatus) && ['paid', 'partially_refunded', 'refunded', 'cod_pending', 'cod_collected'].includes(paymentStatus));
+      if (!isSale) { unpaidOrdersCount++; continue; }
+
       const orderTotal = Number(order.totalAmountPaise ?? Math.round((order.totalAmount ?? order.total ?? 0) * 100));
       gmvPaise += orderTotal;
 
-      const orderStatus = order.orderStatus || order.status || 'pending';
-      if (orderStatus === 'completed' || orderStatus === 'delivered') {
-        completedOrdersCount++;
-      } else if (orderStatus === 'cancelled') {
-        cancelledOrdersCount++;
-      } else if (orderStatus === 'refunded' || orderStatus === 'partially_refunded') {
-        refundedOrdersCount++;
-      } else {
-        pendingOrdersCount++;
-      }
+      if (orderStatus === 'completed' || orderStatus === 'delivered') completedOrdersCount++;
+      else if (orderStatus === 'cancelled') cancelledOrdersCount++;
+      else if (orderStatus === 'refunded' || paymentStatus === 'partially_refunded' || paymentStatus === 'refunded') refundedOrdersCount++;
+      else pendingOrdersCount++;
 
-      // Payment collections
-      const paymentMethod = (order.paymentMethod || 'razorpay').toLowerCase();
-      const paymentStatus = (order.paymentStatus || 'pending').toLowerCase();
-
+      const paymentMethod = String(order.paymentMethod || 'cashfree').toLowerCase();
       if (paymentMethod === 'cod') {
-        if (paymentStatus === 'paid' || orderStatus === 'delivered' || orderStatus === 'completed') {
-          codCollectedConfirmedPaise += orderTotal;
-        } else {
-          codAwaitingCollectionPaise += orderTotal;
-        }
+        if (paymentStatus === 'cod_collected' || order.codRemitted === true) codCollectedConfirmedPaise += orderTotal;
+        else codAwaitingCollectionPaise += orderTotal;
       } else {
-        if (paymentStatus === 'paid' || paymentStatus === 'completed' || paymentStatus === 'captured') {
-          prepaidCollectionsPaise += orderTotal;
-        }
+        prepaidCollectionsPaise += orderTotal;
       }
 
-      // Product sales & discounts
-      const subtotal = Number(order.subtotalPaise ?? Math.round((order.subtotal || 0) * 100));
-      grossProductSalesPaise += subtotal;
-
-      const discount = Number(order.discountPaise ?? Math.round((order.discountAmount ?? order.discount ?? 0) * 100));
+      grossProductSalesPaise += Number(order.subtotalPaise ?? Math.round((order.subtotal || 0) * 100));
+      const discount = Number(order.discountAmountPaise ?? order.discountPaise ?? Math.round((order.discountAmount ?? 0) * 100));
       totalDiscountsPaise += discount;
+      const fs = order.financialSummary || {};
+      const pFunded = Number(fs.platformCouponSubsidyPaise || 0);
+      platformFundedDiscountsPaise += pFunded;
+      vendorFundedDiscountsPaise += Math.max(0, discount - pFunded);
 
-      const vFunded = Number(order.vendorFundedDiscountTotalPaise || 0);
-      const pFunded = Number(order.platformFundedDiscountTotalPaise || 0);
-      vendorFundedDiscountsPaise += vFunded;
-      platformFundedDiscountsPaise += (pFunded || (discount - vFunded));
+      shippingCollectedPaise += Number(order.shippingAmountPaise ?? Math.round((order.shippingAmount ?? 0) * 100));
+      taxCollectedPaise += 0; // BioCart is not GST-registered: no GST is collected on top of the price
 
-      shippingCollectedPaise += Number(order.shippingPaise ?? Math.round((order.shippingCharges ?? order.shippingFee ?? 0) * 100));
-      taxCollectedPaise += Number(order.taxPaise ?? Math.round((order.taxAmount ?? 0) * 100));
-
-      // Commercial deductions
-      gatewayProcessingFeesPaise += Number(order.totalGatewayFeePaise || 0);
-      gatewayFeeGstPaise += Number(order.totalGatewayFeeGstPaise || 0);
-      platformCommissionRevenuePaise += Number(order.totalPlatformCommissionPaise || 0);
-      commissionGstPaise += Number(order.totalCommissionGstPaise || 0);
-      vendorEarningsAccruedPaise += Number(order.totalVendorPayablePaise || 0);
-
-      if (orderStatus === 'cancelled' || orderStatus === 'refunded' || paymentStatus === 'refunded') {
-        refundsAndChargebacksPaise += orderTotal;
-      }
+      // Actual Cashfree fee is known only after Cashfree's daily settlement report (reconcileGatewayFees)
+      gatewayProcessingFeesPaise += Number(fs.gatewayFeePaise || 0);
+      platformCommissionRevenuePaise += Number(fs.totalPlatformCommissionPaise ?? order.totalPlatformCommissionPaise ?? 0);
+      vendorEarningsAccruedPaise += Number(fs.totalVendorPayablePaise ?? order.totalVendorPayablePaise ?? 0);
+      refundsAndChargebacksPaise += Number(order.refundedAmountPaise || 0);
     }
+    totalOrdersCount = inRangeOrders.length - unpaidOrdersCount;
 
     // Wallets & Liabilities (current live snapshot across all active vendors)
     let vendorWalletLiabilitiesPaise = 0;

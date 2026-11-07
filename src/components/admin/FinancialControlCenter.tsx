@@ -104,20 +104,20 @@ export const FinancialControlCenter: React.FC<FinancialControlCenterProps> = ({
     // 8. Applicable taxes
     {
       num: 8,
-      name: 'Applicable GST Collected',
+      name: 'GST Collected',
       value: formatRupees(summary.taxCollectedPaise),
       category: 'cost',
-      definition: 'Statutory GST collected on applicable organic agricultural supplies, held for tax remittance.',
-      status: 'Tax Liability'
+      definition: 'BioCart is not GST-registered, so no GST is added to customer bills (prices are final).',
+      status: 'Not registered'
     },
     // 9. Gateway processing fees
     {
       num: 9,
-      name: 'Payment Gateway Fees (2% + GST)',
+      name: 'Cashfree Fees (actual)',
       value: formatRupees(summary.gatewayProcessingFeesPaise + summary.gatewayFeeGstPaise),
       category: 'cost',
-      definition: 'Merchant discount rate (MDR) processing fees and 18% GST charged by gateway providers.',
-      status: 'Direct Gateway Cost'
+      definition: "Actual fee Cashfree deducted (incl. GST), taken from Cashfree's daily settlement report the day after payment. Paid from BioCart's commission — never from the vendor's share.",
+      status: 'From Cashfree report'
     },
     // 10. Platform commission
     {

@@ -607,6 +607,7 @@ export async function initiateRefund(req: RefundRequest): Promise<{ refundId: st
 
     const fullyClosed = remainingAfter.length === 0;
     const orderUpdate: Record<string, any> = { updatedAt: ts, refundIds: FieldValue.arrayUnion(refundId) };
+    if (onlinePaid && amountPaise > 0) orderUpdate.refundedAmountPaise = FieldValue.increment(amountPaise);
     if (includeShipping) orderUpdate.shippingRefunded = true;
     if (onlinePaid) orderUpdate.paymentStatus = fullyClosed ? 'refunded' : 'partially_refunded';
     if (fullyClosed) {

@@ -380,7 +380,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               <span className="font-semibold text-slate-700">-{formatRupees(financialSummary.platformFundedDiscountsPaise)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-600">Gateway Fees (2%+GST):</span>
+              <span className="text-slate-600">Cashfree fees (actual):</span>
               <span className="font-semibold text-slate-700">-{formatRupees(financialSummary.gatewayProcessingFeesPaise + financialSummary.gatewayFeeGstPaise)}</span>
             </div>
           </div>

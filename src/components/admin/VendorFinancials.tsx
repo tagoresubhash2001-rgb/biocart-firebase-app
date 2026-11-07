@@ -149,7 +149,7 @@ export const VendorFinancials: React.FC<VendorFinancialsProps> = ({
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
                         ₹{earningsRupees.toLocaleString('en-IN')}
                         <div className="text-[10px] font-normal text-slate-400 font-sans">
-                          Fee: ₹{(vendor.allocatedGatewayFeePaise / 100).toFixed(0)} • Comm: ₹{(vendor.platformCommissionPaise / 100).toFixed(0)}
+                          BioCart commission: ₹{(vendor.platformCommissionPaise / 100).toFixed(2)}
                         </div>
                       </td>
 

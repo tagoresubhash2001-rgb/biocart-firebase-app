@@ -639,7 +639,8 @@ export const VendorOrders: React.FC = () => {
                       <td className="p-3 font-mono">
                         <div className="font-bold text-emerald-700">₹{o.vendorPayable?.toFixed(2)}</div>
                         <div className="text-[10px] text-slate-400">Gross: ₹{o.subtotal?.toFixed(2)}</div>
-                        <div className="text-[10px] text-rose-500">Fee: -₹{o.commissionAmount?.toFixed(2)}</div>
+                        <div className="text-[10px] text-rose-500">BioCart commission{o.commissionPercent != null ? ` (${o.commissionPercent}%)` : ''}: -₹{Number(o.commissionAmount || 0).toFixed(2)}</div>
+                        <div className="text-[10px] text-slate-500">{(o as any).earnings?.state === 'eligible' ? 'In next Tuesday payout' : (o as any).earnings?.state === 'in_settlement' ? 'In settlement — being paid' : (o as any).earnings?.state === 'settled' ? 'Paid to your bank' : (o as any).earnings?.state === 'reversed' ? 'Refunded — not payable' : 'Payable after delivery'}</div>
                       </td>
 
                       {/* Workflow State Selector */}

@@ -338,7 +338,7 @@ export const VendorIndividualDashboardModal: React.FC<VendorIndividualDashboardM
                           <span className="font-semibold text-emerald-700">{formatRupees(summary.platformFundedDiscountPaise)}</span>
                         </div>
                         <div className="flex justify-between py-1 border-b border-slate-100">
-                          <span className="text-slate-500">Allocated Payment Gateway Fee (2%+GST):</span>
+                          <span className="text-slate-500">Cashfree fee (paid by BioCart):</span>
                           <span className="font-semibold text-slate-800">{formatRupees(summary.allocatedGatewayFeePaise)}</span>
                         </div>
                         <div className="flex justify-between pt-1 font-bold text-slate-900">
