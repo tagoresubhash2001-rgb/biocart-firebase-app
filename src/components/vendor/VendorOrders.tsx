@@ -247,7 +247,7 @@ export const VendorOrders: React.FC = () => {
         vendorId: order.vendorId || vendorId || '',
         newStatus: nextStatus
       });
-      addToast(`${({ accepted: '✅ Accepted', processing: '⚙️ Processing started', packed: '📦 Packed — now book EKART', rejected: '🚫 Rejected', cancelled: '❌ Cancelled' } as Record<string, string>)[nextStatus] || nextStatus}: ${order.orderNumber}`, 'success');
+      addToast(`${({ accepted: currentStatus === 'processing' ? '⬅️ Back to ✅ Accepted' : '✅ Accepted', processing: currentStatus === 'packed' ? '⬅️ Back to ⚙️ Processing' : '⚙️ Processing started', packed: '📦 Packed — now book EKART', rejected: '🚫 Rejected', cancelled: '❌ Cancelled' } as Record<string, string>)[nextStatus] || nextStatus}: ${order.orderNumber}`, 'success');
     } catch (err: any) {
       console.error('Failed to update status:', err);
       addToast(err?.message || 'Failed to update order status', 'error');
@@ -683,25 +683,60 @@ export const VendorOrders: React.FC = () => {
                           </div>
                         )}
 
-                        {currentStatus === 'accepted' && (
-                          <div className="pt-1">
-                            <button
-                              onClick={() => handleTransitionStatus(o, 'processing')}
-                              className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold cursor-pointer"
-                            >
-                              ⚙️ Start Processing
-                            </button>
+                        {/* Step tracker: ✅ → ⚙️ → 📦 → 🚚 → 🏠 */}
+                        {['accepted', 'processing', 'packed', 'shipped', 'delivered'].includes(currentStatus) && (
+                          <div className="flex items-center gap-0.5 text-[13px] pt-0.5" title="Accepted → Processing → Packed → Shipped → Delivered">
+                            {[['accepted', '✅'], ['processing', '⚙️'], ['packed', '📦'], ['shipped', '🚚'], ['delivered', '🏠']].map(([k, e], i, arr) => {
+                              const reached = arr.findIndex(([kk]) => kk === currentStatus) >= i;
+                              return (
+                                <React.Fragment key={k}>
+                                  <span className={reached ? '' : 'opacity-25 grayscale'}>{e}</span>
+                                  {i < arr.length - 1 && <span className={`text-[9px] ${reached ? 'text-emerald-600' : 'text-slate-300'}`}>›</span>}
+                                </React.Fragment>
+                              );
+                            })}
                           </div>
                         )}
 
-                        {currentStatus === 'processing' && (
-                          <div className="pt-1">
-                            <button
-                              onClick={() => handleTransitionStatus(o, 'packed')}
-                              className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold cursor-pointer"
-                            >
-                              📦 Mark Packed
-                            </button>
+                        {['accepted', 'processing', 'packed'].includes(currentStatus) && !awb && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            {currentStatus === 'processing' && (
+                              <button
+                                onClick={() => handleTransitionStatus(o, 'accepted')}
+                                className="px-2 py-0.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-[10px] font-bold cursor-pointer"
+                                title="Move back one step"
+                              >
+                                ⬅️ ✅ Accepted
+                              </button>
+                            )}
+                            {currentStatus === 'packed' && (
+                              <button
+                                onClick={() => handleTransitionStatus(o, 'processing')}
+                                className="px-2 py-0.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-[10px] font-bold cursor-pointer"
+                                title="Move back one step"
+                              >
+                                ⬅️ ⚙️ Processing
+                              </button>
+                            )}
+                            {currentStatus === 'accepted' && (
+                              <button
+                                onClick={() => handleTransitionStatus(o, 'processing')}
+                                className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                              >
+                                ⚙️ Processing ➡️
+                              </button>
+                            )}
+                            {currentStatus === 'processing' && (
+                              <button
+                                onClick={() => handleTransitionStatus(o, 'packed')}
+                                className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                              >
+                                📦 Packed ➡️
+                              </button>
+                            )}
+                            {currentStatus === 'packed' && (
+                              <span className="text-[10px] text-slate-500">Next: 🚚 Dispatch EKART</span>
+                            )}
                           </div>
                         )}
 

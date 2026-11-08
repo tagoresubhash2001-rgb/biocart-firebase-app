@@ -172,6 +172,11 @@ service cloud.firestore {
         incoming().approvalStatus == 'pending'
       );
       allow update: if isAdmin() || (
+        // Seller shows / hides / archives their own product (no other field may change)
+        isVendorOwner(existing().vendorId) &&
+        incoming().active is bool &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['active', 'updatedAt', 'archivedAt'])
+      ) || (
         isVendorOwner(existing().vendorId) &&
         // Immutability: deny changes to vendorId, approvalStatus (must remain pending or transition to pending), active, commissionRateBps
         incoming().vendorId == existing().vendorId &&

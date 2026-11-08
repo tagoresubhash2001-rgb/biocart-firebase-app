@@ -206,7 +206,7 @@ export const VendorProducts: React.FC = () => {
   const handleArchiveProduct = async (id: string) => {
     try {
       // Soft-delete / Archive (active: false, archivedAt)
-      await AdminService.saveProduct({ id, active: false, archivedAt: new Date().toISOString() } as any, actor);
+      await AdminService.setProductVisibility(id, false, true);
       addToast('Product archived successfully', 'info');
       setDeleteConfirmId(null);
     } catch (err: any) {
@@ -214,13 +214,15 @@ export const VendorProducts: React.FC = () => {
     }
   };
 
-  const handleToggleFlag = async (product: Product, flag: keyof Product) => {
+  // Sellers can show/hide their own product without sending it back for review.
+  // Featured / BestSeller placements are decided by BioCart admin.
+  const handleToggleVisibility = async (product: Product) => {
+    const show = product.active === false;
     try {
-      const updated = { ...product, [flag]: !product[flag] };
-      await AdminService.saveProduct(updated, actor);
-      addToast(`Updated ${product.name}`, 'success');
+      await AdminService.setProductVisibility(product.id, show);
+      addToast(`${show ? '👁️ Shown in shop' : '🙈 Hidden from shop'}: ${product.name}`, 'success');
     } catch (err) {
-      addToast('Failed to update product flag', 'warning');
+      addToast('Could not change visibility. Please try again.', 'warning');
     }
   };
 
@@ -387,29 +389,15 @@ export const VendorProducts: React.FC = () => {
                     </td>
                     <td className="p-3">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleToggleFlag(p, 'isFeatured')}
-                          title="Toggle Featured"
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors ${
-                            p.isFeatured ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40' : 'bg-slate-800 text-[#777777]'
-                          }`}
-                        >
-                          Featured
-                        </button>
-                        <button
-                          onClick={() => handleToggleFlag(p, 'isBestSeller')}
-                          title="Toggle Best Seller"
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors ${
-                            p.isBestSeller ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' : 'bg-slate-800 text-[#777777]'
-                          }`}
-                        >
-                          BestSeller
-                        </button>
+                        {p.isFeatured && <span title="Placement set by BioCart admin" className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-500/20 text-blue-600 border border-blue-500/40">⭐ Featured</span>}
+                        {p.isBestSeller && <span title="Placement set by BioCart admin" className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-700 border border-amber-500/40">🔥 BestSeller</span>}
+                        {!p.isFeatured && !p.isBestSeller && <span className="text-[10px] text-slate-400">—</span>}
                       </div>
                     </td>
                     <td className="p-3 text-center">
                       <button
-                        onClick={() => handleToggleFlag(p, 'active')}
+                        onClick={() => handleToggleVisibility(p)}
+                        title={p.active !== false ? 'Shown in the shop — click to hide' : 'Hidden from the shop — click to show'}
                         className={`p-1.5 rounded-lg transition-colors ${
                           p.active !== false ? 'text-emerald-400 hover:bg-emerald-950/40' : 'text-slate-600 hover:bg-slate-800'
                         }`}

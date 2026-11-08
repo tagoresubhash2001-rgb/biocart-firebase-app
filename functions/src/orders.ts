@@ -750,8 +750,8 @@ export const updateOrderStatus = onCall({ region: REGION, secrets: [...CASHFREE_
 const VENDOR_TRANSITIONS: Record<string, string[]> = {
   new: ['accepted', 'rejected'],
   accepted: ['processing', 'rejected'],
-  processing: ['packed'],
-  packed: [],          // → shipped only through createEkartShipment
+  processing: ['packed', 'accepted'],   // one step back allowed
+  packed: ['processing'],               // one step back allowed until EKART is booked; → shipped only through createEkartShipment
   shipped: [],         // → delivered only through verified EKART events
 };
 
@@ -774,6 +774,7 @@ export const updateVendorOrderStatus = onCall({ region: REGION, secrets: [...CAS
   }
   if (next === 'delivered') throw new HttpsError('failed-precondition', 'Delivery is confirmed only by EKART tracking.');
   if (!(VENDOR_TRANSITIONS[cur] || []).includes(next)) throw new HttpsError('failed-precondition', `An order in "${cur}" cannot move to "${next}".`);
+  if (so.awbNumber) throw new HttpsError('failed-precondition', 'EKART is already booked for this order, so its status can no longer be changed here.');
 
   if (next === 'rejected') {
     const reason = String(request.data?.rejectionReason || '').trim().slice(0, 200);

@@ -129,7 +129,6 @@ export const VendorDashboardHome: React.FC = () => {
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
           <p className="text-slate-500 text-sm">Total sales / BioCart commission</p>
           <h3 className="text-xl font-bold text-slate-900">{rs(wallet.lifetimeGross)} <span className="text-sm font-medium text-rose-600">− {rs(commissionPaid)}</span></h3>
-          <p className="text-[11px] text-slate-500">EKART courier charges so far: {rs(wallet.lifetimeCourierCharges)}</p>
         </div>
       </div>
 

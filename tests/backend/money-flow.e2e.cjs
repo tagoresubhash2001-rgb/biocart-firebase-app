@@ -196,6 +196,13 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   const fakeDeliver = await call('updateVendorOrderStatus', VAMSI, { orderId: oid, vendorId: vamsi, newStatus: 'delivered' });
   check('BC-VEN-070/069', 'Lifecycle enforced: no skipping, vendor cannot mark delivered', !skip.ok && !fakeDeliver.ok, `skip: ${skip.err} | delivered: ${fakeDeliver.err}`);
   for (const st of ['accepted', 'processing', 'packed']) await call('updateVendorOrderStatus', VAMSI, { orderId: oid, vendorId: vamsi, newStatus: st });
+  const back1 = await call('updateVendorOrderStatus', VAMSI, { orderId: oid, vendorId: vamsi, newStatus: 'processing' });
+  const midState = get(`orders/${oid}/vendor_orders/${vamsi}`).status;
+  const fwd1 = await call('updateVendorOrderStatus', VAMSI, { orderId: oid, vendorId: vamsi, newStatus: 'packed' });
+  const jumpBack = await call('updateVendorOrderStatus', VAMSI, { orderId: oid, vendorId: vamsi, newStatus: 'accepted' });
+  check('FIX-STEPBACK', 'Seller can move one step back (Packed → Processing) and forward again, but not jump back two steps',
+    back1.ok && midState === 'processing' && fwd1.ok && !jumpBack.ok && get(`orders/${oid}/vendor_orders/${vamsi}`).status === 'packed',
+    `back=${back1.ok}/${midState} fwd=${fwd1.ok} jump=${jumpBack.err}`);
   const noAlias = await call('createEkartShipment', VAMSI, { orderNumber: oid, vendorId: vamsi, weightGrams: 1000, lengthCm: 20, widthCm: 15, heightCm: 10 });
   store.set(`vendors/${vamsi}`, { ...get(`vendors/${vamsi}`), addresses: { pickupAddress: { line1: 'Farm Road 1', city: 'Tenali', state: 'AP', pincode: '522201' } } });
   const reg = await call('registerEkartPickupAddress', ADMIN, { vendorId: vamsi });

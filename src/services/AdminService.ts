@@ -528,6 +528,15 @@ export class AdminService {
     await this.logAuditAction(activeActor.id, activeActor.email, `Product ${status}: ${productId}`, 'product', productId);
   }
 
+  /** Show / hide (or archive) a product. Only these fields change, so it never re-triggers review. */
+  static async setProductVisibility(productId: string, active: boolean, archive = false): Promise<void> {
+    await updateDoc(doc(db, 'products', productId), {
+      active,
+      updatedAt: new Date().toISOString(),
+      ...(archive ? { archivedAt: new Date().toISOString() } : {}),
+    });
+  }
+
   static async saveProduct(product: Partial<Product>, actor?: { id: string; email: string }): Promise<string> {
     const activeActor = this.resolveActor(actor);
     const isNew = !product.id;
