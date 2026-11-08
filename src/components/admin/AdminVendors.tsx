@@ -140,7 +140,17 @@ export const AdminVendors: React.FC = () => {
 
   const handleRegisterEkart = async (v: any) => {
     try {
-      const res: any = await registerEkartPickupCF({ vendorId: v.id });
+      // EKART needs a 10-digit pickup phone. Use the vendor's saved phone, or ask for it once.
+      const saved = String(v.phone || v.addresses?.pickupAddress?.contactPhone || v.addresses?.pickupAddress?.phone || '').replace(/\D/g, '').slice(-10);
+      let phone = saved;
+      if (phone.length !== 10) {
+        const input = window.prompt(`📞 Pickup phone for ${v.storeName || v.businessName} (10 digits). EKART calls this number for pickup:`, '');
+        if (input === null) return;
+        phone = input.replace(/\D/g, '').slice(-10);
+        if (phone.length !== 10) { addToast('Enter a valid 10-digit mobile number.', 'warning'); return; }
+      }
+      addToast('Registering pickup address with EKART…', 'info');
+      const res: any = await registerEkartPickupCF({ vendorId: v.id, phone });
       addToast(`EKART pickup registered as "${res.data?.alias}"`, 'success');
     } catch (err: any) {
       addToast(err?.message || 'EKART registration failed — check the vendor pickup address (line 1, PIN code, phone).', 'error');
