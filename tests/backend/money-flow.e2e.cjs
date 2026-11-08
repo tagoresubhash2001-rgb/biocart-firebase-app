@@ -53,7 +53,7 @@ global.fetch = async (url, opts = {}) => {
     if (u.pathname.startsWith('/integrations/v2/auth/token/')) return json(200, { access_token: 'tok', token_type: 'Bearer', expires_in: 86400, scope: 'core:all' });
     if (u.pathname.startsWith('/api/v2/serviceability/')) {
       const pin = u.pathname.split('/').pop();
-      return json(200, { status: pin !== '999999', pincode: Number(pin), remark: '', details: { cod: true, max_cod_amount: 25000, forward_pickup: true, forward_drop: pin !== '999999', city: 'Guntur', state: 'AP' } });
+      return json(200, { status: pin !== '999999', pincode: Number(pin), remark: '', details: { cod: true, max_cod_amount: 25000, forward_pickup: pin !== '522006', forward_drop: pin !== '999999', city: 'Guntur', state: 'AP' } });
     }
     if (u.pathname === '/api/v2/addresses') return json(200, ek.savedAddresses || []);
     if (u.pathname === '/api/v2/address') return json(200, { status: true, alias: body.alias, remark: 'ok' });
@@ -222,6 +222,10 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   check('FIX-PICKUP-LINK', 'Pickup address already saved in the EKART panel (same PIN) is linked, not added again',
     link.ok && link.data?.alias === 'RAVI_PANEL' && link.data?.linkedExisting === true && get(`vendors/${ravi}`).ekartPickupAlias === 'RAVI_PANEL' && addsAfter === addsBefore,
     `alias=${link.data?.alias} linked=${link.data?.linkedExisting} err=${link.err || ''}`);
+  store.set('vendors/v_embargo', { storeName: 'Embargo Farm', status: 'active', phone: '9876543210', addresses: { pickupAddress: { addressLine1: 'Pattabhipuram', city: 'Guntur', state: 'AP', pinCode: '522006' } } });
+  const emb = await call('registerEkartPickupAddress', ADMIN, { vendorId: 'v_embargo' });
+  check('FIX-PICKUP-EMBARGO', 'Pickup PIN where EKART has paused pickups gives a clear reason (no silent failure, no address added)',
+    !emb.ok && /does not collect parcels from PIN 522006/.test(emb.err || '') && !get('vendors/v_embargo').ekartPickupAlias, emb.err);
   check('BC-SHP-005', 'EKART payload uses order address + prepaid + COD 0', sentPayload.drop_location?.pin === 522001 && sentPayload.payment_mode === 'Prepaid' && sentPayload.cod_amount === 0 && sentPayload.pickup_location?.name === get(`vendors/${vamsi}`).ekartPickupAlias, JSON.stringify({ drop: sentPayload.drop_location, mode: sentPayload.payment_mode, pickup: sentPayload.pickup_location }));
   const vso = vendorOrder(oid, vamsi);
   check('FIX-WEIGHT', 'EKART weight comes from the ordered size: honey 1kg × 1 → 1000 g sent to EKART even if the seller typed 300 g; item shows the size',

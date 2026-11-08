@@ -91,7 +91,7 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
   let alias = vendor.ekartPickupAlias as string | undefined;
   if (!alias) alias = (await findSavedEkartAlias(vendor).catch(() => null)) || undefined;
   if (alias && !vendor.ekartPickupAlias) await vendorSnap.ref.update({ ekartPickupAlias: alias, ekartPickupRegisteredAt: nowIso(), ekartPickupSource: 'ekart_panel' });
-  if (!alias) throw new HttpsError('failed-precondition', 'No EKART pickup address found for your PIN code. Add your pickup address in the EKART panel (Settings → Addresses) or ask BioCart admin to register it (Vendors → Register EKART pickup).');
+  if (!alias) throw new HttpsError('failed-precondition', await pickupProblem(vendor));
 
   // Parcel weight comes from the order itself (ordered size × quantity, e.g. 2 × 1kg = 2000 g).
   // The seller may add packing weight, but can never declare less than the products weigh.
@@ -316,6 +316,17 @@ function vendorPickupPin(v: any): string {
   return cleanPincode(a.pinCode || a.pincode || a.zip || v?.pickupPincode) || '';
 }
 
+/** Clear reason why no EKART pickup can be used for this vendor (embargo / no saved address). */
+async function pickupProblem(v: any): Promise<string> {
+  const pin = vendorPickupPin(v);
+  if (!pin) return 'Your pickup address has no PIN code. Update it in Settings → Shipping, then try again.';
+  const sv = await checkServiceability(pin).catch(() => null);
+  if (sv && !sv.pickup) return `EKART does not collect parcels from PIN ${pin} right now (pickup paused by EKART for this area). Ask your EKART account manager to enable pickup for ${pin}, or use a pickup address in a PIN where EKART pickup is open.`;
+  const saved = await listAddresses().catch(() => [] as any[]);
+  const pins = Array.from(new Set(saved.map((x: any) => String(x?.pincode ?? x?.pin ?? '')).filter(Boolean))).slice(0, 6);
+  return `No EKART pickup address saved for PIN ${pin}.` + (pins.length ? ` Addresses saved in EKART are for PIN ${pins.join(', ')}.` : ' No pickup addresses are saved in EKART yet.') + ' Add your pickup address in the EKART panel (Settings → Addresses) or ask BioCart admin (Vendors → Register EKART pickup).';
+}
+
 /** Alias of an address already saved in the EKART panel with the vendor's PIN code (null if none). */
 async function findSavedEkartAlias(v: any): Promise<string | null> {
   const pin = vendorPickupPin(v);
@@ -347,6 +358,10 @@ export const registerEkartPickupAddress = onCall({ region: REGION, secrets: EKAR
       await audit(caller.uid, 'ekart_pickup_linked', 'vendor', vendorId, { alias: existingAlias });
       return { success: true, alias: existingAlias, linkedExisting: true };
     }
+  }
+  {
+    const sv = await checkServiceability(cleanPincode((request.data?.address || v.addresses?.pickupAddress || {}).pinCode || (request.data?.address || v.addresses?.pickupAddress || {}).pincode || v.pickupPincode) || '').catch(() => null);
+    if (sv && !sv.pickup) throw new HttpsError('failed-precondition', await pickupProblem(v));
   }
   const alias = String(request.data?.alias || `BC_${(v.storeName || vendorId).replace(/[^A-Za-z0-9]/g, '').slice(0, 20)}_${vendorId.slice(0, 6)}`);
   try {

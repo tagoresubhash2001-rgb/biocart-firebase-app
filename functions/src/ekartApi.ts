@@ -62,13 +62,14 @@ async function ekartFetch(method: string, path: string, body?: any, opts: { auth
   return data;
 }
 
-export interface Serviceability { serviceable: boolean; cod: boolean; maxCodAmount: number; city?: string; state?: string; remark?: string }
+export interface Serviceability { serviceable: boolean; pickup: boolean; cod: boolean; maxCodAmount: number; city?: string; state?: string; remark?: string }
 
 export async function checkServiceability(pincode: string): Promise<Serviceability> {
   const data = await ekartFetch('GET', `/api/v2/serviceability/${encodeURIComponent(pincode)}`);
   const d = data?.details || {};
   return {
     serviceable: data?.status === true && d.forward_drop !== false,
+    pickup: d.forward_pickup === true,   // EKART can collect parcels from this PIN (first mile)
     cod: d.cod === true,
     maxCodAmount: Number(d.max_cod_amount) || 0,
     city: d.city, state: d.state, remark: data?.remark,
