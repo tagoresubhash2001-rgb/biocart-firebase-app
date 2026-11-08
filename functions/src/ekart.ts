@@ -12,6 +12,7 @@ import { db, FieldValue, REGION, EKART_SECRETS, getCaller, isAdminCaller, requir
 import {
   checkServiceability, createShipment, cancelShipment, downloadLabelPdf, trackShipment, addAddress, addWebhook, listWebhooks,
   verifyEkartHmac, ekartWebhookSecret, normaliseEkartStatus, EkartApiError, estimateCourierCharge,
+  listAddresses,
 } from './ekartApi';
 import { bookCourierCharge, EarningsState } from './ledger';
 
@@ -85,8 +86,12 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
 
   const vendorSnap = await db().collection('vendors').doc(vendorId).get();
   const vendor = vendorSnap.data() || {};
-  const alias = vendor.ekartPickupAlias;
-  if (!alias) throw new HttpsError('failed-precondition', 'Your pickup address is not registered with EKART yet. Ask BioCart admin to register it (Vendors → Register EKART pickup).');
+  // Use the vendor's linked EKART pickup address; if none is linked yet, pick the matching address
+  // that is already saved in the EKART panel (same PIN code) and remember it.
+  let alias = vendor.ekartPickupAlias as string | undefined;
+  if (!alias) alias = (await findSavedEkartAlias(vendor).catch(() => null)) || undefined;
+  if (alias && !vendor.ekartPickupAlias) await vendorSnap.ref.update({ ekartPickupAlias: alias, ekartPickupRegisteredAt: nowIso(), ekartPickupSource: 'ekart_panel' });
+  if (!alias) throw new HttpsError('failed-precondition', 'No EKART pickup address found for your PIN code. Add your pickup address in the EKART panel (Settings → Addresses) or ask BioCart admin to register it (Vendors → Register EKART pickup).');
 
   // Parcel weight comes from the order itself (ordered size × quantity, e.g. 2 × 1kg = 2000 g).
   // The seller may add packing weight, but can never declare less than the products weigh.
@@ -305,6 +310,24 @@ export const pollEkartShipments = onSchedule({ schedule: 'every 3 hours', region
   }
 });
 
+/** Vendor pickup PIN code (pickup address first, then registered address). */
+function vendorPickupPin(v: any): string {
+  const a = v?.addresses?.pickupAddress || v?.addresses?.registeredAddress || {};
+  return cleanPincode(a.pinCode || a.pincode || a.zip || v?.pickupPincode) || '';
+}
+
+/** Alias of an address already saved in the EKART panel with the vendor's PIN code (null if none). */
+async function findSavedEkartAlias(v: any): Promise<string | null> {
+  const pin = vendorPickupPin(v);
+  if (!pin) return null;
+  const list = await listAddresses();
+  const same = list.filter((x: any) => String(x?.pincode ?? x?.pin ?? x?.pinCode ?? '') === pin && (x?.alias || x?.name));
+  if (!same.length) return null;
+  const line = String(v?.addresses?.pickupAddress?.addressLine1 || '').toLowerCase().slice(0, 12);
+  const best = (line && same.find((x: any) => String(x.address_line1 || '').toLowerCase().includes(line))) || same[0];
+  return String(best.alias || best.name);
+}
+
 export const registerEkartPickupAddress = onCall({ region: REGION, secrets: EKART_SECRETS }, async (request) => {
   const caller = await requireAdmin(request.auth);
   const vendorId = String(request.data?.vendorId || '');
@@ -316,6 +339,15 @@ export const registerEkartPickupAddress = onCall({ region: REGION, secrets: EKAR
   const pin = cleanPincode(a.pinCode || a.pincode || a.zip || v.pickupPincode);
   const line1 = String(a.addressLine1 || a.line1 || a.address || a.street || v.pickupAddressLine1 || '').trim();
   if (!phone || !pin || !line1) throw new HttpsError('invalid-argument', 'Vendor pickup address needs address line, 6-digit PIN code and 10-digit phone.');
+  // Already saved in the EKART panel? Link it instead of adding a duplicate.
+  if (!request.data?.alias && !request.data?.forceNew) {
+    const existingAlias = await findSavedEkartAlias(v).catch(() => null);
+    if (existingAlias) {
+      await vRef.update({ ekartPickupAlias: existingAlias, ekartPickupRegisteredAt: nowIso(), ekartPickupSource: 'ekart_panel' });
+      await audit(caller.uid, 'ekart_pickup_linked', 'vendor', vendorId, { alias: existingAlias });
+      return { success: true, alias: existingAlias, linkedExisting: true };
+    }
+  }
   const alias = String(request.data?.alias || `BC_${(v.storeName || vendorId).replace(/[^A-Za-z0-9]/g, '').slice(0, 20)}_${vendorId.slice(0, 6)}`);
   try {
     const r = await addAddress({ alias, phone: Number(phone), address_line1: line1, address_line2: a.addressLine2 || a.line2 || undefined, pincode: Number(pin), city: a.city, state: a.state, country: 'India' });

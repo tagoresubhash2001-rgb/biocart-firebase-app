@@ -139,21 +139,28 @@ export const AdminVendors: React.FC = () => {
   };
 
   const handleRegisterEkart = async (v: any) => {
+    // 1st try: link the address already saved in the EKART panel (same PIN code) — no phone needed.
+    // If EKART has no such address, a new one is added; that needs a 10-digit pickup phone.
+    const saved = String(v.phone || v.addresses?.pickupAddress?.contactPhone || v.addresses?.pickupAddress?.phone || '').replace(/\D/g, '').slice(-10);
+    const attempt = async (phone?: string) => {
+      const res: any = await registerEkartPickupCF({ vendorId: v.id, ...(phone ? { phone } : {}) });
+      addToast(res.data?.linkedExisting
+        ? `✅ Linked to the EKART pickup address "${res.data?.alias}" already saved in your EKART panel`
+        : `✅ EKART pickup registered as "${res.data?.alias}"`, 'success');
+    };
     try {
-      // EKART needs a 10-digit pickup phone. Use the vendor's saved phone, or ask for it once.
-      const saved = String(v.phone || v.addresses?.pickupAddress?.contactPhone || v.addresses?.pickupAddress?.phone || '').replace(/\D/g, '').slice(-10);
-      let phone = saved;
-      if (phone.length !== 10) {
-        const input = window.prompt(`📞 Pickup phone for ${v.storeName || v.businessName} (10 digits). EKART calls this number for pickup:`, '');
-        if (input === null) return;
-        phone = input.replace(/\D/g, '').slice(-10);
-        if (phone.length !== 10) { addToast('Enter a valid 10-digit mobile number.', 'warning'); return; }
-      }
-      addToast('Registering pickup address with EKART…', 'info');
-      const res: any = await registerEkartPickupCF({ vendorId: v.id, phone });
-      addToast(`EKART pickup registered as "${res.data?.alias}"`, 'success');
+      addToast('Checking EKART pickup addresses…', 'info');
+      await attempt(saved.length === 10 ? saved : undefined);
     } catch (err: any) {
-      addToast(err?.message || 'EKART registration failed — check the vendor pickup address (line 1, PIN code, phone).', 'error');
+      if (!/phone/i.test(String(err?.message || ''))) {
+        addToast(err?.message || 'EKART registration failed — check the vendor pickup address (line 1, PIN code, phone).', 'error');
+        return;
+      }
+      const input = window.prompt(`📞 Pickup phone for ${v.storeName || v.businessName} (10 digits). EKART calls this number for pickup:`, '');
+      if (input === null) return;
+      const phone = input.replace(/\D/g, '').slice(-10);
+      if (phone.length !== 10) { addToast('Enter a valid 10-digit mobile number.', 'warning'); return; }
+      try { await attempt(phone); } catch (e2: any) { addToast(e2?.message || 'EKART registration failed.', 'error'); }
     }
   };
 

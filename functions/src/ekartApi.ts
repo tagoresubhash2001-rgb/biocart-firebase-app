@@ -126,6 +126,12 @@ export async function addAddress(loc: { alias: string; phone: number; address_li
   return ekartFetch('POST', '/api/v2/address', loc);
 }
 
+/** Pickup addresses already saved in the EKART panel (Settings → Addresses). */
+export async function listAddresses(): Promise<any[]> {
+  const r = await ekartFetch('GET', '/api/v2/addresses');
+  return Array.isArray(r) ? r : Array.isArray(r?.data) ? r.data : Array.isArray(r?.addresses) ? r.addresses : [];
+}
+
 export async function listWebhooks(): Promise<any[]> {
   const d = await ekartFetch('GET', '/api/v2/webhook');
   return Array.isArray(d) ? d : [];

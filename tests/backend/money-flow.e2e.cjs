@@ -55,6 +55,7 @@ global.fetch = async (url, opts = {}) => {
       const pin = u.pathname.split('/').pop();
       return json(200, { status: pin !== '999999', pincode: Number(pin), remark: '', details: { cod: true, max_cod_amount: 25000, forward_pickup: true, forward_drop: pin !== '999999', city: 'Guntur', state: 'AP' } });
     }
+    if (u.pathname === '/api/v2/addresses') return json(200, ek.savedAddresses || []);
     if (u.pathname === '/api/v2/address') return json(200, { status: true, alias: body.alias, remark: 'ok' });
     if (u.pathname === '/data/v3/serviceability') { ek.estimates.push(body); return json(200, [
       { courierGroup: 'EKART_SURFACE', forwardDeliveredCharges: { totalForwardDeliveredEstimate: '60.00' }, rtoDeliveredCharges: { totalRTODeliveredEstimate: '110.00' } },
@@ -213,6 +214,14 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   const sentPayload = ek.shipments[awb] || {};
   check('BC-SHP-001/004/006', 'Real EKART booking: pickup alias required, only owner vendor, AWB from EKART, no double booking', !noAlias.ok && reg.ok && !cust2.ok && ship.ok && awb?.startsWith('500999A') && ship2.data?.waybill === awb && Object.keys(ek.shipments).length === 1,
     `noAlias=${noAlias.err?.slice(0, 60)} | customer=${cust2.err?.slice(0, 40)} | awb=${awb} | bookings=${Object.keys(ek.shipments).length}`);
+  store.set(`vendors/${ravi}`, { ...get(`vendors/${ravi}`), ekartPickupAlias: undefined, addresses: { pickupAddress: { addressLine1: 'Oil Mill Street', city: 'Guntur', state: 'AP', pinCode: '522002' } } });
+  ek.savedAddresses = [{ alias: 'OTHER_PIN', pincode: 500001, address_line1: 'x' }, { alias: 'RAVI_PANEL', pincode: 522002, address_line1: 'Oil Mill Street, Guntur' }];
+  const addsBefore = ek.calls.filter((c) => c === 'POST /api/v2/address').length;
+  const link = await call('registerEkartPickupAddress', ADMIN, { vendorId: ravi });
+  const addsAfter = ek.calls.filter((c) => c === 'POST /api/v2/address').length;
+  check('FIX-PICKUP-LINK', 'Pickup address already saved in the EKART panel (same PIN) is linked, not added again',
+    link.ok && link.data?.alias === 'RAVI_PANEL' && link.data?.linkedExisting === true && get(`vendors/${ravi}`).ekartPickupAlias === 'RAVI_PANEL' && addsAfter === addsBefore,
+    `alias=${link.data?.alias} linked=${link.data?.linkedExisting} err=${link.err || ''}`);
   check('BC-SHP-005', 'EKART payload uses order address + prepaid + COD 0', sentPayload.drop_location?.pin === 522001 && sentPayload.payment_mode === 'Prepaid' && sentPayload.cod_amount === 0 && sentPayload.pickup_location?.name === get(`vendors/${vamsi}`).ekartPickupAlias, JSON.stringify({ drop: sentPayload.drop_location, mode: sentPayload.payment_mode, pickup: sentPayload.pickup_location }));
   const vso = vendorOrder(oid, vamsi);
   check('FIX-WEIGHT', 'EKART weight comes from the ordered size: honey 1kg × 1 → 1000 g sent to EKART even if the seller typed 300 g; item shows the size',
