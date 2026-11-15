@@ -3,7 +3,6 @@ build/
 dist/
 functions/lib/
 scripts/legacy-patches/
-server.js
 src_files.txt
 block.txt
 .firebase/
@@ -14,5 +13,7 @@ coverage/
 !.env.example
 biocart-release.zip
 
-*.secret*
-.secret.local
+# Local-only and generated files (never commit)
+*.local
+firebase-debug*.log
+*.zip

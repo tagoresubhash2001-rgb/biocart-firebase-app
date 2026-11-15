@@ -9,6 +9,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { db, FieldValue, REGION, requireAdmin, nowIso, rupees, audit } from './core';
+import { netPayablePaise } from './ledger';
 
 const IST_OFFSET_MS = 330 * 60_000;
 
@@ -63,7 +64,7 @@ export async function settleVendorForCycle(vendorId: string, cycleId: string, cu
     const rows = fresh.filter((d) => d.data()?.earnings?.state === 'eligible');
     const adjustmentDue = Math.max(0, Number(w.adjustmentDue || 0));
     if (rows.length === 0 && adjustmentDue === 0) return null;
-    const gross = rows.reduce((s, d) => s + (d.data()!.vendorPayablePaise || 0), 0);
+    const gross = rows.reduce((s, d) => s + netPayablePaise(d.data()), 0);
     if (gross === 0) return null; // nothing to pay; adjustments wait for future earnings
     const offset = Math.min(gross, adjustmentDue);
     const net = gross - offset;
@@ -72,7 +73,7 @@ export async function settleVendorForCycle(vendorId: string, cycleId: string, cu
     t.set(sRef, {
       id: settlementId, batchId: cycleId, cycleId, vendorId, vendorName: info.vendorName,
       grossPaise: gross, adjustmentsPaise: offset, amountPaise: net, amount: rupees(net), currency: 'INR',
-      orderCount: rows.length, orders: rows.map((d) => ({ orderId: d.data()!.orderNumber, vendorPayablePaise: d.data()!.vendorPayablePaise })),
+      orderCount: rows.length, orders: rows.map((d) => ({ orderId: d.data()!.orderNumber, vendorPayablePaise: d.data()!.vendorPayablePaise, courierChargePaise: Number(d.data()!.courierChargePaise) || 0, netPaise: netPayablePaise(d.data()) })),
       status, bankDetails: info.bank, needsBankDetails: !info.bank.hasBankDetails,
       scheduledDay: 'Tuesday', cutoffAt: cutoffIso, triggeredBy, createdAt: ts, updatedAt: ts,
     });

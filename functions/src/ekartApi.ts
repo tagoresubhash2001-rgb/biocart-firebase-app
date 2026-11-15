@@ -5,7 +5,7 @@
  */
 import { HttpsError } from 'firebase-functions/v2/https';
 import * as crypto from 'node:crypto';
-import { EKART_CLIENT_ID, EKART_PASSWORD, EKART_USERNAME, EKART_WEBHOOK_SECRET } from './core';
+import { db, EKART_CLIENT_ID, EKART_PASSWORD, EKART_USERNAME, EKART_WEBHOOK_SECRET } from './core';
 
 export const EKART_BASE_URL = 'https://app.elite.ekartlogistics.in';
 
@@ -30,10 +30,62 @@ export function ekartWebhookSecret(): string {
   return secret(EKART_WEBHOOK_SECRET, 'EKART_WEBHOOK_SECRET').slice(0, 30);
 }
 
-export class EkartApiError extends Error {
-  constructor(public status: number, public body: any) {
-    super(`EKART API ${status}: ${body?.message || body?.description || body?.remark || 'error'}`);
+/** Hide the last 6 digits of phone numbers and drop secrets, so EKART data is safe to log, store and show. */
+export function maskSensitive(v: any, depth = 0): any {
+  if (v === null || v === undefined) return v ?? null;
+  if (depth > 8) return '[…]';
+  if (typeof v === 'string') return v.replace(/\b([6-9]\d{3})\d{6}\b/g, '$1XXXXXX');
+  if (Array.isArray(v)) return v.map((x) => maskSensitive(x, depth + 1));
+  if (typeof v === 'object') {
+    const out: Record<string, any> = {};
+    for (const [k, x] of Object.entries(v)) {
+      if (/pass(word)?|secret|token|authorization/i.test(k)) out[k] = '[hidden]';
+      else if (/phone|mobile/i.test(k) && (typeof x === 'string' || typeof x === 'number')) out[k] = String(x).replace(/\d{6}$/, 'XXXXXX');
+      else out[k] = maskSensitive(x, depth + 1);
+    }
+    return out;
   }
+  return v;
+}
+
+/**
+ * EKART's complete explanation of an error: message, description, remark and every other
+ * field it sent back (field-level validation errors included). Phone numbers are masked.
+ */
+export function ekartErrorText(status: number, body: any): string {
+  const parts: string[] = [];
+  const add = (x: any) => { const t = typeof x === 'string' ? x.trim() : (x === null || x === undefined ? '' : JSON.stringify(x)); if (t && !parts.includes(t)) parts.push(t); };
+  if (body && typeof body === 'object') {
+    add(body.message); add(body.description); add(body.remark);
+    for (const [k, x] of Object.entries(body)) {
+      if (['message', 'description', 'remark', 'statusCode', 'code', 'severity', 'status'].includes(k)) continue;
+      if (x === null || x === undefined || x === '') continue;
+      add(`${k}: ${typeof x === 'string' ? x : JSON.stringify(x)}`);
+    }
+  } else if (body) add(String(body));
+  if (!parts.length) parts.push(`EKART returned HTTP ${status} with no explanation`);
+  return String(maskSensitive(parts.join(' | '))).slice(0, 1500);
+}
+
+export class EkartApiError extends Error {
+  /** EKART's full explanation (message | description | remark | field errors), phones masked. */
+  public full: string;
+  constructor(public status: number, public body: any) {
+    super(`EKART API ${status}: ${ekartErrorText(status, body)}`);
+    this.full = ekartErrorText(status, body);
+  }
+}
+
+/** Writes one EKART API call to Cloud Logging and to Firestore `ekart_api_logs` (never throws). */
+async function logEkartCall(rec: { method: string; path: string; status: number; requestBody?: any; responseBody?: any; ok: boolean; durationMs: number }): Promise<void> {
+  const entry = {
+    at: new Date().toISOString(), method: rec.method, path: rec.path.replace(/(\/auth\/token\/)[^/?]+/, '$1[client]'), status: rec.status, ok: rec.ok, durationMs: rec.durationMs,
+    requestBody: rec.requestBody === undefined ? null : maskSensitive(rec.requestBody),
+    responseBody: typeof rec.responseBody === 'string' ? String(maskSensitive(rec.responseBody)).slice(0, 5000) : JSON.stringify(maskSensitive(rec.responseBody ?? null)).slice(0, 5000),
+    errorText: rec.ok ? null : ekartErrorText(rec.status, rec.responseBody),
+  };
+  if (rec.ok) console.log('[EKART API]', JSON.stringify(entry)); else console.error('[EKART API ERROR]', JSON.stringify(entry));
+  try { await db().collection('ekart_api_logs').add(entry); } catch (e: any) { console.warn('[EKART API] could not save log', e?.message || e); }
 }
 
 let cachedToken: { token: string; type: string; expiresAt: number } | null = null;
@@ -45,7 +97,10 @@ async function getToken(): Promise<string> {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }),
   });
   const data: any = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.access_token) throw new EkartApiError(res.status, data);
+  if (!res.ok || !data?.access_token) {
+    await logEkartCall({ method: 'POST', path: '/integrations/v2/auth/token/[client]', status: res.status, responseBody: data, ok: false, durationMs: 0 });
+    throw new EkartApiError(res.status, data);
+  }
   cachedToken = { token: data.access_token, type: data.token_type || 'Bearer', expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000 };
   return `${cachedToken.type} ${cachedToken.token}`;
 }
@@ -53,22 +108,38 @@ async function getToken(): Promise<string> {
 async function ekartFetch(method: string, path: string, body?: any, opts: { auth?: boolean; raw?: boolean } = {}): Promise<any> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
   if (opts.auth !== false) headers.Authorization = await getToken();
-  const res = await fetch(`${EKART_BASE_URL}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-  if (opts.raw && res.ok) return Buffer.from(await res.arrayBuffer());
+  const started = Date.now();
+  let res: Response;
+  try {
+    res = await fetch(`${EKART_BASE_URL}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch (e: any) {
+    await logEkartCall({ method, path, status: 0, requestBody: body, responseBody: { message: `Could not reach EKART: ${e?.message || e}` }, ok: false, durationMs: Date.now() - started });
+    throw new EkartApiError(0, { message: `Could not reach EKART: ${e?.message || e}` });
+  }
+  if (opts.raw && res.ok) {
+    const buf = Buffer.from(await res.arrayBuffer());
+    await logEkartCall({ method, path, status: res.status, requestBody: body, responseBody: `[file, ${buf.length} bytes]`, ok: true, durationMs: Date.now() - started });
+    return buf;
+  }
   const text = await res.text();
   let data: any = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = { message: text.slice(0, 300) }; }
+  try { data = text ? JSON.parse(text) : null; } catch { data = { message: text.slice(0, 1500) }; }
+  // EKART sometimes answers HTTP 200 with { status: false, ... }: that is a rejection too.
+  const ok = res.ok && !(data && typeof data === 'object' && !Array.isArray(data) && data.status === false && !path.startsWith('/api/v2/serviceability/'));
+  // Successful read-only calls are not logged (the 3-hourly poll would flood the log); every error and every change is.
+  if (!ok || method !== 'GET') await logEkartCall({ method, path, status: res.status, requestBody: body, responseBody: data, ok, durationMs: Date.now() - started });
   if (!res.ok) throw new EkartApiError(res.status, data);
   return data;
 }
 
-export interface Serviceability { serviceable: boolean; cod: boolean; maxCodAmount: number; city?: string; state?: string; remark?: string }
+export interface Serviceability { serviceable: boolean; pickup: boolean; cod: boolean; maxCodAmount: number; city?: string; state?: string; remark?: string }
 
 export async function checkServiceability(pincode: string): Promise<Serviceability> {
   const data = await ekartFetch('GET', `/api/v2/serviceability/${encodeURIComponent(pincode)}`);
   const d = data?.details || {};
   return {
     serviceable: data?.status === true && d.forward_drop !== false,
+    pickup: d.forward_pickup === true,   // EKART can collect parcels from this PIN (first mile)
     cod: d.cod === true,
     maxCodAmount: Number(d.max_cod_amount) || 0,
     city: d.city, state: d.state, remark: data?.remark,
@@ -81,6 +152,51 @@ export async function createShipment(payload: Record<string, any>): Promise<{ tr
   const data = await ekartFetch('PUT', '/api/v1/package/create', payload);
   if (data?.status !== true || !data?.tracking_id) throw new EkartApiError(200, data);
   return { trackingId: data.tracking_id, wbn: data?.barcodes?.wbn, vendor: data?.vendor, remark: data?.remark };
+}
+
+export interface CourierEstimate { forwardPaise: number; rtoTotalPaise: number; courierGroup?: string; breakdown: any }
+
+const toPaise = (v: any) => Math.round((Number(v) || 0) * 100);
+
+/**
+ * EKART's own rate card for this parcel (Serviceability V3): forward delivery charge and
+ * the total if it comes back (RTO). Amounts include EKART's fuel surcharge and tax.
+ */
+export async function estimateCourierCharge(p: { pickupPin: string; dropPin: string; weightGrams: number; lengthCm: number; widthCm: number; heightCm: number; cod: boolean; codAmount: number; invoiceAmount: number }): Promise<CourierEstimate> {
+  const data = await ekartFetch('POST', '/data/v3/serviceability', {
+    pickupPincode: String(p.pickupPin), dropPincode: String(p.dropPin),
+    length: String(p.lengthCm), width: String(p.widthCm), height: String(p.heightCm), weight: String(p.weightGrams),
+    paymentType: p.cod ? 'COD' : 'Prepaid', serviceType: 'SURFACE',
+    codAmount: String(p.cod ? p.codAmount : 0), invoiceAmount: String(p.invoiceAmount),
+  });
+  const options: any[] = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+  const priced = options.filter((o) => Number(o?.forwardDeliveredCharges?.totalForwardDeliveredEstimate) > 0);
+  if (!priced.length) throw new EkartApiError(200, { message: 'EKART returned no price for this parcel' });
+  const best = priced.reduce((a, b) => Number(a.forwardDeliveredCharges.totalForwardDeliveredEstimate) <= Number(b.forwardDeliveredCharges.totalForwardDeliveredEstimate) ? a : b);
+  return {
+    forwardPaise: toPaise(best.forwardDeliveredCharges.totalForwardDeliveredEstimate),
+    rtoTotalPaise: toPaise(best?.rtoDeliveredCharges?.totalRTODeliveredEstimate),
+    courierGroup: best.courierGroup,
+    breakdown: { forward: best.forwardDeliveredCharges || null, rto: best.rtoDeliveredCharges || null, tat: best.tat || null },
+  };
+}
+
+export interface EkartPriceEstimate { totalPaise: number; billingGrams: number; volumetricGrams: number; zone?: string; raw: any }
+
+/**
+ * EKART's price for one forward parcel from our contract rate card (POST /data/pricing/estimate).
+ * `total` includes fuel surcharge, COD charge and GST. The call and EKART's reply are saved in ekart_api_logs.
+ */
+export async function pricingEstimate(p: { pickupPin: string; dropPin: string; weightGrams: number; lengthCm: number; widthCm: number; heightCm: number; cod: boolean; codAmount: number; invoiceAmount: number }): Promise<EkartPriceEstimate> {
+  const data = await ekartFetch('POST', '/data/pricing/estimate', {
+    pickupPincode: String(p.pickupPin), dropPincode: String(p.dropPin),
+    length: String(p.lengthCm), width: String(p.widthCm), height: String(p.heightCm), weight: String(p.weightGrams),
+    paymentType: p.cod ? 'COD' : 'Prepaid', serviceType: 'SURFACE', shippingDirection: 'FORWARD',
+    codAmount: String(p.cod ? p.codAmount : 0), invoiceAmount: String(p.invoiceAmount),
+  });
+  const total = Number(data?.total);
+  if (!Number.isFinite(total) || total <= 0) throw new EkartApiError(200, { message: 'EKART returned no price for this parcel', reply: data });
+  return { totalPaise: toPaise(total), billingGrams: Math.round(Number(data?.billingWeight) || 0), volumetricGrams: Math.round(Number(data?.volumetricWeight) || 0), zone: data?.zone, raw: data };
 }
 
 export async function cancelShipment(trackingId: string): Promise<any> {
@@ -99,13 +215,19 @@ export async function addAddress(loc: { alias: string; phone: number; address_li
   return ekartFetch('POST', '/api/v2/address', loc);
 }
 
+/** Pickup addresses already saved in the EKART panel (Settings → Addresses). */
+export async function listAddresses(): Promise<any[]> {
+  const r = await ekartFetch('GET', '/api/v2/addresses');
+  return Array.isArray(r) ? r : Array.isArray(r?.data) ? r.data : Array.isArray(r?.addresses) ? r.addresses : [];
+}
+
 export async function listWebhooks(): Promise<any[]> {
   const d = await ekartFetch('GET', '/api/v2/webhook');
   return Array.isArray(d) ? d : [];
 }
 
 export async function addWebhook(url: string, webhookSecret: string): Promise<any> {
-  return ekartFetch('POST', '/api/v2/webhook', { url, secret: webhookSecret, topics: ['track_updated'], active: true });
+  return ekartFetch('POST', '/api/v2/webhook', { url, secret: webhookSecret, topics: ['track_updated', 'shipment_created'], active: true });
 }
 
 /** Ekart signs webhook bodies with HMAC using the registered secret (header name is not documented). */

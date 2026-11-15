@@ -77,6 +77,48 @@ export function bookOrderAllocation(t: Transaction, order: any, subOrders: Array
   }, { merge: true });
 }
 
+/** What the vendor actually receives for a sub-order: their share minus the EKART courier charge(s). */
+export function netPayablePaise(so: any): number {
+  return Math.max(0, (Number(so?.vendorPayablePaise) || 0) - (Number(so?.courierChargePaise) || 0));
+}
+
+/**
+ * EKART courier charge (forward or RTO) is the vendor's cost: it is taken from the vendor's money for
+ * this order, from whichever bucket that money is in now. Deterministic id = booked once.
+ */
+export type CourierEntryKind = 'forward' | 'rto' | 'correction' | 'hold' | 'adjust' | 'release';
+const COURIER_ENTRY: Record<CourierEntryKind, { type: string; label: string }> = {
+  forward: { type: 'courier_charge', label: 'delivery charge' },
+  rto: { type: 'courier_rto_charge', label: 'return (RTO) charge' },
+  correction: { type: 'courier_charge', label: 'charge correction' },
+  // held from the vendor's share the moment the order is paid (estimate from the rate card)
+  hold: { type: 'courier_charge_held', label: 'delivery charge held (estimate)' },
+  // estimate replaced by the real charge when the parcel is booked (+ = more held, − = given back)
+  adjust: { type: 'courier_charge_adjusted', label: 'delivery charge adjusted to actual' },
+  // order cancelled before it was shipped: the hold goes back to the vendor
+  release: { type: 'courier_charge_released', label: 'delivery charge hold released' },
+};
+
+export function bookCourierCharge(t: Transaction, orderId: string, vendorId: string, kind: CourierEntryKind, amountPaise: number, state: EarningsState, idSuffix = '') {
+  if (!amountPaise) return;
+  const w: Record<string, any> = { updatedAt: nowIso(), lifetimeCourierCharges: FieldValue.increment(amountPaise) };
+  let bucket = 'pending';
+  if (state === 'pending' || state === 'awaiting_cod_remittance') {
+    w.pending = FieldValue.increment(-amountPaise); w.pendingBalance = FieldValue.increment(-amountPaise);
+  } else if (state === 'eligible') {
+    w.available = FieldValue.increment(-amountPaise); w.availableBalance = FieldValue.increment(-amountPaise); bucket = 'available';
+  } else {
+    w.adjustmentDue = FieldValue.increment(amountPaise); bucket = 'adjustment_due';
+  }
+  t.set(walletRef(vendorId), w, { merge: true });
+  entry(t, `${orderId}_${vendorId}_courier_${kind}${idSuffix}`, {
+    orderId, orderNumber: orderId, vendorId, account: `vendor:${vendorId}`,
+    entryType: COURIER_ENTRY[kind].type, direction: amountPaise > 0 ? 'debit' : 'credit', bucket, status: 'settled',
+    amountPaise, description: `Order ${orderId}: EKART ${COURIER_ENTRY[kind].label} ₹${rupees(Math.abs(amountPaise))} (${amountPaise > 0 ? 'paid by seller' : 'returned to seller'})`,
+  });
+  t.set(companyRef(), { courierChargesFromVendorsPaise: FieldValue.increment(amountPaise), updatedAt: nowIso() }, { merge: true });
+}
+
 /** Move a delivered sub-order's earnings from pending → available (eligible for the next cycle). */
 export function bookEarningsEligible(t: Transaction, orderId: string, vendorId: string, payablePaise: number) {
   entry(t, `${orderId}_${vendorId}_eligible`, {
@@ -97,10 +139,15 @@ export function bookEarningsEligible(t: Transaction, orderId: string, vendorId: 
 export function bookSubOrderReversal(
   t: Transaction, refundId: string, orderId: string, vendorId: string, so: any, state: EarningsState,
 ) {
-  const payable = so.vendorPayablePaise || 0;
+  const share = so.vendorPayablePaise || 0;
+  const courier = Number(so.courierChargePaise) || 0;
+  const payable = share - courier; // what is currently sitting in the vendor's wallet for this order
   const commission = so.commissionPaise || 0;
   if (state === 'none' || state === 'reversed') return;
-  const w: Record<string, any> = { updatedAt: nowIso(), lifetimeGross: FieldValue.increment(-(so.subtotalPaise || 0)), lifetimeCommission: FieldValue.increment(-commission) };
+  const w: Record<string, any> = {
+    updatedAt: nowIso(), lifetimeGross: FieldValue.increment(-(so.subtotalPaise || 0)), lifetimeCommission: FieldValue.increment(-commission),
+    lifetimeReversedPaise: FieldValue.increment(share), reversedOrderCount: FieldValue.increment(1),
+  };
   let bucket = 'pending';
   if (state === 'pending' || state === 'awaiting_cod_remittance') {
     w.pending = FieldValue.increment(-payable); w.pendingBalance = FieldValue.increment(-payable);
@@ -110,6 +157,9 @@ export function bookSubOrderReversal(
     // already inside a settlement or paid out → recover from the next cycle
     w.adjustmentDue = FieldValue.increment(payable); bucket = 'adjustment_due';
   }
+  // The courier was already used, so its charge stays the seller's cost even though the sale is reversed:
+  // it is recovered from the next settlement.
+  if (courier > 0) w.adjustmentDue = FieldValue.increment(courier + (bucket === 'adjustment_due' ? payable : 0));
   t.set(walletRef(vendorId), w, { merge: true });
   entry(t, `${refundId}_${vendorId}_reversal`, {
     orderId, orderNumber: orderId, vendorId, refundId, account: `vendor:${vendorId}`,

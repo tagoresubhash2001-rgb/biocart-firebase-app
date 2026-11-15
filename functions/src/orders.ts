@@ -17,22 +17,28 @@ import * as crypto from 'node:crypto';
 import {
   db, FieldValue, REGION, CASHFREE_SECRETS, EKART_SECRETS, loadPolicy, MarketplacePolicy, getCaller, isAdminCaller,
   requireAdmin, callerOwnsVendor, rateLimit, rupees, nowIso, cleanPhone, cleanPincode, audit, ORDER_STATUS,
+  loadCourierRates,
 } from './core';
 import { priceOrder, PricingCoupon, PricingLineInput, PricingResult } from './pricing';
 import {
-  bookOrderAllocation, bookEarningsEligible, bookSubOrderReversal, bookShippingReversal, bookCustomerRefund, EarningsState,
+  bookOrderAllocation, bookEarningsEligible, bookSubOrderReversal, bookShippingReversal, bookCustomerRefund, EarningsState, netPayablePaise, bookCourierCharge,
 } from './ledger';
 import { cashfreeRequest, CashfreeApiError } from './cashfreeApi';
 import { checkServiceability } from './ekartApi';
+import { unitWeightGrams } from './weight';
+import { buildCourierEstimate, productBoxCm, CourierRates } from './courierRates';
 
-interface CartItem { productId: string; quantity: number }
+interface CartItem { productId: string; quantity: number; variant: string | null }
 
 // ---------------------------------------------------------------------------
 // Validation helpers
 // ---------------------------------------------------------------------------
 function parseItems(raw: any): CartItem[] {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 50) throw new HttpsError('invalid-argument', 'Your cart is empty.');
-  const items = raw.map((it: any) => ({ productId: String(it?.productId || ''), quantity: Number(it?.quantity) }));
+  const items = raw.map((it: any) => ({
+    productId: String(it?.productId || ''), quantity: Number(it?.quantity),
+    variant: typeof it?.variant === 'string' && it.variant.trim() ? it.variant.trim().slice(0, 60) : null,
+  }));
   if (items.some((it) => !/^[A-Za-z0-9_-]{1,128}$/.test(it.productId) || !Number.isInteger(it.quantity) || it.quantity < 1 || it.quantity > 99)) {
     throw new HttpsError('invalid-argument', 'Some cart items are invalid. Please refresh your cart.');
   }
@@ -77,30 +83,39 @@ function buildPlan(
   items.forEach((it, i) => {
     const pd = productDocs[i];
     const p = pd.exists ? pd.data() : null;
-    if (!p || !isProductApproved(p)) throw new HttpsError('failed-precondition', `"${p?.name || it.productId}" is no longer available. Please remove it from your cart.`);
+    if (!p || !isProductApproved(p)) throw new HttpsError('failed-precondition', `"${p?.name || it.productId}" is no longer available. Please remove it from your cart.`, { productId: it.productId });
     const price = Number(p.price);
-    if (!Number.isFinite(price) || price <= 0) throw new HttpsError('failed-precondition', `"${p.name}" has no valid price.`);
+    if (!Number.isFinite(price) || price <= 0) throw new HttpsError('failed-precondition', `"${p.name}" has no valid price.`, { productId: it.productId });
     const vendorId = vendorIdOf(p);
     const vd = vendorDocs.get(vendorId);
     const v = vd && vd.exists ? vd.data() : null;
     if (!v || !['active', 'approved'].includes(String(v.status || '').toLowerCase())) {
-      throw new HttpsError('failed-precondition', `"${p.name}" is temporarily unavailable from its seller.`);
+      throw new HttpsError('failed-precondition', `"${p.name}" is temporarily unavailable from its seller.`, { productId: it.productId });
     }
     const bps = vendorCommissionBps(v);
-    if (bps === null) throw new HttpsError('failed-precondition', `"${p.name}" cannot be sold yet (seller setup incomplete).`);
+    if (bps === null) throw new HttpsError('failed-precondition', `"${p.name}" cannot be sold yet (seller setup incomplete).`, { productId: it.productId });
     vendors[vendorId] = v; commission[vendorId] = bps;
     if (checkStock) {
       const inv = inventoryDocs[i].exists ? inventoryDocs[i].data()! : null;
       const avail = Number(inv?.availableQuantity ?? 0);
       if (!inv || avail < it.quantity) {
-        throw new HttpsError('out-of-range', avail > 0 ? `Only ${avail} left of "${p.name}".` : `"${p.name}" is out of stock.`);
+        throw new HttpsError('out-of-range', avail > 0 ? `Only ${avail} left of "${p.name}".` : `"${p.name}" is out of stock.`, { productId: it.productId });
       }
     }
     const min = Number(p.minOrderQuantity) || 1;
     const max = Number(p.maxOrderQuantity) || 99;
     if (it.quantity < min || it.quantity > max) throw new HttpsError('out-of-range', `"${p.name}" can be ordered in quantities ${min}–${max}.`);
+    // Size / weight option: must be one the seller listed; defaults to the first one.
+    const options: string[] = Array.isArray(p.weightVariants) ? p.weightVariants.map((x: any) => String(x)) : [];
+    let variant: string | null = it.variant;
+    if (variant && options.length && !options.includes(variant)) {
+      throw new HttpsError('failed-precondition', `The size "${variant}" of "${p.name}" is no longer available. Please choose the size again.`, { productId: it.productId });
+    }
+    if (!variant && options.length) variant = String(p.selectedVariant && options.includes(p.selectedVariant) ? p.selectedVariant : options[0]);
     lines.push({
-      productId: pd.id, name: String(p.name || 'Product'), vendorId, category: String(p.category || ''),
+      productId: pd.id, name: variant ? `${String(p.name || 'Product')} (${variant})` : String(p.name || 'Product'), vendorId, category: String(p.category || ''),
+      variant: variant || undefined, unitWeightGrams: unitWeightGrams(p, variant) ?? undefined,
+      ...(productBoxCm(p) || {}),
       pricePaise: Math.round(price * 100), quantity: it.quantity, hsnCode: p.hsnCode || '', codAllowed: p.codAllowed === true,
     });
   });
@@ -144,7 +159,8 @@ function buildPlan(
   } catch (e: any) {
     throw new HttpsError('failed-precondition', e?.message || 'Could not price this cart.');
   }
-  const codAllowedForCart = policy.codEnabled && lines.every((l) => l.codAllowed === true);
+  const codAllowedForCart = policy.codEnabled && lines.every((l) => l.codAllowed === true)
+    && pricing.totalPaise >= policy.codMinOrderPaise && pricing.totalPaise <= policy.codMaxOrderPaise;
   return { pricing, lines, vendors, coupon, codAllowedForCart };
 }
 
@@ -175,10 +191,12 @@ function quoteResponse(plan: Plan, policy: MarketplacePolicy) {
     shippingAmount: rupees(p.shippingPaise), shippingAmountPaise: p.shippingPaise,
     totalAmount: rupees(p.totalPaise), totalAmountPaise: p.totalPaise,
     freeShippingThreshold: rupees(policy.freeShippingThresholdPaise),
+    freeShippingEnabled: policy.freeShippingEnabled,
     shippingFee: rupees(policy.shippingFeePaise),
     minOrderValue: 0,
     codAvailable: plan.codAllowedForCart,
-    codMinValue: 0, codMaxValue: 49999,
+    codEnabled: policy.codEnabled,
+    codMinValue: rupees(policy.codMinOrderPaise), codMaxValue: rupees(policy.codMaxOrderPaise),
     couponCode: plan.coupon?.code || null,
     vendors: p.vendorSplits.map((v) => ({ vendorId: v.vendorId, storeName: plan.vendors[v.vendorId]?.storeName || plan.vendors[v.vendorId]?.businessName || v.vendorId, subtotal: rupees(v.subtotalPaise) })),
   };
@@ -250,6 +268,8 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
   }
 
   const policy = await loadPolicy();
+  // EKART rate card as it stands now; copied onto each vendor order so later edits never change this order.
+  const courierRates: CourierRates = await loadCourierRates();
   const year = new Date().getFullYear();
   const orderId = `BC-${year}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
   const reservationExpiresAt = new Date(Date.now() + policy.reservationMinutes * 60_000).toISOString();
@@ -281,7 +301,7 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
     const orderItems = plan.lines.map((l) => ({
       productId: l.productId, name: l.name, vendorId: l.vendorId, quantity: l.quantity,
       price: rupees(l.pricePaise), pricePaise: l.pricePaise, total: rupees(l.pricePaise * l.quantity), totalPaise: l.pricePaise * l.quantity,
-      hsnCode: l.hsnCode || '',
+      hsnCode: l.hsnCode || '', variant: l.variant || null, unitWeightGrams: l.unitWeightGrams ?? null,
     }));
     t.set(orderRef, {
       id: orderId, orderNumber: orderId, invoiceNumber: orderId.replace('BC-', 'OC-'), userId: caller.uid, checkoutId,
@@ -294,7 +314,7 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
       totalAmount: rupees(p.totalPaise), totalAmountPaise: p.totalPaise,
       couponCode: plan.coupon?.code || null,
       pricingSnapshot: {
-        policyVersion: policy.policyVersion, shippingFeePaise: policy.shippingFeePaise, freeShippingThresholdPaise: policy.freeShippingThresholdPaise,
+        policyVersion: policy.policyVersion, shippingFeePaise: policy.shippingFeePaise, freeShippingThresholdPaise: policy.freeShippingThresholdPaise, freeShippingEnabled: policy.freeShippingEnabled,
         taxInclusive: true, commissionByVendor: Object.fromEntries(p.vendorSplits.map((v) => [v.vendorId, v.commissionRateBps])),
       },
       financialSummary: { totalPlatformCommissionPaise: p.totalCommissionPaise, totalVendorPayablePaise: p.totalVendorPayablePaise, platformCouponSubsidyPaise: p.platformCouponSubsidyPaise, gatewayFeePaise: null, gatewayFeeStatus: 'pending_reconciliation' },
@@ -312,16 +332,26 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
       const vendor = plan.vendors[v.vendorId] || {};
       // COD: the shipping charge is collected with the first seller's parcel.
       const codAmountPaise = paymentMethod === 'cod' ? v.customerPaidPaise + (splitIndex === 0 ? p.shippingPaise : 0) : 0;
+      // Estimated EKART charge for this seller's parcel. It is held from the seller's share when the order is paid.
+      const courier = buildCourierEstimate(
+        v.items.map((it) => ({ quantity: it.quantity, unitWeightGrams: it.unitWeightGrams ?? null, lengthCm: it.lengthCm ?? null, widthCm: it.widthCm ?? null, heightCm: it.heightCm ?? null })),
+        courierRates, paymentMethod === 'cod', codAmountPaise / 100,
+      );
       t.set(orderRef.collection('vendor_orders').doc(v.vendorId), {
         vendorId: v.vendorId, vendorStoreName: vendor.storeName || vendor.businessName || v.vendorId,
         orderNumber: orderId, userId: caller.uid,
-        items: v.items.map((it) => ({ productId: it.productId, name: it.name, quantity: it.quantity, price: rupees(it.pricePaise), pricePaise: it.pricePaise, total: rupees(it.lineTotalPaise), discountPaise: it.discountPaise })),
+        items: v.items.map((it) => ({ productId: it.productId, name: it.name, variant: it.variant || null, unitWeightGrams: it.unitWeightGrams ?? null, quantity: it.quantity, price: rupees(it.pricePaise), pricePaise: it.pricePaise, total: rupees(it.lineTotalPaise), discountPaise: it.discountPaise })),
+        // Parcel weight for EKART = ordered size × quantity (null when a product has no weight on record).
+        totalWeightGrams: v.items.every((it) => (it.unitWeightGrams ?? 0) > 0) ? v.items.reduce((sum, it) => sum + (it.unitWeightGrams as number) * it.quantity, 0) : null,
         subtotal: rupees(v.subtotalPaise), subtotalPaise: v.subtotalPaise,
         vendorFundedDiscountPaise: v.vendorFundedDiscountPaise, platformFundedDiscountPaise: v.platformFundedDiscountPaise,
         customerPaidPaise: v.customerPaidPaise, commissionBasePaise: v.commissionBasePaise,
         commissionRateBps: v.commissionRateBps, commissionPercent: v.commissionRateBps / 100,
         commissionAmount: rupees(v.commissionPaise), commissionAmountPaise: v.commissionPaise, commissionPaise: v.commissionPaise,
         vendorPayable: rupees(v.vendorPayablePaise), vendorPayablePaise: v.vendorPayablePaise,
+        courier, courierEstimateIncomplete: courier.weightIncomplete,
+        // what the seller will actually receive: share − courier charge (never below 0)
+        netPayoutPaise: Math.max(0, v.vendorPayablePaise - courier.estimatedChargePaise), netPayout: rupees(Math.max(0, v.vendorPayablePaise - courier.estimatedChargePaise)),
         paymentMethod, paymentStatus: 'pending',
         status: ORDER_STATUS.AWAITING_PAYMENT, orderStatus: ORDER_STATUS.AWAITING_PAYMENT, shipmentStatus: 'pending',
         fulfilment: { name: ship.name, phone: ship.phone, address: ship.address, city: ship.city, state: ship.state, zip: ship.zip, paymentMode: paymentMethod === 'cod' ? 'COD' : 'Prepaid', codAmountPaise },
@@ -338,6 +368,7 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
   if (!result.reused && paymentMethod === 'cod') {
     await allocateOrderFinancials(result.orderId, { type: 'cod' });
   }
+  if (!result.reused) await syncProductStockFlags(result.orderId);
   return { success: true, orderId: result.orderId, reused: result.reused, paymentMethod };
 });
 
@@ -391,6 +422,19 @@ export async function allocateOrderFinancials(orderId: string, proof: PaymentPro
       });
     }
     bookOrderAllocation(t, { ...order, id: orderId }, subs);
+    // Hold the estimated EKART charge from each seller's share now, before anything is booked with EKART.
+    // It sits in courierCharges.forward, so the payout (share − courier charge) can never include it.
+    for (const so of subs) {
+      const est = Math.round(Number(so.data.courier?.estimatedChargePaise) || 0);
+      if (est > 0 && so.data.courier?.status === 'estimate' && so.data.courierCharges?.forward == null) {
+        bookCourierCharge(t, orderId, so.vendorId, 'hold', est, 'pending');
+        t.update(so.ref, {
+          'courierCharges.forward': est, courierChargePaise: FieldValue.increment(est),
+          'courierChargeSource.forward': { type: 'rate_card_estimate', at: ts },
+          'courier.status': 'held_estimate', 'courier.heldAt': ts, 'courier.heldPaise': est,
+        });
+      }
+    }
     t.update(orderRef, {
       financialsAllocated: true, financialsAllocatedAt: ts,
       status: ORDER_STATUS.CONFIRMED, orderStatus: ORDER_STATUS.CONFIRMED, paymentStatus,
@@ -407,11 +451,37 @@ export async function allocateOrderFinancials(orderId: string, proof: PaymentPro
       .catch((e) => console.error(`[allocate] auto-refund failed for ${orderId}`, e));
   }
   if (outcome.allocated) {
+    await syncProductStockFlags(orderId);
     await notifyVendorsOfNewOrder(orderId).catch((e) => console.warn('notify vendors failed', e));
     const { generateOrderConfirmation } = await import('./invoice');
     await generateOrderConfirmation(orderId).catch((e) => console.warn('confirmation document failed', e));
   }
   return outcome;
+}
+
+/**
+ * Keeps the customer-facing stock badge on each product (inStock / stockStatus) in line with the
+ * real inventory after stock is reserved, sold, released or restocked. Best-effort, never throws.
+ */
+export async function syncProductStockFlags(orderId: string) {
+  try {
+    const os = await db().collection('orders').doc(orderId).get();
+    const ids = Array.from(new Set(((os.data()?.items || []) as any[]).map((it) => String(it.productId || '')).filter(Boolean)));
+    await Promise.all(ids.map(async (productId) => {
+      const [inv, prod] = await Promise.all([
+        db().collection('inventory').doc(productId).get(),
+        db().collection('products').doc(productId).get(),
+      ]);
+      if (!inv.exists || !prod.exists) return;
+      const available = Math.max(0, Number(inv.data()?.availableQuantity ?? 0));
+      const stockStatus = available > 0 ? (available <= 10 ? 'Low Stock' : 'In Stock') : 'Out of Stock';
+      const p = prod.data() || {};
+      if (p.stockStatus === stockStatus && p.inStock === available > 0) return;
+      await prod.ref.update({ inStock: available > 0, stockStatus, updatedAt: nowIso() });
+    }));
+  } catch (e) {
+    console.warn(`[stock] could not refresh product stock flags for ${orderId}`, e);
+  }
 }
 
 async function notifyVendorsOfNewOrder(orderId: string) {
@@ -431,6 +501,12 @@ async function notifyVendorsOfNewOrder(orderId: string) {
 // Reservation expiry
 // ---------------------------------------------------------------------------
 export async function releaseReservation(orderId: string, newStatus: string, reason: string, actor = 'system') {
+  const released = await releaseReservationTx(orderId, newStatus, reason, actor);
+  if (released) await syncProductStockFlags(orderId);
+  return released;
+}
+
+async function releaseReservationTx(orderId: string, newStatus: string, reason: string, actor: string) {
   const orderRef = db().collection('orders').doc(orderId);
   return db().runTransaction(async (t) => {
     const os = await t.get(orderRef);
@@ -558,9 +634,17 @@ export async function initiateRefund(req: RefundRequest): Promise<{ refundId: st
 
     // writes
     for (const s of targets) {
-      bookSubOrderReversal(t, refundId, orderId, s.id, s.data, (s.data.earnings?.state || 'none') as EarningsState);
+      const state = (s.data.earnings?.state || 'none') as EarningsState;
+      // Cancelled before the parcel was shipped: EKART charged nothing, so the courier hold goes back to the seller.
+      // (After shipping or RTO the charge stays the seller's cost — handled inside bookSubOrderReversal.)
+      const neverShipped = !['shipped', 'delivered', 'rto'].includes(String(s.data.status)) && !s.data.awbNumber;
+      const held = Math.round(Number(s.data.courierCharges?.forward) || 0);
+      const release = neverShipped && held > 0 && state !== 'none' && state !== 'reversed' ? held : 0;
+      if (release > 0) bookCourierCharge(t, orderId, s.id, 'release', -release, state, `_${refundId}`);
+      bookSubOrderReversal(t, refundId, orderId, s.id, release > 0 ? { ...s.data, courierChargePaise: (Number(s.data.courierChargePaise) || 0) - release } : s.data, state);
       const st = req.markAs || 'cancelled';
       t.update(s.ref, {
+        ...(release > 0 ? { 'courierCharges.forward': 0, courierChargePaise: FieldValue.increment(-release), 'courier.status': 'released', 'courier.releasedAt': ts, 'courier.releasedPaise': release, netPayoutPaise: 0, netPayout: 0 } : {}),
         status: st, orderStatus: st, 'earnings.state': 'reversed', refundId, cancellationReason: req.reason, updatedAt: ts,
         statusHistory: FieldValue.arrayUnion({ status: st, at: ts, by: req.actorUid, role: req.actorUid === 'system' ? 'system' : 'staff', reason: req.reason }),
       });
@@ -571,6 +655,7 @@ export async function initiateRefund(req: RefundRequest): Promise<{ refundId: st
 
     const fullyClosed = remainingAfter.length === 0;
     const orderUpdate: Record<string, any> = { updatedAt: ts, refundIds: FieldValue.arrayUnion(refundId) };
+    if (onlinePaid && amountPaise > 0) orderUpdate.refundedAmountPaise = FieldValue.increment(amountPaise);
     if (includeShipping) orderUpdate.shippingRefunded = true;
     if (onlinePaid) orderUpdate.paymentStatus = fullyClosed ? 'refunded' : 'partially_refunded';
     if (fullyClosed) {
@@ -595,6 +680,7 @@ export async function initiateRefund(req: RefundRequest): Promise<{ refundId: st
     await callCashfreeRefund(refundId);
     const fresh = (await refundRef.get()).data()!;
     await recomputeParentStatus(orderId).catch(() => undefined);
+    await syncProductStockFlags(orderId);
     return { refundId, status: fresh.status, amountPaise: fresh.amountPaise };
   }
   await recomputeParentStatus(orderId).catch(() => undefined);
@@ -698,8 +784,8 @@ export const updateOrderStatus = onCall({ region: REGION, secrets: [...CASHFREE_
 const VENDOR_TRANSITIONS: Record<string, string[]> = {
   new: ['accepted', 'rejected'],
   accepted: ['processing', 'rejected'],
-  processing: ['packed'],
-  packed: [],          // → shipped only through createEkartShipment
+  processing: ['packed', 'accepted'],   // one step back allowed
+  packed: ['processing'],               // one step back allowed until EKART is booked; → shipped only through createEkartShipment
   shipped: [],         // → delivered only through verified EKART events
 };
 
@@ -722,6 +808,7 @@ export const updateVendorOrderStatus = onCall({ region: REGION, secrets: [...CAS
   }
   if (next === 'delivered') throw new HttpsError('failed-precondition', 'Delivery is confirmed only by EKART tracking.');
   if (!(VENDOR_TRANSITIONS[cur] || []).includes(next)) throw new HttpsError('failed-precondition', `An order in "${cur}" cannot move to "${next}".`);
+  if (so.awbNumber) throw new HttpsError('failed-precondition', 'EKART is already booked for this order, so its status can no longer be changed here.');
 
   if (next === 'rejected') {
     const reason = String(request.data?.rejectionReason || '').trim().slice(0, 200);
@@ -770,7 +857,7 @@ export async function markSubOrderDelivered(orderId: string, vendorId: string, d
       } else {
         update['earnings.state'] = 'eligible';
         update['earnings.eligibleAt'] = eligibleAt;
-        bookEarningsEligible(t, orderId, vendorId, so.vendorPayablePaise || 0);
+        bookEarningsEligible(t, orderId, vendorId, netPayablePaise(so));
       }
     }
     t.update(ref, update);
@@ -806,7 +893,7 @@ export const markCodRemitted = onCall({ region: REGION }, async (request) => {
     for (const d of subs.docs) {
       const so = d.data();
       if (so.earnings?.state === 'awaiting_cod_remittance') {
-        bookEarningsEligible(t, orderId, d.id, so.vendorPayablePaise || 0);
+        bookEarningsEligible(t, orderId, d.id, netPayablePaise(so));
         t.update(d.ref, { 'earnings.state': 'eligible', 'earnings.eligibleAt': ts, updatedAt: ts });
       }
     }

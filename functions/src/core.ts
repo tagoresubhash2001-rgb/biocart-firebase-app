@@ -4,9 +4,11 @@
  * first so the Admin SDK is initialised exactly once.
  */
 import { getApps, initializeApp } from 'firebase-admin/app';
+import { CourierRates, normaliseCourierRates } from './courierRates';
 import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
+import { setGlobalOptions } from 'firebase-functions/v2';
 
 if (getApps().length === 0) {
   initializeApp();
@@ -20,6 +22,12 @@ export function db(): Firestore {
 export { FieldValue };
 
 export const REGION = 'asia-southeast1';
+
+// Cap every function at 5 instances. Gen-2 defaults to 100 instances x 1 vCPU per
+// function, and with ~40 functions that exceeds the Cloud Run regional CPU quota
+// ("Quota exceeded for total allowable CPU per project per region"). 5 instances
+// x 80 concurrent requests each is far above BioCart's traffic and also caps cost.
+setGlobalOptions({ region: REGION, maxInstances: 5 });
 
 // ---------------------------------------------------------------------------
 // Secrets (Google Secret Manager). Values are only available inside handlers
@@ -44,6 +52,9 @@ export interface MarketplacePolicy {
   policyVersion: string;
   shippingFeePaise: number;            // R3: ₹99
   freeShippingThresholdPaise: number;  // R3: free at ₹1,499 and above
+  freeShippingEnabled: boolean;        // admin can switch free delivery off (shipping always charged)
+  codMinOrderPaise: number;            // COD allowed only for order totals in [min, max]
+  codMaxOrderPaise: number;
   codEnabled: boolean;                 // R4: admin master switch, OFF by default
   payoutHoldDaysAfterDelivery: number; // R5: default 0
   reservationMinutes: number;          // unpaid order stock hold
@@ -53,6 +64,9 @@ export const DEFAULT_POLICY: MarketplacePolicy = {
   policyVersion: '2026-11-r1',
   shippingFeePaise: 9900,
   freeShippingThresholdPaise: 149900,
+  freeShippingEnabled: true,
+  codMinOrderPaise: 0,
+  codMaxOrderPaise: 500000,
   codEnabled: false,
   payoutHoldDaysAfterDelivery: 0,
   reservationMinutes: 20,
@@ -66,10 +80,19 @@ export async function loadPolicy(): Promise<MarketplacePolicy> {
     policyVersion: typeof d.policyVersion === 'string' ? d.policyVersion : DEFAULT_POLICY.policyVersion,
     shippingFeePaise: int(d.shippingFeePaise, DEFAULT_POLICY.shippingFeePaise),
     freeShippingThresholdPaise: int(d.freeShippingThresholdPaise, DEFAULT_POLICY.freeShippingThresholdPaise),
+    freeShippingEnabled: d.freeShippingEnabled !== false,
     codEnabled: d.codEnabled === true,
+    codMinOrderPaise: int(d.codMinOrderPaise, DEFAULT_POLICY.codMinOrderPaise),
+    codMaxOrderPaise: int(d.codMaxOrderPaise, DEFAULT_POLICY.codMaxOrderPaise) || DEFAULT_POLICY.codMaxOrderPaise,
     payoutHoldDaysAfterDelivery: int(d.payoutHoldDaysAfterDelivery, DEFAULT_POLICY.payoutHoldDaysAfterDelivery),
     reservationMinutes: int(d.reservationMinutes, DEFAULT_POLICY.reservationMinutes) || DEFAULT_POLICY.reservationMinutes,
   };
+}
+
+/** EKART rate card from settings/courierRates (admin-editable); contract values when missing. */
+export async function loadCourierRates(): Promise<CourierRates> {
+  const snap = await db().collection('settings').doc('courierRates').get();
+  return normaliseCourierRates(snap.exists ? snap.data() : null);
 }
 
 // ---------------------------------------------------------------------------

@@ -22,6 +22,14 @@ export interface PricingLineInput {
   quantity: number;
   hsnCode?: string;
   codAllowed?: boolean;
+  /** Size / weight option the customer picked, e.g. "1kg". */
+  variant?: string;
+  /** Weight of one unit in grams (for the EKART parcel). */
+  unitWeightGrams?: number;
+  /** Product box size in cm (for the EKART volumetric weight), when the product has one on record. */
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
 }
 
 export interface PricingCoupon {
@@ -36,6 +44,8 @@ export interface PricingCoupon {
 export interface PricingPolicy {
   shippingFeePaise: number;
   freeShippingThresholdPaise: number;
+  /** false = free delivery switched off by admin; shipping is always charged */
+  freeShippingEnabled?: boolean;
 }
 
 export interface VendorSplit {
@@ -86,6 +96,7 @@ export function allocateProportionally(total: number, weights: number[]): number
 
 export function shippingFor(subtotalPaise: number, policy: PricingPolicy): number {
   if (subtotalPaise <= 0) return 0;
+  if (policy.freeShippingEnabled === false) return policy.shippingFeePaise;
   return subtotalPaise >= policy.freeShippingThresholdPaise ? 0 : policy.shippingFeePaise;
 }
 
