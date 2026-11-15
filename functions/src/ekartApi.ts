@@ -5,7 +5,7 @@
  */
 import { HttpsError } from 'firebase-functions/v2/https';
 import * as crypto from 'node:crypto';
-import { EKART_CLIENT_ID, EKART_PASSWORD, EKART_USERNAME, EKART_WEBHOOK_SECRET } from './core';
+import { db, EKART_CLIENT_ID, EKART_PASSWORD, EKART_USERNAME, EKART_WEBHOOK_SECRET } from './core';
 
 export const EKART_BASE_URL = 'https://app.elite.ekartlogistics.in';
 
@@ -30,10 +30,62 @@ export function ekartWebhookSecret(): string {
   return secret(EKART_WEBHOOK_SECRET, 'EKART_WEBHOOK_SECRET').slice(0, 30);
 }
 
-export class EkartApiError extends Error {
-  constructor(public status: number, public body: any) {
-    super(`EKART API ${status}: ${body?.message || body?.description || body?.remark || 'error'}`);
+/** Hide the last 6 digits of phone numbers and drop secrets, so EKART data is safe to log, store and show. */
+export function maskSensitive(v: any, depth = 0): any {
+  if (v === null || v === undefined) return v ?? null;
+  if (depth > 8) return '[…]';
+  if (typeof v === 'string') return v.replace(/\b([6-9]\d{3})\d{6}\b/g, '$1XXXXXX');
+  if (Array.isArray(v)) return v.map((x) => maskSensitive(x, depth + 1));
+  if (typeof v === 'object') {
+    const out: Record<string, any> = {};
+    for (const [k, x] of Object.entries(v)) {
+      if (/pass(word)?|secret|token|authorization/i.test(k)) out[k] = '[hidden]';
+      else if (/phone|mobile/i.test(k) && (typeof x === 'string' || typeof x === 'number')) out[k] = String(x).replace(/\d{6}$/, 'XXXXXX');
+      else out[k] = maskSensitive(x, depth + 1);
+    }
+    return out;
   }
+  return v;
+}
+
+/**
+ * EKART's complete explanation of an error: message, description, remark and every other
+ * field it sent back (field-level validation errors included). Phone numbers are masked.
+ */
+export function ekartErrorText(status: number, body: any): string {
+  const parts: string[] = [];
+  const add = (x: any) => { const t = typeof x === 'string' ? x.trim() : (x === null || x === undefined ? '' : JSON.stringify(x)); if (t && !parts.includes(t)) parts.push(t); };
+  if (body && typeof body === 'object') {
+    add(body.message); add(body.description); add(body.remark);
+    for (const [k, x] of Object.entries(body)) {
+      if (['message', 'description', 'remark', 'statusCode', 'code', 'severity', 'status'].includes(k)) continue;
+      if (x === null || x === undefined || x === '') continue;
+      add(`${k}: ${typeof x === 'string' ? x : JSON.stringify(x)}`);
+    }
+  } else if (body) add(String(body));
+  if (!parts.length) parts.push(`EKART returned HTTP ${status} with no explanation`);
+  return String(maskSensitive(parts.join(' | '))).slice(0, 1500);
+}
+
+export class EkartApiError extends Error {
+  /** EKART's full explanation (message | description | remark | field errors), phones masked. */
+  public full: string;
+  constructor(public status: number, public body: any) {
+    super(`EKART API ${status}: ${ekartErrorText(status, body)}`);
+    this.full = ekartErrorText(status, body);
+  }
+}
+
+/** Writes one EKART API call to Cloud Logging and to Firestore `ekart_api_logs` (never throws). */
+async function logEkartCall(rec: { method: string; path: string; status: number; requestBody?: any; responseBody?: any; ok: boolean; durationMs: number }): Promise<void> {
+  const entry = {
+    at: new Date().toISOString(), method: rec.method, path: rec.path.replace(/(\/auth\/token\/)[^/?]+/, '$1[client]'), status: rec.status, ok: rec.ok, durationMs: rec.durationMs,
+    requestBody: rec.requestBody === undefined ? null : maskSensitive(rec.requestBody),
+    responseBody: typeof rec.responseBody === 'string' ? String(maskSensitive(rec.responseBody)).slice(0, 5000) : JSON.stringify(maskSensitive(rec.responseBody ?? null)).slice(0, 5000),
+    errorText: rec.ok ? null : ekartErrorText(rec.status, rec.responseBody),
+  };
+  if (rec.ok) console.log('[EKART API]', JSON.stringify(entry)); else console.error('[EKART API ERROR]', JSON.stringify(entry));
+  try { await db().collection('ekart_api_logs').add(entry); } catch (e: any) { console.warn('[EKART API] could not save log', e?.message || e); }
 }
 
 let cachedToken: { token: string; type: string; expiresAt: number } | null = null;
@@ -45,7 +97,10 @@ async function getToken(): Promise<string> {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }),
   });
   const data: any = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.access_token) throw new EkartApiError(res.status, data);
+  if (!res.ok || !data?.access_token) {
+    await logEkartCall({ method: 'POST', path: '/integrations/v2/auth/token/[client]', status: res.status, responseBody: data, ok: false, durationMs: 0 });
+    throw new EkartApiError(res.status, data);
+  }
   cachedToken = { token: data.access_token, type: data.token_type || 'Bearer', expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000 };
   return `${cachedToken.type} ${cachedToken.token}`;
 }
@@ -53,11 +108,26 @@ async function getToken(): Promise<string> {
 async function ekartFetch(method: string, path: string, body?: any, opts: { auth?: boolean; raw?: boolean } = {}): Promise<any> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
   if (opts.auth !== false) headers.Authorization = await getToken();
-  const res = await fetch(`${EKART_BASE_URL}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-  if (opts.raw && res.ok) return Buffer.from(await res.arrayBuffer());
+  const started = Date.now();
+  let res: Response;
+  try {
+    res = await fetch(`${EKART_BASE_URL}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch (e: any) {
+    await logEkartCall({ method, path, status: 0, requestBody: body, responseBody: { message: `Could not reach EKART: ${e?.message || e}` }, ok: false, durationMs: Date.now() - started });
+    throw new EkartApiError(0, { message: `Could not reach EKART: ${e?.message || e}` });
+  }
+  if (opts.raw && res.ok) {
+    const buf = Buffer.from(await res.arrayBuffer());
+    await logEkartCall({ method, path, status: res.status, requestBody: body, responseBody: `[file, ${buf.length} bytes]`, ok: true, durationMs: Date.now() - started });
+    return buf;
+  }
   const text = await res.text();
   let data: any = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = { message: text.slice(0, 300) }; }
+  try { data = text ? JSON.parse(text) : null; } catch { data = { message: text.slice(0, 1500) }; }
+  // EKART sometimes answers HTTP 200 with { status: false, ... }: that is a rejection too.
+  const ok = res.ok && !(data && typeof data === 'object' && !Array.isArray(data) && data.status === false && !path.startsWith('/api/v2/serviceability/'));
+  // Successful read-only calls are not logged (the 3-hourly poll would flood the log); every error and every change is.
+  if (!ok || method !== 'GET') await logEkartCall({ method, path, status: res.status, requestBody: body, responseBody: data, ok, durationMs: Date.now() - started });
   if (!res.ok) throw new EkartApiError(res.status, data);
   return data;
 }
@@ -139,7 +209,7 @@ export async function listWebhooks(): Promise<any[]> {
 }
 
 export async function addWebhook(url: string, webhookSecret: string): Promise<any> {
-  return ekartFetch('POST', '/api/v2/webhook', { url, secret: webhookSecret, topics: ['track_updated'], active: true });
+  return ekartFetch('POST', '/api/v2/webhook', { url, secret: webhookSecret, topics: ['track_updated', 'shipment_created'], active: true });
 }
 
 /** Ekart signs webhook bodies with HMAC using the registered secret (header name is not documented). */

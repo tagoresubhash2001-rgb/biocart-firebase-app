@@ -11,7 +11,7 @@ import * as crypto from 'node:crypto';
 import { db, FieldValue, REGION, EKART_SECRETS, getCaller, isAdminCaller, requireAdmin, callerOwnsVendor, nowIso, rupees, cleanPhone, cleanPincode, audit } from './core';
 import {
   checkServiceability, createShipment, cancelShipment, downloadLabelPdf, trackShipment, addAddress, addWebhook, listWebhooks,
-  verifyEkartHmac, ekartWebhookSecret, normaliseEkartStatus, EkartApiError, estimateCourierCharge,
+  verifyEkartHmac, ekartWebhookSecret, normaliseEkartStatus, EkartApiError, estimateCourierCharge, maskSensitive,
   listAddresses,
 } from './ekartApi';
 import { bookCourierCharge, EarningsState } from './ledger';
@@ -46,7 +46,8 @@ import { markSubOrderDelivered, recomputeParentStatus } from './orders';
 
 const WEBHOOK_URL = process.env.EKART_WEBHOOK_URL || 'https://asia-southeast1-bio-cart.cloudfunctions.net/ekartWebhook';
 const shipmentId = (orderId: string, vendorId: string) => `ekart_${orderId}_${vendorId}`;
-const friendly = (e: any) => (e instanceof EkartApiError ? `${e.body?.message || e.body?.description || e.body?.remark || 'EKART error ' + e.status}` : String(e?.message || e));
+/** EKART's full error text (message | description | remark | field errors), phones masked. */
+const friendly = (e: any) => (e instanceof EkartApiError ? e.full : String(e?.message || e));
 
 export const checkEkartPincode = onCall({ region: REGION, secrets: EKART_SECRETS }, async (request) => {
   const pin = cleanPincode(request.data?.pincode);
@@ -55,7 +56,7 @@ export const checkEkartPincode = onCall({ region: REGION, secrets: EKART_SECRETS
     const s = await checkServiceability(pin);
     return { success: true, serviceable: s.serviceable, pincode: pin, prepaid: s.serviceable, cod: s.cod, city: s.city, state: s.state, message: s.serviceable ? undefined : (s.remark || 'Delivery is not available to this PIN code yet.') };
   } catch (e: any) {
-    console.warn('[EKART] serviceability error', friendly(e));
+    console.error('[EKART] serviceability error', JSON.stringify({ pin, error: friendly(e) }));
     throw new HttpsError('unavailable', 'Could not check delivery for this PIN code right now. You can still continue; we will confirm before shipping.');
   }
 });
@@ -93,6 +94,15 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
   if (alias && !vendor.ekartPickupAlias) await vendorSnap.ref.update({ ekartPickupAlias: alias, ekartPickupRegisteredAt: nowIso(), ekartPickupSource: 'ekart_panel' });
   if (!alias) throw new HttpsError('failed-precondition', await pickupProblem(vendor));
 
+  // A shipment is only blocked when the seller's phone or pickup address is missing.
+  // A missing GSTIN never blocks: unregistered sellers are sent to EKART with an empty GSTIN.
+  const pickupAddr = (vendor.addresses?.pickupAddress?.addressLine1 ? vendor.addresses.pickupAddress : vendor.addresses?.registeredAddress) || {};
+  const sellerPhone = cleanPhone(vendor.addresses?.pickupAddress?.contactPhone || vendor.phone);
+  if (!sellerPhone) throw new HttpsError('failed-precondition', 'Your store has no 10-digit phone number. Add it in Settings (store phone / pickup contact phone), then book the courier again.');
+  if (!String(pickupAddr.addressLine1 || '').trim() || !cleanPincode(pickupAddr.pinCode || pickupAddr.pincode)) {
+    throw new HttpsError('failed-precondition', 'Your pickup address is incomplete (address line and 6-digit PIN code are needed). Update it in Settings → Shipping, then book the courier again.');
+  }
+
   // Parcel weight comes from the order itself (ordered size × quantity, e.g. 2 × 1kg = 2000 g).
   // The seller may add packing weight, but can never declare less than the products weigh.
   const orderWeight = Math.round(Number(so.totalWeightGrams) || 0);
@@ -118,7 +128,7 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
   const sellerAddr = vendor.addresses?.registeredAddress || vendor.addresses?.pickupAddress || {};
   const payload = {
     seller_name: vendor.storeName || vendor.businessName || 'BioCart Seller',
-    seller_address: [sellerAddr.addressLine1 || sellerAddr.line1 || sellerAddr.address || sellerAddr.street, sellerAddr.city, sellerAddr.state, sellerAddr.pinCode || sellerAddr.pincode || sellerAddr.zip].filter(Boolean).join(', ') || 'India',
+    seller_address: ([sellerAddr.addressLine1 || sellerAddr.line1 || sellerAddr.address || sellerAddr.street, sellerAddr.city, sellerAddr.state, sellerAddr.pinCode || sellerAddr.pincode || sellerAddr.zip].filter(Boolean).join(', ') || 'India') + (!vendor.legal?.gstin && vendor.legal?.udyam ? ` (Udyam: ${vendor.legal.udyam})` : ''),
     seller_gst_tin: vendor.legal?.gstin || '',
     consignee_gst_amount: 0,
     order_number: `${orderId}-${vendorId.slice(0, 8)}`,
@@ -147,7 +157,13 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
     booked = await createShipment(payload);
   } catch (e: any) {
     const msg = friendly(e);
-    await sRef.set({ status: 'booking_failed', lastError: msg.slice(0, 300), updatedAt: nowIso() }, { merge: true });
+    await sRef.set({
+      status: 'booking_failed', lastError: msg, updatedAt: nowIso(),
+      lastErrorStatus: e instanceof EkartApiError ? e.status : null,
+      lastErrorResponse: e instanceof EkartApiError ? maskSensitive(e.body ?? null) : null,
+      lastErrorRequest: maskSensitive(payload),
+    }, { merge: true });
+    console.error('[EKART] booking failed', JSON.stringify({ orderId, vendorId, error: msg }));
     throw new HttpsError('unavailable', `EKART could not book this shipment: ${msg}`);
   }
   const ts = nowIso();
@@ -237,9 +253,10 @@ export const trackEkartShipment = onCall({ region: REGION, secrets: EKART_SECRET
   const allowed = isAdminCaller(caller) || s.userId === caller.uid || (await callerOwnsVendor(caller, s.vendorId));
   if (!allowed) throw new HttpsError('permission-denied', 'You cannot view this shipment.');
   let result: any = { status: s.status, events: s.events || [] };
-  try { result = await applyTracking(doc.ref, await trackShipment(awb)); } catch (e: any) { console.warn('[EKART] track failed', friendly(e)); }
+  let trackingError: string | null = null;
+  try { result = await applyTracking(doc.ref, await trackShipment(awb)); } catch (e: any) { trackingError = friendly(e); console.error('[EKART] track failed', JSON.stringify({ awb, error: trackingError })); await doc.ref.set({ lastTrackError: trackingError, lastTrackErrorAt: nowIso() }, { merge: true }); }
   return {
-    success: true, waybill: awb, carrier: 'ekart', status: result.status, carrierStatus: (result.events || []).slice(-1)[0]?.status || s.carrierStatus || 'Booked',
+    success: true, trackingError, waybill: awb, carrier: 'ekart', status: result.status, carrierStatus: (result.events || []).slice(-1)[0]?.status || s.carrierStatus || 'Booked',
     expectedDeliveryDate: s.expectedDeliveryAt || null, trackingUrl: s.trackingUrl,
     scans: (result.events || []).slice().reverse().map((e: any) => ({ timestamp: new Date(e.ctime || Date.now()).toISOString(), location: e.location || '', activity: e.desc || e.status, status: e.status })),
   };
@@ -253,7 +270,12 @@ export const getEkartLabel = onCall({ region: REGION, secrets: EKART_SECRETS }, 
   await loadSubOrderForCaller(request.auth, s.parentOrderId, s.vendorId);
   if (s.labelUrl) return { success: true, labelUrl: s.labelUrl };
   let pdf: Buffer;
-  try { pdf = await downloadLabelPdf([awb]); } catch (e: any) { throw new HttpsError('unavailable', `EKART label not ready: ${friendly(e)}`); }
+  try { pdf = await downloadLabelPdf([awb]); } catch (e: any) {
+    const msg = friendly(e);
+    console.error('[EKART] label failed', JSON.stringify({ awb, error: msg }));
+    await doc.ref.set({ lastLabelError: msg, lastLabelErrorAt: nowIso() }, { merge: true });
+    throw new HttpsError('unavailable', `EKART label not ready: ${msg}`);
+  }
   const bucket = getStorage().bucket();
   const path = `labels/${s.vendorId}/${awb}.pdf`;
   const token = crypto.randomUUID();
@@ -270,7 +292,12 @@ export const cancelEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
   const s = doc.data();
   const { caller, ref } = await loadSubOrderForCaller(request.auth, s.parentOrderId, s.vendorId);
   if (!['pickup_pending', 'booking_failed'].includes(String(s.status))) throw new HttpsError('failed-precondition', 'The courier has already picked up this parcel; it cannot be cancelled here.');
-  try { await cancelShipment(awb); } catch (e: any) { throw new HttpsError('unavailable', `EKART could not cancel: ${friendly(e)}`); }
+  try { await cancelShipment(awb); } catch (e: any) {
+    const msg = friendly(e);
+    console.error('[EKART] cancel failed', JSON.stringify({ awb, error: msg }));
+    await doc.ref.set({ lastCancelError: msg, lastCancelErrorAt: nowIso() }, { merge: true });
+    throw new HttpsError('unavailable', `EKART could not cancel: ${msg}`);
+  }
   const ts = nowIso();
   await doc.ref.set({ status: 'cancelled', cancelledAt: ts, cancelledBy: caller.uid, awb: FieldValue.delete(), cancelledAwb: awb, updatedAt: ts }, { merge: true });
   await doc.ref.set({ history: FieldValue.arrayUnion({ awb, cancelledAt: ts }) }, { merge: true });
@@ -306,7 +333,11 @@ export const pollEkartShipments = onSchedule({ schedule: 'every 3 hours', region
   for (const d of snap.docs) {
     const awb = d.data().awb;
     if (!awb) continue;
-    try { await applyTracking(d.ref, await trackShipment(awb)); } catch (e: any) { console.warn(`[EKART poll] ${awb}`, friendly(e)); }
+    try { await applyTracking(d.ref, await trackShipment(awb)); } catch (e: any) {
+      const msg = friendly(e);
+      console.error('[EKART poll] track failed', JSON.stringify({ awb, error: msg }));
+      await d.ref.set({ lastTrackError: msg, lastTrackErrorAt: nowIso() }, { merge: true }).catch(() => undefined);
+    }
   }
 });
 
