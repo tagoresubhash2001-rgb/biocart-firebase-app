@@ -17,14 +17,16 @@ import * as crypto from 'node:crypto';
 import {
   db, FieldValue, REGION, CASHFREE_SECRETS, EKART_SECRETS, loadPolicy, MarketplacePolicy, getCaller, isAdminCaller,
   requireAdmin, callerOwnsVendor, rateLimit, rupees, nowIso, cleanPhone, cleanPincode, audit, ORDER_STATUS,
+  loadCourierRates,
 } from './core';
 import { priceOrder, PricingCoupon, PricingLineInput, PricingResult } from './pricing';
 import {
-  bookOrderAllocation, bookEarningsEligible, bookSubOrderReversal, bookShippingReversal, bookCustomerRefund, EarningsState, netPayablePaise,
+  bookOrderAllocation, bookEarningsEligible, bookSubOrderReversal, bookShippingReversal, bookCustomerRefund, EarningsState, netPayablePaise, bookCourierCharge,
 } from './ledger';
 import { cashfreeRequest, CashfreeApiError } from './cashfreeApi';
 import { checkServiceability } from './ekartApi';
 import { unitWeightGrams } from './weight';
+import { buildCourierEstimate, productBoxCm, CourierRates } from './courierRates';
 
 interface CartItem { productId: string; quantity: number; variant: string | null }
 
@@ -113,6 +115,7 @@ function buildPlan(
     lines.push({
       productId: pd.id, name: variant ? `${String(p.name || 'Product')} (${variant})` : String(p.name || 'Product'), vendorId, category: String(p.category || ''),
       variant: variant || undefined, unitWeightGrams: unitWeightGrams(p, variant) ?? undefined,
+      ...(productBoxCm(p) || {}),
       pricePaise: Math.round(price * 100), quantity: it.quantity, hsnCode: p.hsnCode || '', codAllowed: p.codAllowed === true,
     });
   });
@@ -265,6 +268,8 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
   }
 
   const policy = await loadPolicy();
+  // EKART rate card as it stands now; copied onto each vendor order so later edits never change this order.
+  const courierRates: CourierRates = await loadCourierRates();
   const year = new Date().getFullYear();
   const orderId = `BC-${year}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
   const reservationExpiresAt = new Date(Date.now() + policy.reservationMinutes * 60_000).toISOString();
@@ -327,6 +332,11 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
       const vendor = plan.vendors[v.vendorId] || {};
       // COD: the shipping charge is collected with the first seller's parcel.
       const codAmountPaise = paymentMethod === 'cod' ? v.customerPaidPaise + (splitIndex === 0 ? p.shippingPaise : 0) : 0;
+      // Estimated EKART charge for this seller's parcel. It is held from the seller's share when the order is paid.
+      const courier = buildCourierEstimate(
+        v.items.map((it) => ({ quantity: it.quantity, unitWeightGrams: it.unitWeightGrams ?? null, lengthCm: it.lengthCm ?? null, widthCm: it.widthCm ?? null, heightCm: it.heightCm ?? null })),
+        courierRates, paymentMethod === 'cod', codAmountPaise / 100,
+      );
       t.set(orderRef.collection('vendor_orders').doc(v.vendorId), {
         vendorId: v.vendorId, vendorStoreName: vendor.storeName || vendor.businessName || v.vendorId,
         orderNumber: orderId, userId: caller.uid,
@@ -339,6 +349,9 @@ export const createOrder = onCall({ region: REGION, secrets: [...EKART_SECRETS] 
         commissionRateBps: v.commissionRateBps, commissionPercent: v.commissionRateBps / 100,
         commissionAmount: rupees(v.commissionPaise), commissionAmountPaise: v.commissionPaise, commissionPaise: v.commissionPaise,
         vendorPayable: rupees(v.vendorPayablePaise), vendorPayablePaise: v.vendorPayablePaise,
+        courier, courierEstimateIncomplete: courier.weightIncomplete,
+        // what the seller will actually receive: share − courier charge (never below 0)
+        netPayoutPaise: Math.max(0, v.vendorPayablePaise - courier.estimatedChargePaise), netPayout: rupees(Math.max(0, v.vendorPayablePaise - courier.estimatedChargePaise)),
         paymentMethod, paymentStatus: 'pending',
         status: ORDER_STATUS.AWAITING_PAYMENT, orderStatus: ORDER_STATUS.AWAITING_PAYMENT, shipmentStatus: 'pending',
         fulfilment: { name: ship.name, phone: ship.phone, address: ship.address, city: ship.city, state: ship.state, zip: ship.zip, paymentMode: paymentMethod === 'cod' ? 'COD' : 'Prepaid', codAmountPaise },
@@ -409,6 +422,19 @@ export async function allocateOrderFinancials(orderId: string, proof: PaymentPro
       });
     }
     bookOrderAllocation(t, { ...order, id: orderId }, subs);
+    // Hold the estimated EKART charge from each seller's share now, before anything is booked with EKART.
+    // It sits in courierCharges.forward, so the payout (share − courier charge) can never include it.
+    for (const so of subs) {
+      const est = Math.round(Number(so.data.courier?.estimatedChargePaise) || 0);
+      if (est > 0 && so.data.courier?.status === 'estimate' && so.data.courierCharges?.forward == null) {
+        bookCourierCharge(t, orderId, so.vendorId, 'hold', est, 'pending');
+        t.update(so.ref, {
+          'courierCharges.forward': est, courierChargePaise: FieldValue.increment(est),
+          'courierChargeSource.forward': { type: 'rate_card_estimate', at: ts },
+          'courier.status': 'held_estimate', 'courier.heldAt': ts, 'courier.heldPaise': est,
+        });
+      }
+    }
     t.update(orderRef, {
       financialsAllocated: true, financialsAllocatedAt: ts,
       status: ORDER_STATUS.CONFIRMED, orderStatus: ORDER_STATUS.CONFIRMED, paymentStatus,
@@ -608,9 +634,17 @@ export async function initiateRefund(req: RefundRequest): Promise<{ refundId: st
 
     // writes
     for (const s of targets) {
-      bookSubOrderReversal(t, refundId, orderId, s.id, s.data, (s.data.earnings?.state || 'none') as EarningsState);
+      const state = (s.data.earnings?.state || 'none') as EarningsState;
+      // Cancelled before the parcel was shipped: EKART charged nothing, so the courier hold goes back to the seller.
+      // (After shipping or RTO the charge stays the seller's cost — handled inside bookSubOrderReversal.)
+      const neverShipped = !['shipped', 'delivered', 'rto'].includes(String(s.data.status)) && !s.data.awbNumber;
+      const held = Math.round(Number(s.data.courierCharges?.forward) || 0);
+      const release = neverShipped && held > 0 && state !== 'none' && state !== 'reversed' ? held : 0;
+      if (release > 0) bookCourierCharge(t, orderId, s.id, 'release', -release, state, `_${refundId}`);
+      bookSubOrderReversal(t, refundId, orderId, s.id, release > 0 ? { ...s.data, courierChargePaise: (Number(s.data.courierChargePaise) || 0) - release } : s.data, state);
       const st = req.markAs || 'cancelled';
       t.update(s.ref, {
+        ...(release > 0 ? { 'courierCharges.forward': 0, courierChargePaise: FieldValue.increment(-release), 'courier.status': 'released', 'courier.releasedAt': ts, 'courier.releasedPaise': release, netPayoutPaise: 0, netPayout: 0 } : {}),
         status: st, orderStatus: st, 'earnings.state': 'reversed', refundId, cancellationReason: req.reason, updatedAt: ts,
         statusHistory: FieldValue.arrayUnion({ status: st, at: ts, by: req.actorUid, role: req.actorUid === 'system' ? 'system' : 'staff', reason: req.reason }),
       });

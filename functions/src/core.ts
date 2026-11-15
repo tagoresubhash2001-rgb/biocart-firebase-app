@@ -4,6 +4,7 @@
  * first so the Admin SDK is initialised exactly once.
  */
 import { getApps, initializeApp } from 'firebase-admin/app';
+import { CourierRates, normaliseCourierRates } from './courierRates';
 import { getFirestore, FieldValue, Firestore } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
@@ -86,6 +87,12 @@ export async function loadPolicy(): Promise<MarketplacePolicy> {
     payoutHoldDaysAfterDelivery: int(d.payoutHoldDaysAfterDelivery, DEFAULT_POLICY.payoutHoldDaysAfterDelivery),
     reservationMinutes: int(d.reservationMinutes, DEFAULT_POLICY.reservationMinutes) || DEFAULT_POLICY.reservationMinutes,
   };
+}
+
+/** EKART rate card from settings/courierRates (admin-editable); contract values when missing. */
+export async function loadCourierRates(): Promise<CourierRates> {
+  const snap = await db().collection('settings').doc('courierRates').get();
+  return normaliseCourierRates(snap.exists ? snap.data() : null);
 }
 
 // ---------------------------------------------------------------------------

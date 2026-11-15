@@ -8,10 +8,11 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getStorage } from 'firebase-admin/storage';
 import * as crypto from 'node:crypto';
-import { db, FieldValue, REGION, EKART_SECRETS, getCaller, isAdminCaller, requireAdmin, callerOwnsVendor, nowIso, rupees, cleanPhone, cleanPincode, audit } from './core';
+import { db, FieldValue, REGION, EKART_SECRETS, getCaller, isAdminCaller, requireAdmin, callerOwnsVendor, nowIso, rupees, cleanPhone, cleanPincode, audit, loadCourierRates } from './core';
+import { computeEkartCourierCharge, computeEkartRtoCharge, normaliseCourierRates } from './courierRates';
 import {
   checkServiceability, createShipment, cancelShipment, downloadLabelPdf, trackShipment, addAddress, addWebhook, listWebhooks,
-  verifyEkartHmac, ekartWebhookSecret, normaliseEkartStatus, EkartApiError, estimateCourierCharge, maskSensitive,
+  verifyEkartHmac, ekartWebhookSecret, normaliseEkartStatus, EkartApiError, pricingEstimate, maskSensitive,
   listAddresses,
 } from './ekartApi';
 import { bookCourierCharge, EarningsState } from './ledger';
@@ -40,6 +41,37 @@ export async function applyCourierCharge(orderId: string, vendorId: string, kind
       [`courierChargeSource.${kind}`]: source, updatedAt: nowIso(),
     });
     return amountPaise;
+  });
+}
+/**
+ * Replaces the courier-charge estimate held at order time with the real charge once the parcel is booked.
+ * Lower than the hold → the difference goes back to the seller; higher → more is held. Booked once per booking.
+ * Orders placed before the hold existed have nothing held, so the full charge is taken here (as before).
+ */
+export async function settleCourierActual(orderId: string, vendorId: string, actualPaise: number, details: Record<string, any>) {
+  const ref = db().collection('orders').doc(orderId).collection('vendor_orders').doc(vendorId);
+  return db().runTransaction(async (t) => {
+    const ss = await t.get(ref);
+    if (!ss.exists) return { heldPaise: 0, actualPaise: 0, deltaPaise: 0 };
+    const so = ss.data()!;
+    const hadCharge = so.courierCharges?.forward != null;
+    const held = Math.round(Number(so.courierCharges?.forward) || 0);
+    const delta = actualPaise - held;
+    const raw = (so.earnings?.state || 'none') as EarningsState;
+    const state: EarningsState = raw === 'none' || raw === 'reversed' ? 'settled' : raw;
+    const ts = nowIso();
+    if (delta !== 0) bookCourierCharge(t, orderId, vendorId, hadCharge ? 'adjust' : 'forward', delta, state, hadCharge ? `_${details.awb || Date.now()}` : '');
+    const totalCourier = (Number(so.courierChargePaise) || 0) + delta;
+    const net = Math.max(0, (Number(so.vendorPayablePaise) || 0) - totalCourier);
+    t.update(ref, {
+      'courierCharges.forward': actualPaise, courierChargePaise: FieldValue.increment(delta),
+      'courierChargeSource.forward': { ...details, at: ts },
+      'courier.actualChargePaise': actualPaise, 'courier.actualCharge': rupees(actualPaise), 'courier.status': 'held_actual', 'courier.actualAt': ts,
+      'courier.actualGrams': details.weightGrams ?? null, 'courier.actualBillableGrams': details.billableGrams ?? null, 'courier.actualSource': details.type || null,
+      'courier.adjustmentPaise': delta, 'courier.heldPaise': actualPaise,
+      netPayoutPaise: net, netPayout: rupees(net), courierChargeStatus: 'booked', updatedAt: ts,
+    });
+    return { heldPaise: held, actualPaise, deltaPaise: delta };
   });
 }
 import { markSubOrderDelivered, recomputeParentStatus } from './orders';
@@ -180,18 +212,33 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
   });
   await recomputeParentStatus(orderId);
 
-  // EKART's rate card for this parcel → the seller's courier charge (shown to the seller and admin).
+  // Real courier charge for the parcel as booked (real weight and size): EKART's own price for our
+  // rate card, or our rate-card formula if EKART's price service does not answer. It replaces the
+  // estimate that was held from the seller's share when the order was paid.
   let courierChargePaise = 0;
   try {
-    const pickupPin = String(vendor.addresses?.pickupAddress?.pinCode || vendor.addresses?.pickupAddress?.pincode || sellerAddr.pinCode || sellerAddr.pincode || '');
-    const est = await estimateCourierCharge({
-      pickupPin, dropPin: String(f.zip), weightGrams: weight, lengthCm: L, widthCm: W, heightCm: H,
-      cod: f.paymentMode === 'COD', codAmount: codRupees, invoiceAmount: Math.max(1, totalRupees),
-    });
-    await sRef.set({ courierEstimate: { forwardPaise: est.forwardPaise, rtoTotalPaise: est.rtoTotalPaise, courierGroup: est.courierGroup || null, breakdown: est.breakdown, at: nowIso() } }, { merge: true });
-    courierChargePaise = await applyCourierCharge(orderId, vendorId, 'forward', est.forwardPaise, { type: 'ekart_rate_card', awb: booked.trackingId });
+    const rates = normaliseCourierRates(so.courier?.ratesSnapshot || (await loadCourierRates()));
+    const isCod = f.paymentMode === 'COD';
+    const formula = computeEkartCourierCharge({ actualGrams: weight, lengthCm: L, widthCm: W, heightCm: H, cod: isCod, codAmountRupees: codRupees }, rates);
+    let actualPaise = formula.chargePaise;
+    let billableGrams = formula.billableGrams;
+    let source: Record<string, any> = { type: 'rate_card_formula', awb: booked.trackingId };
+    try {
+      const pickupPin = String(vendor.addresses?.pickupAddress?.pinCode || vendor.addresses?.pickupAddress?.pincode || sellerAddr.pinCode || sellerAddr.pincode || '');
+      const est = await pricingEstimate({ pickupPin, dropPin: String(f.zip), weightGrams: weight, lengthCm: L, widthCm: W, heightCm: H, cod: isCod, codAmount: codRupees, invoiceAmount: Math.max(1, totalRupees) });
+      actualPaise = est.totalPaise;
+      if (est.billingGrams > 0) billableGrams = est.billingGrams;
+      source = { type: 'ekart_pricing_estimate', awb: booked.trackingId, zone: est.zone || null, ekartReply: est.raw, formulaPaise: formula.chargePaise };
+    } catch (e: any) {
+      console.warn('[EKART] price estimate failed; using the rate-card formula', friendly(e));
+      source.estimateError = friendly(e).slice(0, 300);
+    }
+    const r = await settleCourierActual(orderId, vendorId, actualPaise, { ...source, weightGrams: weight, billableGrams, lengthCm: L, widthCm: W, heightCm: H });
+    courierChargePaise = r.actualPaise;
+    const rtoChargePaise = computeEkartRtoCharge(billableGrams, rates);
+    await sRef.set({ courierEstimate: { forwardPaise: actualPaise, rtoTotalPaise: actualPaise + rtoChargePaise, billableGrams, source: source.type, at: nowIso() }, rtoChargePaise, courierHeldBeforePaise: r.heldPaise, courierAdjustmentPaise: r.deltaPaise }, { merge: true });
   } catch (e: any) {
-    console.warn('[EKART] rate estimate failed; admin must enter the courier charge', friendly(e));
+    console.error('[EKART] courier charge could not be booked; admin must enter it', friendly(e));
     await ref.set({ courierChargeStatus: 'needs_admin', courierChargeError: friendly(e).slice(0, 200) }, { merge: true });
   }
   return { success: true, waybill: booked.trackingId, shipmentId: sRef.id, status: 'pickup_pending', carrier: 'ekart', trackingUrl, courierCharge: rupees(courierChargePaise) };
@@ -229,8 +276,9 @@ async function applyTracking(sRef: FirebaseFirestore.DocumentReference, track: a
       await soRef.set(soUpdate, { merge: true });
       // Parcel coming back: EKART bills the return trip too (rate card RTO total minus the forward part already charged).
       if (st === 'rto_in_progress' || st === 'rto_delivered') {
+        // RTO block of the rate card that applied to this order (currently ₹0); older shipments use EKART's stored estimate.
         const est = s.courierEstimate || {};
-        const extra = Math.max(0, Number(est.rtoTotalPaise || 0) - Number(est.forwardPaise || 0));
+        const extra = s.rtoChargePaise != null ? Math.max(0, Number(s.rtoChargePaise) || 0) : Math.max(0, Number(est.rtoTotalPaise || 0) - Number(est.forwardPaise || 0));
         if (extra > 0) await applyCourierCharge(s.parentOrderId, s.vendorId, 'rto', extra, { type: 'ekart_rate_card_rto', awb: s.awb }).catch((e) => console.warn('[EKART] RTO charge failed', e));
       }
       if (soUpdate.status) await recomputeParentStatus(s.parentOrderId);
@@ -446,6 +494,9 @@ export const setCourierCharge = onCall({ region: REGION }, async (request) => {
     t.update(ref, {
       [`courierCharges.${kind}`]: target, courierChargePaise: FieldValue.increment(delta), courierChargeStatus: 'set_by_admin',
       [`courierChargeSource.${kind}`]: { type: 'admin', by: caller.uid, reason, at: nowIso() }, updatedAt: nowIso(),
+      ...(kind === 'forward' ? { 'courier.actualChargePaise': target, 'courier.actualCharge': rupees(target), 'courier.status': 'held_actual', 'courier.actualSource': 'admin', 'courier.heldPaise': target } : {}),
+      netPayoutPaise: Math.max(0, (Number(so.vendorPayablePaise) || 0) - (Number(so.courierChargePaise) || 0) - delta),
+      netPayout: rupees(Math.max(0, (Number(so.vendorPayablePaise) || 0) - (Number(so.courierChargePaise) || 0) - delta)),
     });
     return { changed: true, current, target };
   });

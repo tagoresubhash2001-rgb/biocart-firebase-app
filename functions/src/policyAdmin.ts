@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { db, REGION, requireAdmin, loadPolicy, nowIso, audit, getCaller, isAdminCaller, callerOwnsVendor } from './core';
+import { db, REGION, requireAdmin, loadPolicy, nowIso, audit, getCaller, isAdminCaller, callerOwnsVendor, loadCourierRates } from './core';
+import { normaliseCourierRates } from './courierRates';
 
 /** Admin: edit the marketplace rules (shipping fee, free-shipping threshold, COD switch, payout hold). */
 export const updateFinancialPolicy = onCall({ region: REGION }, async (request) => {
@@ -25,7 +26,24 @@ export const updateFinancialPolicy = onCall({ region: REGION }, async (request) 
     if (!Number.isInteger(n) || n < 0 || n > 30) throw new HttpsError('invalid-argument', 'Hold days must be 0–30.');
     next.payoutHoldDaysAfterDelivery = n;
   }
-  if (!Object.keys(next).length) throw new HttpsError('invalid-argument', 'Nothing to update.');
+  // EKART rate card (settings/courierRates). Applies to orders placed from now on; existing orders keep the rates copied onto them.
+  let courierRatesAfter: Record<string, any> | null = null;
+  if (d.courierRates && typeof d.courierRates === 'object') {
+    const before = await loadCourierRates();
+    const fields = ['upTo2kg', 'additionalPerKg', 'codFixed', 'codPercent', 'fuelPercent', 'gstPercent', 'volumetricDivisor', 'rtoUpTo2kg', 'rtoAdditionalKg', 'packagingAllowanceGrams'];
+    for (const k of fields) {
+      if (d.courierRates[k] === undefined) continue;
+      const n = Number(d.courierRates[k]);
+      if (!Number.isFinite(n) || n < 0 || (k === 'volumetricDivisor' && n <= 0)) throw new HttpsError('invalid-argument', `Courier rate "${k}" must be a number of 0 or more.`);
+    }
+    courierRatesAfter = normaliseCourierRates({ ...before, ...d.courierRates });
+    await db().collection('settings').doc('courierRates').set({ ...courierRatesAfter, updatedAt: nowIso(), updatedBy: caller.uid }, { merge: true });
+    await audit(caller.uid, 'courier_rates_updated', 'settings', 'courierRates', { before, after: courierRatesAfter });
+  }
+  if (!Object.keys(next).length) {
+    if (courierRatesAfter) return { success: true, policy: cur, courierRates: courierRatesAfter };
+    throw new HttpsError('invalid-argument', 'Nothing to update.');
+  }
   const version = `${new Date().toISOString().slice(0, 10)}-${Date.now().toString(36)}`;
   await db().collection('settings').doc('financialPolicy').set({ ...next, policyVersion: version, updatedAt: nowIso(), updatedBy: caller.uid }, { merge: true });
   await audit(caller.uid, 'financial_policy_updated', 'settings', 'financialPolicy', { before: cur, after: next, version });

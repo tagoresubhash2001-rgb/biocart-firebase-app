@@ -26,6 +26,10 @@ export interface PricingLineInput {
   variant?: string;
   /** Weight of one unit in grams (for the EKART parcel). */
   unitWeightGrams?: number;
+  /** Product box size in cm (for the EKART volumetric weight), when the product has one on record. */
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
 }
 
 export interface PricingCoupon {

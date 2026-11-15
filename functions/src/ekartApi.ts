@@ -181,6 +181,24 @@ export async function estimateCourierCharge(p: { pickupPin: string; dropPin: str
   };
 }
 
+export interface EkartPriceEstimate { totalPaise: number; billingGrams: number; volumetricGrams: number; zone?: string; raw: any }
+
+/**
+ * EKART's price for one forward parcel from our contract rate card (POST /data/pricing/estimate).
+ * `total` includes fuel surcharge, COD charge and GST. The call and EKART's reply are saved in ekart_api_logs.
+ */
+export async function pricingEstimate(p: { pickupPin: string; dropPin: string; weightGrams: number; lengthCm: number; widthCm: number; heightCm: number; cod: boolean; codAmount: number; invoiceAmount: number }): Promise<EkartPriceEstimate> {
+  const data = await ekartFetch('POST', '/data/pricing/estimate', {
+    pickupPincode: String(p.pickupPin), dropPincode: String(p.dropPin),
+    length: String(p.lengthCm), width: String(p.widthCm), height: String(p.heightCm), weight: String(p.weightGrams),
+    paymentType: p.cod ? 'COD' : 'Prepaid', serviceType: 'SURFACE', shippingDirection: 'FORWARD',
+    codAmount: String(p.cod ? p.codAmount : 0), invoiceAmount: String(p.invoiceAmount),
+  });
+  const total = Number(data?.total);
+  if (!Number.isFinite(total) || total <= 0) throw new EkartApiError(200, { message: 'EKART returned no price for this parcel', reply: data });
+  return { totalPaise: toPaise(total), billingGrams: Math.round(Number(data?.billingWeight) || 0), volumetricGrams: Math.round(Number(data?.volumetricWeight) || 0), zone: data?.zone, raw: data };
+}
+
 export async function cancelShipment(trackingId: string): Promise<any> {
   return ekartFetch('DELETE', `/api/v1/package/cancel?tracking_id=${encodeURIComponent(trackingId)}`);
 }

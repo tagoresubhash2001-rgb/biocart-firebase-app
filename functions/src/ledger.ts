@@ -86,7 +86,20 @@ export function netPayablePaise(so: any): number {
  * EKART courier charge (forward or RTO) is the vendor's cost: it is taken from the vendor's money for
  * this order, from whichever bucket that money is in now. Deterministic id = booked once.
  */
-export function bookCourierCharge(t: Transaction, orderId: string, vendorId: string, kind: 'forward' | 'rto' | 'correction', amountPaise: number, state: EarningsState, idSuffix = '') {
+export type CourierEntryKind = 'forward' | 'rto' | 'correction' | 'hold' | 'adjust' | 'release';
+const COURIER_ENTRY: Record<CourierEntryKind, { type: string; label: string }> = {
+  forward: { type: 'courier_charge', label: 'delivery charge' },
+  rto: { type: 'courier_rto_charge', label: 'return (RTO) charge' },
+  correction: { type: 'courier_charge', label: 'charge correction' },
+  // held from the vendor's share the moment the order is paid (estimate from the rate card)
+  hold: { type: 'courier_charge_held', label: 'delivery charge held (estimate)' },
+  // estimate replaced by the real charge when the parcel is booked (+ = more held, − = given back)
+  adjust: { type: 'courier_charge_adjusted', label: 'delivery charge adjusted to actual' },
+  // order cancelled before it was shipped: the hold goes back to the vendor
+  release: { type: 'courier_charge_released', label: 'delivery charge hold released' },
+};
+
+export function bookCourierCharge(t: Transaction, orderId: string, vendorId: string, kind: CourierEntryKind, amountPaise: number, state: EarningsState, idSuffix = '') {
   if (!amountPaise) return;
   const w: Record<string, any> = { updatedAt: nowIso(), lifetimeCourierCharges: FieldValue.increment(amountPaise) };
   let bucket = 'pending';
@@ -100,8 +113,8 @@ export function bookCourierCharge(t: Transaction, orderId: string, vendorId: str
   t.set(walletRef(vendorId), w, { merge: true });
   entry(t, `${orderId}_${vendorId}_courier_${kind}${idSuffix}`, {
     orderId, orderNumber: orderId, vendorId, account: `vendor:${vendorId}`,
-    entryType: kind === 'rto' ? 'courier_rto_charge' : 'courier_charge', direction: amountPaise > 0 ? 'debit' : 'credit', bucket, status: 'settled',
-    amountPaise, description: `Order ${orderId}: EKART ${kind === 'rto' ? 'return (RTO)' : kind === 'correction' ? 'charge correction' : 'delivery'} charge ₹${rupees(amountPaise)} (paid by seller)`,
+    entryType: COURIER_ENTRY[kind].type, direction: amountPaise > 0 ? 'debit' : 'credit', bucket, status: 'settled',
+    amountPaise, description: `Order ${orderId}: EKART ${COURIER_ENTRY[kind].label} ₹${rupees(Math.abs(amountPaise))} (${amountPaise > 0 ? 'paid by seller' : 'returned to seller'})`,
   });
   t.set(companyRef(), { courierChargesFromVendorsPaise: FieldValue.increment(amountPaise), updatedAt: nowIso() }, { merge: true });
 }
