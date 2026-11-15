@@ -27,6 +27,21 @@ interface VendorOrderSlice {
   commissionPercent: number;
   commissionAmount: number;
   vendorPayable: number;
+  courier?: {
+    estimatedChargePaise?: number;
+    heldPaise?: number;
+    actualChargePaise?: number;
+    billableWeightGrams?: number;
+    deadWeightGrams?: number;
+    volumetricWeightGrams?: number;
+    status?: string;
+  };
+  courierCharges?: {
+    forward?: number;
+  };
+  courierChargePaise?: number;
+  netPayout?: number;
+  netPayoutPaise?: number;
   orderStatus?: OrderWorkflowStatus;
   status?: OrderWorkflowStatus;
   shipmentStatus: ShipmentWorkflowStatus;
@@ -635,11 +650,19 @@ export const VendorOrders: React.FC = () => {
                         ))}
                       </td>
 
-                      {/* Financials */}
+                      {/* Financials & Courier Breakdown */}
                       <td className="p-3 font-mono">
-                        <div className="font-bold text-emerald-700">₹{o.vendorPayable?.toFixed(2)}</div>
-                        <div className="text-[10px] text-slate-400">Gross: ₹{o.subtotal?.toFixed(2)}</div>
-                        <div className="text-[10px] text-rose-500">Fee: -₹{o.commissionAmount?.toFixed(2)}</div>
+                        <div className="font-bold text-emerald-700">
+                          Payout: ₹{(o.netPayout != null ? o.netPayout : (o.netPayoutPaise != null ? o.netPayoutPaise / 100 : o.vendorPayable))?.toFixed(2)}
+                        </div>
+                        <div className="text-[10px] text-slate-500">Order: ₹{o.subtotal?.toFixed(2)}</div>
+                        <div className="text-[10px] text-rose-500">Commission: -₹{o.commissionAmount?.toFixed(2)}</div>
+                        {((o.courierCharges?.forward || o.courierChargePaise || o.courier?.heldPaise || o.courier?.estimatedChargePaise) != null) && (
+                          <div className="text-[10px] text-amber-700 font-semibold" title={o.courier?.billableWeightGrams ? `Billable weight: ${(o.courier.billableWeightGrams / 1000).toFixed(2)} kg` : 'EKART parcel courier charge'}>
+                            Courier (EKART): -₹{(((o.courierCharges?.forward ?? o.courierChargePaise ?? o.courier?.heldPaise ?? o.courier?.estimatedChargePaise) || 0) / 100).toFixed(2)}
+                            {o.courier?.billableWeightGrams ? ` (${(o.courier.billableWeightGrams / 1000).toFixed(1)}kg)` : ''}
+                          </div>
+                        )}
                       </td>
 
                       {/* Workflow State Selector */}

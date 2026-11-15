@@ -262,7 +262,22 @@ export const AdminOrders: React.FC = () => {
                         <span className="font-bold text-slate-900">{so.vendorStoreName || so.vendorId}</span>
                         <span className="px-2 py-0.5 rounded-full bg-slate-100 font-bold uppercase text-[10px]">{so.status}</span>
                       </div>
-                      <div className="flex justify-between text-slate-500"><span>Items ₹{so.subtotal} · commission {so.commissionPercent}% (₹{so.commissionAmount})</span><span>Vendor ₹{so.vendorPayable}</span></div>
+                      <div className="flex justify-between text-slate-500">
+                        <span>Items ₹{so.subtotal} · commission {so.commissionPercent}% (₹{so.commissionAmount})</span>
+                        <span>Vendor share ₹{so.vendorPayable}</span>
+                      </div>
+                      {((so.courierCharges?.forward || so.courierChargePaise || so.courier?.heldPaise || so.courier?.estimatedChargePaise) != null) && (
+                        <div className="flex justify-between text-amber-700 font-medium">
+                          <span>Courier hold (EKART{so.courier?.billableWeightGrams ? ` ${(so.courier.billableWeightGrams / 1000).toFixed(1)}kg` : ''}):</span>
+                          <span>-₹{(((so.courierCharges?.forward ?? so.courierChargePaise ?? so.courier?.heldPaise ?? so.courier?.estimatedChargePaise) || 0) / 100).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {(so.netPayout != null || so.netPayoutPaise != null) && (
+                        <div className="flex justify-between font-bold text-emerald-700">
+                          <span>Net seller payout:</span>
+                          <span>₹{(so.netPayout != null ? so.netPayout : (so.netPayoutPaise / 100)).toFixed(2)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-slate-500"><span>Earnings: {so.earnings?.state || '—'}</span><span>{so.awbNumber ? `AWB ${so.awbNumber}` : so.shipmentStatus}</span></div>
                       {so.needsAdminAction && <div className="text-amber-700 font-semibold">{so.needsAdminAction}</div>}
                       <div className="flex flex-wrap gap-2 pt-1">
