@@ -33,6 +33,7 @@ const createVendorAccountCF = httpsCallable(functions, 'createVendorAccount');
 const updateVendorEmailCF = httpsCallable(functions, 'updateVendorEmail');
 const reconcileVendorAccountCF = httpsCallable(functions, 'reconcileVendorAccount');
 const updateVendorCommercialsCF = httpsCallable(functions, 'updateVendorCommercials');
+const registerEkartPickupCF = httpsCallable(functions, 'registerEkartPickupAddress');
 
 export const AdminVendors: React.FC = () => {
   const { userProfile } = useAuth();
@@ -134,6 +135,29 @@ export const AdminVendors: React.FC = () => {
       addToast(err?.message || 'Failed to save vendor', 'warning');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRegisterEkart = async (v: any) => {
+    try {
+      const res: any = await registerEkartPickupCF({ vendorId: v.id });
+      addToast(`EKART pickup registered as "${res.data?.alias}"`, 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'EKART registration failed — check the vendor pickup address (line 1, PIN code, phone).', 'error');
+    }
+  };
+
+  const handleSetCommission = async (v: any) => {
+    const cur = v.commission?.baseRateBps !== undefined ? v.commission.baseRateBps / 100 : v.commissionRate;
+    const input = window.prompt(`Commission % for ${v.storeName || v.businessName} (agreed with the vendor):`, cur !== undefined ? String(cur) : '');
+    if (input === null) return;
+    const pct = Number(input);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) { addToast('Enter a number between 0 and 100.', 'warning'); return; }
+    try {
+      await updateVendorCommercialsCF({ vendorId: v.id, commissionRate: pct });
+      addToast(`Commission set to ${pct}%. Applies to new orders only.`, 'success');
+    } catch (err: any) {
+      addToast(err?.message || 'Could not update commission', 'error');
     }
   };
 
@@ -318,6 +342,22 @@ export const AdminVendors: React.FC = () => {
                   title="View individual revenue, order analytics & wallet drill-down"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5 text-emerald-700" /> Dashboard
+                </button>
+
+                <button
+                  onClick={() => handleSetCommission(v)}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  title="Set the commission % agreed with this vendor"
+                >
+                  Commission {(v as any).commission?.baseRateBps !== undefined ? `${(v as any).commission.baseRateBps / 100}%` : ((v as any).commissionRate !== undefined ? `${(v as any).commissionRate}%` : '— not set')}
+                </button>
+
+                <button
+                  onClick={() => handleRegisterEkart(v)}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  title="Register this vendor's pickup address with EKART (needed before they can ship)"
+                >
+                  {(v as any).ekartPickupAlias ? 'EKART pickup ✓' : 'Register EKART pickup'}
                 </button>
               </div>
 

@@ -1,0 +1,254 @@
+[
+  {
+    "id": "R1",
+    "title": "Product of a vendor with no commission set cannot be sold",
+    "pass": true,
+    "evidence": "failed-precondition \"Organic Rice\" cannot be sold yet (seller setup incomplete)."
+  },
+  {
+    "id": "R3",
+    "title": "₹100 cart → ₹99 shipping, customer pays ₹199, no GST added",
+    "pass": true,
+    "evidence": "{\"sub\":100,\"ship\":99,\"total\":199}"
+  },
+  {
+    "id": "R3",
+    "title": "₹1,600 cart → free shipping, total ₹1,600",
+    "pass": true,
+    "evidence": "{\"ship\":0,\"total\":1600}"
+  },
+  {
+    "id": "R3",
+    "title": "₹1,498 → ₹99 shipping; ₹1,499 → free",
+    "pass": true,
+    "evidence": "1498→99, 1499→0"
+  },
+  {
+    "id": "BC-ADM-021/032",
+    "title": "Suspended-vendor and unapproved products are rejected",
+    "pass": true,
+    "evidence": "suspended: failed-precondition \"Old Item\" is temporarily unavailable from its seller. | pending: failed-precondition \"Pending Ghee\" is no longer available. Please remove it from your cart."
+  },
+  {
+    "id": "BC-BIZ-008/009",
+    "title": "Order created as awaiting_payment with 2 vendor sub-orders",
+    "pass": true,
+    "evidence": "BC-2026-EC29305A status=awaiting_payment err="
+  },
+  {
+    "id": "LOGIC-01 timing",
+    "title": "No wallet/ledger money before payment",
+    "pass": true,
+    "evidence": "vamsi pending=0, ledger entries=0"
+  },
+  {
+    "id": "BC-VEN-048",
+    "title": "Stock reserved (not sold) while waiting for payment",
+    "pass": true,
+    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":5,\"reservedQuantity\":1,\"updatedAt\":\"2026-11-07T01:52:19.659Z\"}"
+  },
+  {
+    "id": "BC-VEN-071",
+    "title": "Vendor sub-order has the delivery address snapshot + userId",
+    "pass": true,
+    "evidence": "{\"name\":\"Ramesh\",\"phone\":\"9876543210\",\"address\":\"12 Main Road\",\"city\":\"Guntur\",\"state\":\"Andhra Pradesh\",\"zip\":\"522001\",\"paymentMode\":\"Prepaid\",\"codAmountPaise\":0}"
+  },
+  {
+    "id": "BC-CUS-059",
+    "title": "Same checkout submitted twice → same order, stock unchanged",
+    "pass": true,
+    "evidence": "second=BC-2026-EC29305A reused=true"
+  },
+  {
+    "id": "BC-SHP-003",
+    "title": "Unserviceable PIN (EKART says no) is rejected",
+    "pass": true,
+    "evidence": "failed-precondition Sorry, we cannot deliver to PIN code 999999 yet."
+  },
+  {
+    "id": "R4",
+    "title": "COD rejected while admin COD switch is OFF",
+    "pass": true,
+    "evidence": "failed-precondition Cash on Delivery is not available for this order."
+  },
+  {
+    "id": "BC-PAY-002/003",
+    "title": "Real Cashfree order created with server amount ₹1600, session returned",
+    "pass": true,
+    "evidence": "amount sent=1600 session=session_BC-2026-EC29305A err="
+  },
+  {
+    "id": "BC-CUS-060",
+    "title": "Retrying payment reuses the same Cashfree order (no second charge)",
+    "pass": true,
+    "evidence": "POST /orders calls=1"
+  },
+  {
+    "id": "BC-SEC",
+    "title": "Another customer cannot start payment for someone's order",
+    "pass": true,
+    "evidence": "permission-denied This order belongs to another account."
+  },
+  {
+    "id": "BC-PAY-009",
+    "title": "Before paying, verify says PENDING and books nothing",
+    "pass": true,
+    "evidence": "{\"success\":false,\"orderId\":\"BC-2026-EC29305A\",\"orderStatus\":\"ACTIVE\",\"paymentStatus\":\"PENDING\"}"
+  },
+  {
+    "id": "BC-PAY-005",
+    "title": "Unsigned / wrongly signed webhook rejected (401), order untouched",
+    "pass": true,
+    "evidence": "unsigned=401 badSig=401"
+  },
+  {
+    "id": "BC-PAY-006/007",
+    "title": "Signed webhook confirms order once; duplicate webhook ignored",
+    "pass": true,
+    "evidence": "w1=200 w2={\"status\":\"duplicate\"} status=confirmed"
+  },
+  {
+    "id": "Stock",
+    "title": "After payment stock is sold (reserved→sold), not double-deducted",
+    "pass": true,
+    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":4,\"reservedQuantity\":0,\"updatedAt\":\"2026-11-07T01:52:19.664Z\"}"
+  },
+  {
+    "id": "R1",
+    "title": "Vamsi 15% on ₹900 → ₹765 vendor / ₹135 BioCart; Ravi 20% on ₹700 → ₹560 / ₹140",
+    "pass": true,
+    "evidence": "vamsi 76500/13500, ravi 56000/14000"
+  },
+  {
+    "id": "R2",
+    "title": "Gateway fee not estimated; marked pending reconciliation; vendor share untouched",
+    "pass": true,
+    "evidence": "wallet pending=76500"
+  },
+  {
+    "id": "LOGIC-02",
+    "title": "Company wallet: commission ₹275 booked",
+    "pass": true,
+    "evidence": "{\"commissionEarnedPaise\":27500,\"shippingIncomePaise\":0,\"couponSubsidyPaise\":0,\"customerCollectionsPaise\":160000,\"updatedAt\":\"2026-11-07T01:52:19.665Z\"}"
+  },
+  {
+    "id": "LOGIC-11 / R8 / R9",
+    "title": "Order-confirmation PDF created after payment (Bill of Supply, no fake GSTIN); WhatsApp skipped while disabled",
+    "pass": true,
+    "evidence": "pdfUrl=true pdfBytes=2434 whatsapp=skipped_disabled"
+  },
+  {
+    "id": "BC-VEN-017",
+    "title": "Vendor cannot act on another vendor's sub-order",
+    "pass": true,
+    "evidence": "permission-denied This order does not belong to your store."
+  },
+  {
+    "id": "BC-VEN-070/069",
+    "title": "Lifecycle enforced: no skipping, vendor cannot mark delivered",
+    "pass": true,
+    "evidence": "skip: failed-precondition An order in \"new\" cannot move to \"packed\". | delivered: failed-precondition Delivery is confirmed only by EKART tracking."
+  },
+  {
+    "id": "BC-SHP-001/004/006",
+    "title": "Real EKART booking: pickup alias required, only owner vendor, AWB from EKART, no double booking",
+    "pass": true,
+    "evidence": "noAlias=failed-precondition Your pickup address is not registered wi | customer=permission-denied This order does not be | awb=500999A1000 | bookings=1"
+  },
+  {
+    "id": "BC-SHP-005",
+    "title": "EKART payload uses order address + prepaid + COD 0",
+    "pass": true,
+    "evidence": "{\"drop\":{\"name\":\"Ramesh\",\"phone\":9876543210,\"address\":\"12 Main Road\",\"city\":\"Guntur\",\"state\":\"Andhra Pradesh\",\"country\":\"India\",\"pin\":522001},\"mode\":\"Prepaid\",\"pickup\":{\"name\":\"BC_VamsiFarms_uid_1\"}}"
+  },
+  {
+    "id": "Status",
+    "title": "Sub-order shipped; parent partially shipped",
+    "pass": true,
+    "evidence": "shipped / partially_shipped"
+  },
+  {
+    "id": "LOGIC-13/17",
+    "title": "Delivery comes from EKART tracking API; vendor earnings → available",
+    "pass": true,
+    "evidence": "forged hook=200; vamsi status=delivered earnings=eligible wallet={\"p\":0,\"a\":76500}"
+  },
+  {
+    "id": "BC-RET-002/007, BC-PAY-012",
+    "title": "Vendor reject → Cashfree refund ₹700 once, stock back, Ravi share reversed",
+    "pass": true,
+    "evidence": "refunds=[700] oilStock=5 raviPending=0 order=delivered/partially_refunded"
+  },
+  {
+    "id": "Status",
+    "title": "Parent becomes delivered once remaining seller delivered",
+    "pass": true,
+    "evidence": "delivered"
+  },
+  {
+    "id": "BC-RET-014",
+    "title": "Refund marked success only from signed Cashfree refund event",
+    "pass": true,
+    "evidence": "success"
+  },
+  {
+    "id": "LOGIC-06/07/08",
+    "title": "Delivered order settles in the next Tue–Mon cycle, once",
+    "pass": true,
+    "evidence": "current cycle created=0; next CYCLE-2026-11-09: ready_for_payment ₹765; rerun=already_completed"
+  },
+  {
+    "id": "LOGIC-06",
+    "title": "Scheduler is Tuesday 18:00 Asia/Kolkata",
+    "pass": true,
+    "evidence": "{\"schedule\":\"0 18 * * 2\",\"retryConfig\":{},\"timeZone\":\"Asia/Kolkata\"}"
+  },
+  {
+    "id": "R7 / BC-FIN-026/029",
+    "title": "Manual payout: exact amount + UTR, admin only, once",
+    "pass": true,
+    "evidence": "wrongAmt=invalid-argument Amount must be exactly ₹765. | vendor=permission-denied Only BioCart administr | twice=failed-precondition This settlement is already mar | paidOut=76500"
+  },
+  {
+    "id": "No fake payouts",
+    "title": "Automatic payout path refuses (no fabricated UTR)",
+    "pass": true,
+    "evidence": "failed-precondition Automatic bank payouts are not enabled yet. Pay the vendor from your bank and use \"Mark as paid\" with the UTR."
+  },
+  {
+    "id": "BC-FIN-018 / R5",
+    "title": "Refund after payout → vendor adjustment due (deducted next cycle)",
+    "pass": true,
+    "evidence": "adjustmentDue=76500 err="
+  },
+  {
+    "id": "BC-VEN-048/049",
+    "title": "Unpaid order expires, Cashfree order terminated, stock returned",
+    "pass": true,
+    "evidence": "status=payment_expired rice=5"
+  },
+  {
+    "id": "BC-RET-001/006/007",
+    "title": "Customer cancel before packing → full refund ₹199 incl. shipping, stock restored",
+    "pass": true,
+    "evidence": "refund=199 rice=5 status=cancelled"
+  },
+  {
+    "id": "BC-RET-004",
+    "title": "Customer cannot cancel after shipping",
+    "pass": true,
+    "evidence": "failed-precondition Nothing left to refund on this order."
+  },
+  {
+    "id": "BC-ADM-032",
+    "title": "Vendor edit cannot self-approve or change owner",
+    "pass": true,
+    "evidence": "status=pending owner=unchanged"
+  },
+  {
+    "id": "BC-ROLE-008",
+    "title": "Order status cannot be forced by customer or admin (derived from shipments)",
+    "pass": true,
+    "evidence": "permission-denied Only BioCart administr | failed-precondition Order status follows the sellers' shipme"
+  }
+]

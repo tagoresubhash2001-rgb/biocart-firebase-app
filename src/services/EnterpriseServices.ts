@@ -97,43 +97,10 @@ export const InventoryService = {
   /**
    * Updates inventory numbers in both the 'inventory' collection and 'products' document.
    */
-  updateInventory: async (productId: string, quantity: number, availableQuantity: number): Promise<void> => {
-    try {
-      const invRef = doc(db, 'inventory', productId);
-      const prodRef = doc(db, 'products', productId);
-      const now = new Date().toISOString();
-
-      // 1. Update inventory document
-      await setDoc(invRef, {
-        productId,
-        quantity,
-        availableQuantity,
-        stockQuantity: quantity,
-        updatedAt: now
-      }, { merge: true });
-
-      // 2. Sync to product document for storefront stock badges
-      const inStock = availableQuantity > 0;
-      const stockStatus = availableQuantity > 0 ? (availableQuantity <= 10 ? 'Low Stock' : 'In Stock') : 'Out of Stock';
-
-      await updateDoc(prodRef, {
-        stockQuantity: quantity,
-        inStock,
-        stockStatus,
-        updatedAt: now
-      }).catch(async (err) => {
-        // If product doesn't exist yet, attempt merge set
-        console.warn('[InventoryService] updateDoc on product failed, attempting setDoc merge:', err);
-        await setDoc(prodRef, {
-          stockQuantity: quantity,
-          inStock,
-          stockStatus,
-          updatedAt: now
-        }, { merge: true });
-      });
-    } catch (err) {
-      console.error(`[InventoryService] Error updating inventory for product ${productId}:`, err);
-      throw err;
-    }
+  updateInventory: async (productId: string, quantity: number, _availableQuantity?: number): Promise<void> => {
+    // Stock on hand is set on the server so that units held for unpaid checkouts are respected.
+    const { httpsCallable } = await import('firebase/functions');
+    const { functions } = await import('../config/firebase');
+    await httpsCallable(functions, 'setProductStock')({ productId, stockOnHand: Math.max(0, Math.round(quantity)) });
   }
 };

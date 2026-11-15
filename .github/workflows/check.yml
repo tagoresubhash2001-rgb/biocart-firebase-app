@@ -1,0 +1,38 @@
+name: Check BioCart builds
+
+# This workflow only CHECKS that the code builds and the backend tests pass.
+# It never deploys anything. Deploys are done by hand, functions only, from main
+# (see README.md). The live website code is not in this repository yet, so
+# hosting must never be deployed from here (see docs/WEBSITE_CODE_MISSING.md).
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build and test Cloud Functions
+        run: |
+          cd functions
+          npm ci
+          npm run build
+          npm test
+
+      - name: Build frontend (old copy kept in git)
+        run: |
+          npm ci
+          npm run build

@@ -18,7 +18,7 @@ export class StorageService {
   /**
    * Uploads an image file to BioCart Media Storage.
    * Prioritizes trusted backend Cloud Function (uploadMediaAsset) which directly
-   * streams to the biocart-production-storage bucket without CORS preflight failures.
+   * streams to the default Firebase Storage bucket without CORS preflight failures.
    * Automatically falls back to direct Storage upload with timeout protection.
    */
   static async uploadImage(

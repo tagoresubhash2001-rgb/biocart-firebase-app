@@ -101,7 +101,7 @@ export const Shop: React.FC = () => {
     return [...defaultList, ...activeCats];
   }, [realtimeCategories]);
 
-  const allProducts = (realtimeProducts.length > 0 ? realtimeProducts : SEED_PRODUCTS).filter(p => p.active !== false && p.shopVisible !== false);
+  const allProducts = realtimeProducts.filter(p => p.active !== false && p.shopVisible !== false);
 
 
   const filteredProducts = useMemo(() => {
