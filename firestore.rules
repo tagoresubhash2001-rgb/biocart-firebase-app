@@ -420,6 +420,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 24b. Server-only private data (EKART access token cache). No client access at all;
+    // only Cloud Functions (Admin SDK) can touch this.
+    match /system_private/{docId} {
+      allow read, write: if false;
+    }
+
+    // 24c. EKART API request/response logs. Admins can read; only Cloud Functions write.
+    match /ekart_api_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // 25. Field Operations Agents
     match /agents/{agentId} {
       // Admins and agents can read agent profiles

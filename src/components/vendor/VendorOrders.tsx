@@ -175,7 +175,8 @@ export const VendorOrders: React.FC = () => {
 
   // Find shipment matching order
   const getShipmentForOrder = (orderNumber: string) => {
-    return shipments.find((s) => s.orderNumber === orderNumber || s.orderId === orderNumber);
+    // A shipment cancelled at EKART no longer counts, so the order can be dispatched again.
+    return shipments.find((s) => (s.orderNumber === orderNumber || s.orderId === orderNumber) && s.status !== 'cancelled');
   };
 
   // Filtered Orders Calculation
@@ -287,20 +288,16 @@ export const VendorOrders: React.FC = () => {
         vendorId: order.vendorId || vendorId || '',
         goodsDescription: order.items.map(i => i.name).join(', ').substring(0, 50)
       });
-      addToast(`EKART shipment created! AWB: ${res.waybill}`, 'success');
-
-      // Update vendor order to 'shipped'
-      await updateDoc(order.ref, {
-        orderStatus: 'shipped',
-        status: 'shipped',
-        shipmentStatus: 'shipped',
-        trackingNumber: res.waybill,
-        carrier: 'ekart',
-        updatedAt: new Date().toISOString()
-      });
+      // The backend (createEkartShipment) saves the AWB and shipment status on the
+      // order after EKART accepts it — the browser must not mark anything shipped.
+      addToast(
+        `EKART shipment ${res.alreadyExists ? 'already exists' : 'created'}. AWB: ${res.waybill}. Track: ${res.trackingUrl}`,
+        'success'
+      );
     } catch (err: any) {
       console.error('Failed to create shipment:', err);
-      addToast(err.message || 'Failed to dispatch with EKART', 'error');
+      // err.message carries EKART's own rejection reason from the backend.
+      addToast(err?.message || 'EKART did not accept the shipment.', 'error');
     } finally {
       setShippingActionOrder(null);
     }

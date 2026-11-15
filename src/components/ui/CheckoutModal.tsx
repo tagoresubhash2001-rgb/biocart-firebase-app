@@ -11,7 +11,7 @@ import { useStoreSettings } from '../../hooks/useStoreSettings';
 import { ShippingService, PincodeCheckResult } from '../../services/ShippingService';
 import { CouponService, CouponValidationResult } from '../../services/CouponService';
 import { CouponEntity } from '../../types/backend';
-import { Tag } from 'lucide-react';
+import { Tag, Loader2 } from 'lucide-react';
 
 export const CheckoutModal: React.FC = () => {
   const { settings } = useStoreSettings();

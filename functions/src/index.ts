@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { setGlobalOptions } from 'firebase-functions/v2';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
 import { randomBytes } from 'node:crypto';
@@ -9,6 +10,12 @@ import * as PDFDocument from 'pdfkit';
 import { calculateAuthoritativeOrder, DEFAULT_FINANCIAL_POLICY, LOCKED_MARKETPLACE_POLICY, FinancialPolicy } from './financialEngine';
 
 admin.initializeApp();
+
+// Project-wide defaults. Small instances with a hard cap keep the total CPU
+// reserved in asia-southeast1 under the Cloud Run quota (the cause of the
+// "Quota exceeded for total allowable CPU per project per region" deploy failures).
+// Only functions that genuinely need more override this.
+setGlobalOptions({ region: 'asia-southeast1', maxInstances: 5, memory: '256MiB', cpu: 'gcf_gen1' });
 
 const db = getFirestore();
 db.settings({ ignoreUndefinedProperties: true });
@@ -1440,7 +1447,7 @@ export const reconcileVendorAccount = onCall({ region: 'asia-southeast1' }, asyn
 // ==========================================================
 // generateInvoicePDF — restored, unchanged.
 // ==========================================================================
-export const generateInvoicePDF = onDocumentCreated({ document: 'orders/{orderId}', region: 'asia-southeast1' }, async (event: any) => {
+export const generateInvoicePDF = onDocumentCreated({ document: 'orders/{orderId}', region: 'asia-southeast1', memory: '512MiB' }, async (event: any) => {
   const snap = event.data;
   if (!snap) return;
 
@@ -1611,10 +1618,14 @@ export {
 
 export {
   checkEkartPincode,
+  registerEkartPickupAddress,
+  listEkartAddresses,
   createEkartShipment,
   trackEkartShipment,
   getEkartLabel,
-  cancelEkartShipment
+  cancelEkartShipment,
+  ekartWebhook,
+  registerEkartWebhook
 } from './ekart';
 
 // ==========================================================

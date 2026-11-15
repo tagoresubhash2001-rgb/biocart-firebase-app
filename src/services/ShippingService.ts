@@ -12,6 +12,7 @@ export interface PincodeCheckResult {
   pincode: string;
   prepaid: boolean;
   cod: boolean;
+  maxCodAmount?: number;
   city?: string;
   state?: string;
   message?: string;
@@ -61,9 +62,37 @@ export class ShippingService {
   /**
    * Idempotently create an EKART shipment for an authorized vendor order.
    */
-  static async createShipment(params: CreateShipmentParams): Promise<{ success: boolean; waybill: string; shipmentId: string; status: string }> {
+  static async createShipment(params: CreateShipmentParams): Promise<{ success: boolean; waybill: string; trackingId: string; trackingUrl: string; shipmentId: string; status: string; alreadyExists?: boolean }> {
     const fn = httpsCallable<CreateShipmentParams, any>(functions, 'createEkartShipment');
     const res = await fn(params);
+    return res.data;
+  }
+
+  /**
+   * Register the vendor's saved pickup address with EKART (admin or the vendor owner).
+   * Must succeed once before EKART shipments can be created for that vendor.
+   */
+  static async registerPickupAddress(vendorId: string): Promise<{ success: boolean; alias: string; registeredAt: string; alreadyRegistered?: boolean; message: string }> {
+    const fn = httpsCallable<{ vendorId: string }, any>(functions, 'registerEkartPickupAddress');
+    const res = await fn({ vendorId });
+    return res.data;
+  }
+
+  /**
+   * Register BioCart's tracking webhook with EKART (admin only).
+   */
+  static async registerWebhook(): Promise<{ success: boolean; url: string; message: string }> {
+    const fn = httpsCallable<Record<string, never>, any>(functions, 'registerEkartWebhook');
+    const res = await fn({});
+    return res.data;
+  }
+
+  /**
+   * List the pickup addresses EKART has on file for the account (admin only).
+   */
+  static async listEkartAddresses(): Promise<{ success: boolean; addresses: unknown }> {
+    const fn = httpsCallable<Record<string, never>, any>(functions, 'listEkartAddresses');
+    const res = await fn({});
     return res.data;
   }
 

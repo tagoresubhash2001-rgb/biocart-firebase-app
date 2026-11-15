@@ -32,6 +32,7 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import { BioCartLoader } from '../ui/BioCartLoader';
+import { EkartPickupRegistration } from '../ui/EkartPickupRegistration';
 
 import { normalizeVendorSettings, buildVendorUpdatePayload, VendorSettingsFormModel } from '../../utils/vendorMapping';
 
@@ -978,6 +979,16 @@ export const VendorSettings: React.FC = () => {
               </div>
             )}
           </div>
+
+          {vendorId && (
+            <div className="max-w-2xl">
+              <EkartPickupRegistration
+                vendorId={vendorId}
+                ekart={rawVendorDoc?.ekart}
+                onRegistered={() => fetchVendor(false)}
+              />
+            </div>
+          )}
 
           <div className="pt-4 border-t border-slate-200 flex justify-end">
             <button

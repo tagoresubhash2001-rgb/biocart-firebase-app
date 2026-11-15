@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { VendorItem } from '../../types';
+import { EkartPickupRegistration } from '../ui/EkartPickupRegistration';
 import {
   Store,
   X,
@@ -173,6 +174,8 @@ export const VendorDetailsDrawer: React.FC<VendorDetailsDrawerProps> = ({
                 <p className="text-slate-400 italic">Same as registered address</p>
               )}
             </div>
+
+            <EkartPickupRegistration vendorId={vendor.id} ekart={(vendor as any).ekart} />
           </div>
 
           {/* 4. Commercial Terms & Payout */}

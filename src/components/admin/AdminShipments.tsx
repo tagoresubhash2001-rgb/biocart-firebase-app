@@ -7,6 +7,7 @@ import {
 import { ShippingService, ShippingConfig, TrackingResult } from '../../services/ShippingService';
 import { ShipmentItem } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { EkartAdminTools } from './EkartAdminTools';
 
 export const AdminShipments: React.FC = () => {
   const { addToast } = useApp();
@@ -390,7 +391,7 @@ export const AdminShipments: React.FC = () => {
             <div>
               <h2 className="text-sm font-bold text-slate-900">EKART API & Logistics Configuration</h2>
               <p className="text-xs text-slate-500">
-                Credentials are stored securely in Firestore and executed exclusively via Cloud Functions. Tokens are never exposed to client browsers.
+                EKART login credentials are kept as Firebase secrets and used only by Cloud Functions. They are never stored here or sent to browsers.
               </p>
             </div>
           </div>
@@ -498,6 +499,8 @@ export const AdminShipments: React.FC = () => {
           </form>
         </div>
       )}
+
+      {activeTab === 'settings' && <EkartAdminTools />}
 
       {/* Live Tracking Modal */}
       {selectedAwb && (
