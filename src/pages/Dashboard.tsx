@@ -83,7 +83,8 @@ export const Dashboard: React.FC = () => {
   // Tab state with hash parameter support (e.g. #dashboard?tab=wishlist)
   const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
     try {
-      const hash = window.location.hash;
+      // The tab can be in the hash (#dashboard?tab=orders) or, after a reload, in the address (/dashboard?tab=orders).
+      const hash = window.location.hash.includes('tab=') ? window.location.hash : window.location.search;
       if (hash.includes('tab=')) {
         const tabParam = hash.split('tab=')[1]?.split('&')[0];
         if (['overview', 'profile', 'orders', 'track', 'wishlist', 'addresses', 'security'].includes(tabParam)) {
