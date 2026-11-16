@@ -346,10 +346,11 @@ const ledger = () => [...store.entries()].filter(([k]) => k.startsWith('financia
   const codMixed = await call('createOrder', CUST, { items: [{ productId: 'codyes', quantity: 1 }, { productId: 'r8', quantity: 1 }], shippingAddress: ADDR, paymentMethod: 'cod', checkoutId: 'chk_0000030' });
   const codOk = await call('createOrder', CUST, { items: [{ productId: 'codyes', quantity: 1 }], shippingAddress: ADDR, paymentMethod: 'cod', checkoutId: 'chk_0000031' });
   await call('updateFinancialPolicy', ADMIN, { codEnabled: false });
-  const codAfterOff = await call('createOrder', CUST, { items: [{ productId: 'codyes', quantity: 1 }], shippingAddress: ADDR, paymentMethod: 'cod', checkoutId: 'chk_0000032' });
+  // a second customer, so the per-customer order rate limit cannot be what refuses this
+  const codAfterOff = await call('createOrder', tok('cust2'), { items: [{ productId: 'codyes', quantity: 1 }], shippingAddress: ADDR, paymentMethod: 'cod', checkoutId: 'chk_0000032' });
   check('RULE-6', 'COD: OFF → not offered; ON → only when every product allows COD; switched OFF again → refused even for a COD product',
-    qCodOff.data?.codAvailable === false && qCodOn.data?.codAvailable === true && qCodMixed.data?.codAvailable === false && !codMixed.ok && codOk.ok && get(`orders/${codOk.data.orderId}`).paymentStatus === 'cod_pending' && !codAfterOff.ok,
-    `off=${qCodOff.data?.codAvailable} on=${qCodOn.data?.codAvailable} mixed=${qCodMixed.data?.codAvailable} mixedOrder=${codMixed.err?.slice(0, 40)} codOrder=${codOk.ok ? get(`orders/${codOk.data.orderId}`).paymentStatus : codOk.err} afterOff=${codAfterOff.err?.slice(0, 45)}`);
+    qCodOff.data?.codAvailable === false && qCodOn.data?.codAvailable === true && qCodMixed.data?.codAvailable === false && !codMixed.ok && codOk.ok && get(`orders/${codOk.data.orderId}`).paymentStatus === 'cod_pending' && !codAfterOff.ok && /Cash on Delivery/.test(codAfterOff.err),
+    `off=${qCodOff.data?.codAvailable} on=${qCodOn.data?.codAvailable} mixed=${qCodMixed.data?.codAvailable} mixedOrder=${codMixed.err?.slice(0, 40)} codOrder=${codOk.ok ? get(`orders/${codOk.data.orderId}`).paymentStatus : codOk.err} afterOff=${codAfterOff.err?.slice(0, 70)}`);
 
   // Rule 7: the Cashfree fee is never taken from the vendor.
   check('RULE-7', 'No gateway-fee entry is ever booked against a vendor', ledger().filter((e) => /gateway/.test(e.entryType) && String(e.account || '').startsWith('vendor:')).length === 0, `vendor gateway entries=${ledger().filter((e) => /gateway/.test(e.entryType) && String(e.account || '').startsWith('vendor:')).length}`);
