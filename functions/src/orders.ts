@@ -111,6 +111,9 @@ function buildPlan(
     if (variant && options.length && !options.includes(variant)) {
       throw new HttpsError('failed-precondition', `The size "${variant}" of "${p.name}" is no longer available. Please choose the size again.`, { productId: it.productId });
     }
+    // A size the seller never listed is not a real option (the storefront shows a placeholder "1kg"
+    // for products without sizes): ignore it, so the product's own weight is used for the parcel.
+    if (variant && !options.length) variant = null;
     if (!variant && options.length) variant = String(p.selectedVariant && options.includes(p.selectedVariant) ? p.selectedVariant : options[0]);
     lines.push({
       productId: pd.id, name: variant ? `${String(p.name || 'Product')} (${variant})` : String(p.name || 'Product'), vendorId, category: String(p.category || ''),
