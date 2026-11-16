@@ -33,7 +33,7 @@
     "id": "BC-BIZ-008/009",
     "title": "Order created as awaiting_payment with 2 vendor sub-orders",
     "pass": true,
-    "evidence": "BC-2026-EC29305A status=awaiting_payment err="
+    "evidence": "BC-2026-BA8B0036 status=awaiting_payment err="
   },
   {
     "id": "LOGIC-01 timing",
@@ -45,7 +45,7 @@
     "id": "BC-VEN-048",
     "title": "Stock reserved (not sold) while waiting for payment",
     "pass": true,
-    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":5,\"reservedQuantity\":1,\"updatedAt\":\"2026-11-07T01:52:19.659Z\"}"
+    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":5,\"reservedQuantity\":1,\"updatedAt\":\"2026-11-16T06:23:54.786Z\"}"
   },
   {
     "id": "BC-VEN-071",
@@ -57,7 +57,7 @@
     "id": "BC-CUS-059",
     "title": "Same checkout submitted twice → same order, stock unchanged",
     "pass": true,
-    "evidence": "second=BC-2026-EC29305A reused=true"
+    "evidence": "second=BC-2026-BA8B0036 reused=true"
   },
   {
     "id": "BC-SHP-003",
@@ -75,7 +75,7 @@
     "id": "BC-PAY-002/003",
     "title": "Real Cashfree order created with server amount ₹1600, session returned",
     "pass": true,
-    "evidence": "amount sent=1600 session=session_BC-2026-EC29305A err="
+    "evidence": "amount sent=1600 session=session_BC-2026-BA8B0036 err="
   },
   {
     "id": "BC-CUS-060",
@@ -93,7 +93,7 @@
     "id": "BC-PAY-009",
     "title": "Before paying, verify says PENDING and books nothing",
     "pass": true,
-    "evidence": "{\"success\":false,\"orderId\":\"BC-2026-EC29305A\",\"orderStatus\":\"ACTIVE\",\"paymentStatus\":\"PENDING\"}"
+    "evidence": "{\"success\":false,\"orderId\":\"BC-2026-BA8B0036\",\"orderStatus\":\"ACTIVE\",\"paymentStatus\":\"PENDING\"}"
   },
   {
     "id": "BC-PAY-005",
@@ -111,7 +111,7 @@
     "id": "Stock",
     "title": "After payment stock is sold (reserved→sold), not double-deducted",
     "pass": true,
-    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":4,\"reservedQuantity\":0,\"updatedAt\":\"2026-11-07T01:52:19.664Z\"}"
+    "evidence": "{\"productId\":\"honey\",\"vendorId\":\"uid_1\",\"availableQuantity\":4,\"quantity\":4,\"reservedQuantity\":0,\"updatedAt\":\"2026-11-16T06:23:54.795Z\"}"
   },
   {
     "id": "R1",
@@ -123,19 +123,31 @@
     "id": "R2",
     "title": "Gateway fee not estimated; marked pending reconciliation; vendor share untouched",
     "pass": true,
-    "evidence": "wallet pending=76500"
+    "evidence": "vendor share=76500"
+  },
+  {
+    "id": "COURIER-HOLD",
+    "title": "Paid order: ₹106.20 courier estimate held from vendor share (₹765 − ₹106.20 = ₹658.80 pending); flagged as incomplete (no weight)",
+    "pass": true,
+    "evidence": "status=held_estimate est=10620 pending=65880 ledger=courier_charge_held:10620"
+  },
+  {
+    "id": "COURIER-SNAPSHOT",
+    "title": "Rates used are copied onto the vendor order",
+    "pass": true,
+    "evidence": "{\"carrier\":\"ekart\",\"upTo2kg\":90,\"additionalPerKg\":35,\"codFixed\":0,\"codPercent\":0,\"fuelPercent\":0,\"gstPercent\":18,\"volumetricDivisor\":5,\"rtoUpTo2kg\":0,\"rtoAdditionalKg\":0,\"packagingAllowanceGrams\":50}"
   },
   {
     "id": "LOGIC-02",
     "title": "Company wallet: commission ₹275 booked",
     "pass": true,
-    "evidence": "{\"commissionEarnedPaise\":27500,\"shippingIncomePaise\":0,\"couponSubsidyPaise\":0,\"customerCollectionsPaise\":160000,\"updatedAt\":\"2026-11-07T01:52:19.665Z\"}"
+    "evidence": "{\"commissionEarnedPaise\":27500,\"shippingIncomePaise\":0,\"couponSubsidyPaise\":0,\"customerCollectionsPaise\":160000,\"updatedAt\":\"2026-11-16T06:23:54.796Z\",\"courierChargesFromVendorsPaise\":21240}"
   },
   {
     "id": "LOGIC-11 / R8 / R9",
     "title": "Order-confirmation PDF created after payment (Bill of Supply, no fake GSTIN); WhatsApp skipped while disabled",
     "pass": true,
-    "evidence": "pdfUrl=true pdfBytes=2434 whatsapp=skipped_disabled"
+    "evidence": "pdfUrl=true pdfBytes=2432 whatsapp=skipped_disabled"
   },
   {
     "id": "BC-VEN-017",
@@ -153,13 +165,19 @@
     "id": "BC-SHP-001/004/006",
     "title": "Real EKART booking: pickup alias required, only owner vendor, AWB from EKART, no double booking",
     "pass": true,
-    "evidence": "noAlias=failed-precondition Your pickup address is not registered wi | customer=permission-denied This order does not be | awb=500999A1000 | bookings=1"
+    "evidence": "noAlias=failed-precondition Your pickup address has no PIN code. Upd | customer=permission-denied This order does not be | awb=500999A1000 | bookings=1"
   },
   {
     "id": "BC-SHP-005",
     "title": "EKART payload uses order address + prepaid + COD 0",
     "pass": true,
     "evidence": "{\"drop\":{\"name\":\"Ramesh\",\"phone\":9876543210,\"address\":\"12 Main Road\",\"city\":\"Guntur\",\"state\":\"Andhra Pradesh\",\"country\":\"India\",\"pin\":522001},\"mode\":\"Prepaid\",\"pickup\":{\"name\":\"BC_VamsiFarms_uid_1\"}}"
+  },
+  {
+    "id": "COURIER-ACTUAL",
+    "title": "Booking replaces the estimate with the real charge (1 kg, 20×15×10 → ₹106.20 from EKART price service); EKART never sees a fake GSTIN",
+    "pass": true,
+    "evidence": "status=held_actual actual=10620 source=ekart_pricing_estimate gst_tin=\"\""
   },
   {
     "id": "Status",
@@ -171,7 +189,13 @@
     "id": "LOGIC-13/17",
     "title": "Delivery comes from EKART tracking API; vendor earnings → available",
     "pass": true,
-    "evidence": "forged hook=200; vamsi status=delivered earnings=eligible wallet={\"p\":0,\"a\":76500}"
+    "evidence": "forged hook=200; vamsi status=delivered earnings=eligible wallet={\"p\":0,\"a\":65880}"
+  },
+  {
+    "id": "COURIER-RELEASE",
+    "title": "Cancelled before shipping → courier hold fully released, seller owes nothing",
+    "pass": true,
+    "evidence": "release=-10620 status=released pending=0 adjustmentDue=0"
   },
   {
     "id": "BC-RET-002/007, BC-PAY-012",
@@ -193,9 +217,9 @@
   },
   {
     "id": "LOGIC-06/07/08",
-    "title": "Delivered order settles in the next Tue–Mon cycle, once",
+    "title": "Delivered order settles in the next Tue–Mon cycle, once, for share − courier charge (₹765 − ₹106.20 = ₹658.80)",
     "pass": true,
-    "evidence": "current cycle created=0; next CYCLE-2026-11-09: ready_for_payment ₹765; rerun=already_completed"
+    "evidence": "current cycle created=0; next CYCLE-2026-11-23: ready_for_payment ₹658.8; rerun=already_completed"
   },
   {
     "id": "LOGIC-06",
@@ -207,7 +231,7 @@
     "id": "R7 / BC-FIN-026/029",
     "title": "Manual payout: exact amount + UTR, admin only, once",
     "pass": true,
-    "evidence": "wrongAmt=invalid-argument Amount must be exactly ₹765. | vendor=permission-denied Only BioCart administr | twice=failed-precondition This settlement is already mar | paidOut=76500"
+    "evidence": "wrongAmt=invalid-argument Amount must be exactly ₹658.8. | vendor=permission-denied Only BioCart administr | twice=failed-precondition This settlement is already mar | paidOut=65880"
   },
   {
     "id": "No fake payouts",
@@ -238,6 +262,84 @@
     "title": "Customer cannot cancel after shipping",
     "pass": true,
     "evidence": "failed-precondition Nothing left to refund on this order."
+  },
+  {
+    "id": "RULE-4",
+    "title": "Vendor created with 15% → vendor doc linked to its login (ownerUid) and commission stored; BioCart's own vendor pays commission too",
+    "pass": true,
+    "evidence": "ownerUid ok=true role=vendor bps=1500 biocart bps=1000"
+  },
+  {
+    "id": "RULE-8",
+    "title": "₹1000, 20% commission, 1.5 kg → commission ₹200, share ₹800, courier held ₹106.20, payout ₹693.80",
+    "pass": true,
+    "evidence": "commission=20000 share=80000 grams=1500 courier=10620 payout=69380 walletDelta=69380"
+  },
+  {
+    "id": "RULE-5",
+    "title": "₹99 delivery fee (order below ₹1,499) is paid by the customer and kept by BioCart, not the vendor",
+    "pass": true,
+    "evidence": "shipping=9900 total=109900 companyShippingDelta=9900"
+  },
+  {
+    "id": "RULE-8 adjust",
+    "title": "Booked at 2.1 kg → real charge ₹147.50 replaces the ₹106.20 estimate (+₹41.30 held); payout ₹652.50",
+    "pass": true,
+    "evidence": "ok=true  courier=14750 adj=4130 payout=65250 walletDelta=65250"
+  },
+  {
+    "id": "RULE-9 delivered",
+    "title": "Only admin can mark delivered; payout (share − courier) then becomes ready for the Tuesday settlement",
+    "pass": true,
+    "evidence": "vendor: permission-denied Only BioCart administrators | admin ok=true state=eligible available=65250"
+  },
+  {
+    "id": "RULE-9 settlement",
+    "title": "triggerManualSettlement: admin only, and written to the audit log",
+    "pass": true,
+    "evidence": "vendor: permission-denied Only BioCart administrators | admin: {\"success\":true,\"cycleId\":\"CYCLE-2026-11-09\",\"skipped\":\"already_completed\"} | audit entries=8"
+  },
+  {
+    "id": "RULE-8 rates",
+    "title": "Rate card change (₹90 → ₹100): admin only; new order held at ₹118.00, the earlier order keeps its own rates",
+    "pass": true,
+    "evidence": "vendor: permission-denied Only BioCart administr | new=11800 (card 100) old=14750 (card 90)"
+  },
+  {
+    "id": "RULE-5 admin",
+    "title": "Threshold lowered to ₹500 → ₹1000 cart ships free; free delivery switched off → ₹1,600 cart pays ₹99; switched back on → free",
+    "pass": true,
+    "evidence": "threshold500=0 off=99 on=0"
+  },
+  {
+    "id": "RULE-6",
+    "title": "COD: OFF → not offered; ON → only when every product allows COD; switched OFF again → refused even for a COD product",
+    "pass": true,
+    "evidence": "off=false on=true mixed=false mixedOrder=failed-precondition Cash on Delivery is  codOrder=cod_pending afterOff=resource-exhausted Too many requests. Please "
+  },
+  {
+    "id": "RULE-7",
+    "title": "No gateway-fee entry is ever booked against a vendor",
+    "pass": true,
+    "evidence": "vendor gateway entries=0"
+  },
+  {
+    "id": "RULE-10",
+    "title": "Suspended vendor cannot sell; their earlier orders and ledger stay intact",
+    "pass": true,
+    "evidence": "quote: failed-precondition \"Rule Eight Millet 1.45 kg\" is temporari | old orders kept=true"
+  },
+  {
+    "id": "RULE-1 admin-only",
+    "title": "Admin functions refuse customer and vendor accounts",
+    "pass": true,
+    "evidence": "updateFinancialPolicy:denied setCourierCharge:denied markSettlementPaid:denied createVendorAccount:denied processOrderRefund:denied updateVendorCommercials:denied"
+  },
+  {
+    "id": "RULE-13",
+    "title": "EKART \"complete onboarding\" block → vendor sees EKART's full message; no AWB invented; order stays Packed; hold unchanged",
+    "pass": true,
+    "evidence": "err=\"unavailable EKART could not book this shipment: SWIFT_VALIDATION_EXCEPTION | Shipment creation is blocked. Please complete the onboarding process to start shipping or contact your account manager.\" | shipment=booking_failed awb=none | order=packed"
   },
   {
     "id": "BC-ADM-032",

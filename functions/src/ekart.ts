@@ -128,10 +128,12 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
 
   // A shipment is only blocked when the seller's phone or pickup address is missing.
   // A missing GSTIN never blocks: unregistered sellers are sent to EKART with an empty GSTIN.
-  const pickupAddr = (vendor.addresses?.pickupAddress?.addressLine1 ? vendor.addresses.pickupAddress : vendor.addresses?.registeredAddress) || {};
-  const sellerPhone = cleanPhone(vendor.addresses?.pickupAddress?.contactPhone || vendor.phone);
+  // (Older vendor records store the address line as line1/address/street and the PIN as pincode/zip.)
+  const lineOf = (a: any) => String(a?.addressLine1 || a?.line1 || a?.address || a?.street || '').trim();
+  const pickupAddr = (lineOf(vendor.addresses?.pickupAddress) ? vendor.addresses.pickupAddress : vendor.addresses?.registeredAddress) || {};
+  const sellerPhone = cleanPhone(vendor.addresses?.pickupAddress?.contactPhone || vendor.addresses?.pickupAddress?.phone || vendor.phone);
   if (!sellerPhone) throw new HttpsError('failed-precondition', 'Your store has no 10-digit phone number. Add it in Settings (store phone / pickup contact phone), then book the courier again.');
-  if (!String(pickupAddr.addressLine1 || '').trim() || !cleanPincode(pickupAddr.pinCode || pickupAddr.pincode)) {
+  if (!lineOf(pickupAddr) || !cleanPincode(pickupAddr.pinCode || pickupAddr.pincode || pickupAddr.zip)) {
     throw new HttpsError('failed-precondition', 'Your pickup address is incomplete (address line and 6-digit PIN code are needed). Update it in Settings → Shipping, then book the courier again.');
   }
 
