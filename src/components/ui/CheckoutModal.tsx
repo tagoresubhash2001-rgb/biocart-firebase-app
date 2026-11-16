@@ -220,6 +220,8 @@ export const CheckoutModal: React.FC = () => {
 
   const isBelowMinOrder = minOrderReq > 0 && subtotal < minOrderReq;
   const isCodEligible = codAllowedGlobal && total >= codMinVal && total <= codMaxVal;
+  // The backend quote says whether the admin's COD master switch is on. Until the quote arrives, COD stays hidden.
+  const codSwitchedOffByAdmin = (authoritativeQuote as any)?.codEnabled !== true;
 
   const handleApplyCoupon = async () => {
     const code = couponInput.trim().toUpperCase();
@@ -775,13 +777,13 @@ export const CheckoutModal: React.FC = () => {
                         <span className="font-semibold">
                           {pincodeStatus.serviceable
                             ? 'EKART Express Delivery Available'
-                            : 'Limited Logistics Coverage'}
+                            : (pincodeStatus.message || `Sorry, we cannot deliver to PIN code ${shippingZip} yet.`)}
                         </span>
                       </div>
                       <span className="text-[10px] font-mono font-bold uppercase tracking-wider">
                         {pincodeStatus.serviceable
-                          ? `COD: ${pincodeStatus.cod ? 'YES' : 'NO'}`
-                          : 'Standard Post Only'}
+                          ? (pincodeStatus.city || 'Serviceable')
+                          : 'Not serviceable'}
                       </span>
                     </div>
                   )}
@@ -835,7 +837,7 @@ export const CheckoutModal: React.FC = () => {
                   <h4 className="font-display font-bold text-sm uppercase tracking-wider text-charcoal-500 border-b border-slate-100 dark:border-white/5 pb-2">
                     Select Payment
                   </h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={`grid gap-3 ${codSwitchedOffByAdmin ? 'grid-cols-1' : 'grid-cols-2'}`}>
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('cashfree')}
@@ -848,6 +850,8 @@ export const CheckoutModal: React.FC = () => {
                       <CreditCard className="w-5 h-5 text-nature-700" />
                       <span className="text-xs font-semibold">Cashfree Payments (UPI, Cards, NetBanking)</span>
                     </button>
+                    {/* Admin has switched Cash on Delivery off for the whole shop: do not show the option at all. */}
+                    {!codSwitchedOffByAdmin && (
                     <button
                       type="button"
                       disabled={!isCodEligible}
@@ -870,6 +874,7 @@ export const CheckoutModal: React.FC = () => {
                         </span>
                       )}
                     </button>
+                    )}
                   </div>
                 </div>
 
