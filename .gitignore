@@ -17,3 +17,6 @@ biocart-release.zip
 *.local
 firebase-debug*.log
 *.zip
+
+# Browser-test build output
+dist-e2e/

@@ -1,8 +1,8 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { initializeFirestore, getFirestore } from 'firebase/firestore';
-import { getFunctions } from 'firebase/functions';
-import { getStorage } from 'firebase/storage';
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from 'firebase/auth';
+import { initializeFirestore, getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
 const getEnvVar = (key: string): string => {
   const metaEnv = (import.meta as any).env;
@@ -76,3 +76,16 @@ googleProvider.setCustomParameters({
 export default app;
 
 export const functions = getFunctions(app, 'asia-southeast1');
+
+// Test builds only (npm run test:e2e): talk to the local Firebase Emulator Suite instead of the
+// real project. This is switched on at build time with VITE_USE_EMULATORS=true and is never set
+// for the production build, so the live site always uses the real Firebase services.
+export const USING_EMULATORS = getEnvVar('VITE_USE_EMULATORS') === 'true';
+if (USING_EMULATORS) {
+  const host = getEnvVar('VITE_EMULATOR_HOST') || '127.0.0.1';
+  connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
+  connectFirestoreEmulator(db, host, 8080);
+  connectFunctionsEmulator(functions, host, 5001);
+  connectStorageEmulator(storage, host, 9199);
+  console.info('[BioCart] Using the local Firebase emulators (test build).');
+}
