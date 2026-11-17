@@ -87,7 +87,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-body flex flex-col selection:bg-emerald-500/20">
+    <div className="storefront-surface min-h-screen text-slate-900 font-body flex flex-col selection:bg-emerald-500/20">
       {appLoading && (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center transition-opacity duration-500" id="global-loader">
           <BioCartLoader message="Welcome to BioCart — Healthy Organic Living" size="lg" />

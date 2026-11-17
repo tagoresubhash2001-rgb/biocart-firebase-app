@@ -105,7 +105,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-slate-800 flex flex-col font-sans">
+    <div className="panel min-h-screen bg-gray-50 text-slate-800 flex flex-col font-sans">
       {/* Top Admin Navigation Header */}
       <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-3">

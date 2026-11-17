@@ -81,6 +81,49 @@
   --on-primary: #F4ECD6;
 }
 
+/* The colours above only take effect through the two blocks below. Every green utility class in
+   the app (bg-emerald-600, text-nature-700, …) reads a --color-* variable, so re-pointing those
+   variables recolours the whole surface without touching any component.
+
+   Storefront: greens become the Cyprus (#004643) scale; the page background is Sand (#F0EDE5). */
+:root {
+  --color-nature-50: #EEF4F2;  --color-emerald-50: #EEF4F2;
+  --color-nature-100: #E3EDEA; --color-emerald-100: #E3EDEA;
+  --color-nature-200: #C5DAD5; --color-emerald-200: #C5DAD5;
+  --color-nature-300: #9CC0B8; --color-emerald-300: #9CC0B8;
+  --color-nature-400: #5E9A8F; --color-emerald-400: #5E9A8F;
+  --color-nature-500: #2B776B; --color-emerald-500: #2B776B;
+  --color-nature-600: #0B5C55; --color-emerald-600: #0B5C55;
+  --color-nature-700: #004643; --color-emerald-700: #004643;
+  --color-nature-800: #003532; --color-emerald-800: #003532;
+  --color-nature-900: #002A28; --color-emerald-900: #002A28;
+  --color-nature-950: #001C1B; --color-emerald-950: #001C1B;
+}
+.storefront-surface { background-color: var(--bg); }
+
+/* Vendor and Admin panels: greens become the Plum (#310A31) scale on a Milk (#F4ECD6) page.
+   Cards stay light so the panels read as a premium light theme, not a dark one. */
+.panel {
+  --color-nature-50: #F7F0F6;  --color-emerald-50: #F7F0F6;
+  --color-nature-100: #EDE4EC; --color-emerald-100: #EDE4EC;
+  --color-nature-200: #DCC8DA; --color-emerald-200: #DCC8DA;
+  --color-nature-300: #C2A1BF; --color-emerald-300: #C2A1BF;
+  --color-nature-400: #9C6E98; --color-emerald-400: #9C6E98;
+  --color-nature-500: #6E3A6C; --color-emerald-500: #6E3A6C;
+  --color-nature-600: #310A31; --color-emerald-600: #310A31;
+  --color-nature-700: #310A31; --color-emerald-700: #310A31;
+  --color-nature-800: #240723; --color-emerald-800: #240723;
+  --color-nature-900: #1A0519; --color-emerald-900: #1A0519;
+  --color-nature-950: #120312; --color-emerald-950: #120312;
+  --color-slate-50: #F4ECD6;   --color-gray-50: #F4ECD6;
+  --color-slate-100: #EFE6CF;  --color-gray-100: #EFE6CF;
+  --color-slate-200: #E8DEC2;  --color-gray-200: #E8DEC2;
+  background-color: var(--bg);
+  color: var(--text);
+}
+/* White cards inside the panels take the warm "card" tone; text placed on plum stays light. */
+.panel .bg-white { background-color: var(--card); }
+
 @layer base {
   html {
     scroll-behavior: smooth;
