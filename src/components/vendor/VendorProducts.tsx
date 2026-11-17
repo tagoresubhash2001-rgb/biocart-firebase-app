@@ -7,6 +7,7 @@ import { StorageService } from '../../services/StorageService';
 import { Product, CategoryItem } from '../../types';
 import { useVendor } from '../../hooks/useVendor';
 import { useApp } from '../../context/AppContext';
+import { ParcelFields, hasParcelDetails } from '../ui/ParcelFields';
 import { 
   Package, 
   Plus, 
@@ -131,6 +132,11 @@ export const VendorProducts: React.FC = () => {
     }
     if (!editingProduct.price || editingProduct.price <= 0) {
       addToast('Please enter a valid price', 'warning');
+      return;
+    }
+    // New products must carry the packed weight and box size: the courier charge is worked out from them.
+    if (!editingProduct.id && !hasParcelDetails(editingProduct as any)) {
+      addToast('Please enter the parcel weight (grams) and the box length, width and height (cm).', 'warning');
       return;
     }
 
@@ -508,6 +514,12 @@ export const VendorProducts: React.FC = () => {
                   />
                 </div>
               </div>
+
+              <ParcelFields
+                value={editingProduct as any}
+                onChange={(patch) => setEditingProduct({ ...editingProduct, ...(patch as any) })}
+                required={!editingProduct.id}
+              />
 
               {/* Cash on Delivery — only possible when BioCart admin has COD switched on */}
               <label className={`flex items-center gap-2 text-xs ${codEnabledByAdmin ? 'text-slate-800' : 'text-slate-400'}`}>

@@ -35,6 +35,11 @@ export interface Product {
   ingredients?: string[];
   weightVariants: string[];
   selectedVariant?: string;
+  /** Packed weight of one unit in grams, and its box size in cm (used for the EKART courier charge). */
+  weightGrams?: number;
+  lengthCm?: number;
+  widthCm?: number;
+  heightCm?: number;
   stockStatus: 'In Stock' | 'Low Stock' | 'Out of Stock';
   inStock: boolean;
   quantityInCart?: number;

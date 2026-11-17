@@ -4,6 +4,7 @@ import { StorageService } from '../../services/StorageService';
 import { Product, CategoryItem, VendorItem } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useApp } from '../../context/AppContext';
+import { ParcelFields, hasParcelDetails } from '../ui/ParcelFields';
 import { 
   Package, 
   Plus, 
@@ -123,6 +124,11 @@ export const AdminProducts: React.FC = () => {
       addToast('Please enter a valid price', 'warning');
       return;
     }
+    // New products must carry the packed weight and box size: the courier charge is worked out from them.
+    if (!editingProduct.id && !hasParcelDetails(editingProduct as any)) {
+      addToast('Please enter the parcel weight (grams) and the box length, width and height (cm).', 'warning');
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -236,8 +242,26 @@ export const AdminProducts: React.FC = () => {
 
   const pendingApprovalsCount = products.filter(p => (p.approvalStatus || '').toLowerCase() === 'pending').length;
 
+  // Products that still need a packed weight and box size (the courier charge is estimated without them).
+  const missingParcel = products.filter((p) => p.active !== false && !hasParcelDetails(p as any));
+
   return (
     <div className="space-y-6">
+      {missingParcel.length > 0 && (
+        <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900" id="missing-parcel-warning">
+          <p className="font-bold">
+            {missingParcel.length} product{missingParcel.length === 1 ? '' : 's'} missing parcel weight or box size
+          </p>
+          <p className="mt-1">
+            Until these are filled in, the EKART courier charge for them is estimated with 1 kg and a 10 × 10 × 10 cm box.
+            Open each product, enter Weight (grams) and Length / Width / Height (cm), and save.
+          </p>
+          <p className="mt-1.5 text-amber-800 break-words">
+            {missingParcel.slice(0, 12).map((p) => p.name).join(' · ')}
+            {missingParcel.length > 12 ? ` · and ${missingParcel.length - 12} more` : ''}
+          </p>
+        </div>
+      )}
       {/* Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -620,6 +644,12 @@ export const AdminProducts: React.FC = () => {
                   />
                 </div>
               </div>
+
+              <ParcelFields
+                value={editingProduct as any}
+                onChange={(patch) => setEditingProduct({ ...editingProduct, ...(patch as any) })}
+                required={!editingProduct.id}
+              />
 
               {/* Multi-Image Gallery Manager */}
               <MultiImageGalleryManager

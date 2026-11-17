@@ -183,7 +183,8 @@ service cloud.firestore {
           'weightVariants', 'selectedVariant', 'category', 'categoryId', 'sku', 
           'features', 'benefits', 'usageInstructions', 'ingredients', 'materials', 
           'dimensions', 'badge', 'stockStatus', 'inStock', 'stockQuantity', 'faqs', 
-          'reviews', 'approvalStatus', 'approvalRequestedAt', 'source', 'updatedAt', 'codAllowed', 'minOrderQuantity', 'maxOrderQuantity', 'hsnCode'
+          'reviews', 'approvalStatus', 'approvalRequestedAt', 'source', 'updatedAt', 'codAllowed', 'minOrderQuantity', 'maxOrderQuantity', 'hsnCode',
+          'weightGrams', 'lengthCm', 'widthCm', 'heightCm'
         ])
       );
       allow delete: if isAdmin();

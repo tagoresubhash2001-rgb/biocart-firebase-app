@@ -327,7 +327,7 @@ export const submitProductChange = onCall({ region: 'asia-southeast1' }, async (
     const contentKeys = [
       'name', 'description', 'shortDescription', 'images', 'image', 'price', 'mrp', 'weightVariants', 'selectedVariant',
       'category', 'categoryId', 'subCategory', 'sku', 'features', 'benefits', 'usageInstructions', 'howToUse', 'ingredients',
-      'materials', 'dimensions', 'badge', 'faqs', 'tags', 'unit', 'weightGrams', 'hsnCode', 'minOrderQuantity', 'maxOrderQuantity',
+      'materials', 'dimensions', 'badge', 'faqs', 'tags', 'unit', 'weightGrams', 'lengthCm', 'widthCm', 'heightCm', 'hsnCode', 'minOrderQuantity', 'maxOrderQuantity',
     ];
     // Operational keys a vendor may change without a fresh admin review
     const operationalKeys = ['stockStatus', 'inStock', 'stockQuantity', 'stock', 'codAllowed'];
