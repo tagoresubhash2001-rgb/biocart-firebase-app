@@ -170,7 +170,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 onAddToCart(product);
               }}
               disabled={!product.inStock}
-              className="flex items-center justify-center gap-1 px-2.5 py-2.5 bg-slate-100 hover:bg-slate-200/85 dark:bg-charcoal-800 dark:hover:bg-charcoal-700 disabled:opacity-50 text-charcoal-900 dark:text-white text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+              className="product-card-action flex items-center justify-center gap-1 px-2.5 py-2.5 bg-slate-100 hover:bg-slate-200/85 dark:bg-charcoal-800 dark:hover:bg-charcoal-700 disabled:opacity-50 text-charcoal-900 dark:text-white text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
               id={`addtocart-btn-${product.id}`}
             >
               <ShoppingBag className="w-3.5 h-3.5" />
@@ -182,7 +182,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 onBuyNow(product);
               }}
               disabled={!product.inStock}
-              className="px-2.5 py-2.5 bg-[#004643] hover:bg-[#003532] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] text-center shadow-md hover:shadow-[#004643]/30 !text-white"
+              className="product-card-action px-2.5 py-2.5 bg-[#004643] hover:bg-[#003532] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] text-center shadow-md hover:shadow-[#004643]/30 !text-white"
               id={`buynow-btn-${product.id}`}
             >
               <span className="!text-white">Buy Now</span>

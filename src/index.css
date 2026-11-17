@@ -1,5 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
-
+/* Google Fonts are loaded from index.html without blocking the first paint. */
 @import "tailwindcss";
 @variant dark (&:where(.dark, .dark *));
 
@@ -656,3 +655,20 @@ html:not(.dark) .bg-white {
   }
 }
 
+/* Touch screens: every tap target is at least 40 × 40 px (WCAG 2.5.8 / QA 2026-11-16).
+   Only sizes change; icons, colours and layout stay as designed. */
+@media (pointer: coarse), (max-width: 767px) {
+  #wishlist-nav-btn, #profile-nav-btn, #cart-nav-btn, #compact-cart-btn, #mobile-menu-toggle-btn,
+  #auth-close-btn, #checkout-close,
+  [title="Add to wishlist"], [title="Remove from wishlist"], [title="Quick View Product"], [title="Copy Customer ID"] {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .product-card-action { min-height: 40px; }
+  #footer-column-grid li > a, #footer-column-grid li > button, #footer-column-grid li > span,
+  #footer-column-grid a[href^="tel:"], #footer-column-grid a[href^="mailto:"] {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+  }
+}
