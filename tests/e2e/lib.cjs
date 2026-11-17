@@ -35,10 +35,11 @@ function watch(page) {
  * Starts Chromium. On machines where the Playwright browser download is missing, set
  * PLAYWRIGHT_CHROMIUM_PATH (or have /opt/pw-browsers/chromium) to use an installed Chromium instead.
  */
-async function launchBrowser() {
-  const { chromium } = require('playwright');
+async function launchBrowser(engine = 'chromium') {
+  const pw = require('playwright');
+  if (engine !== 'chromium') return pw[engine].launch();
   const custom = process.env.PLAYWRIGHT_CHROMIUM_PATH || (fs.existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : null);
-  return chromium.launch(custom ? { executablePath: custom } : {});
+  return pw.chromium.launch(custom ? { executablePath: custom } : {});
 }
 
 module.exports = { serveDist, watch, launchBrowser };

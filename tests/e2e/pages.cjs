@@ -16,13 +16,14 @@ const only = process.argv[3] || null;
 const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 const PIXEL_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
 const VIEWPORTS = [
-  { name: 'iphone13-390x844', width: 390, height: 844, mobile: true, ua: IPHONE_UA },
-  { name: 'pixel7-412x915', width: 412, height: 915, mobile: true, ua: PIXEL_UA },
-  { name: 'ipad-portrait-768x1024', width: 768, height: 1024, mobile: true },
-  { name: 'ipad-landscape-1024x768', width: 1024, height: 768, mobile: true },
-  { name: 'laptop-1366x768', width: 1366, height: 768 },
-  { name: 'desktop-1920x1080', width: 1920, height: 1080 },
-].filter((v) => !only || v.name.startsWith(only));
+  { key: 'iphone13', name: 'iphone13-390x844-webkit', engine: 'webkit', width: 390, height: 844, mobile: true, ua: IPHONE_UA },
+  { key: 'pixel7', name: 'pixel7-412x915-chromium', engine: 'chromium', width: 412, height: 915, mobile: true, ua: PIXEL_UA },
+  { key: 'ipad-portrait', name: 'ipad-portrait-768x1024', engine: 'webkit', width: 768, height: 1024, mobile: true },
+  { key: 'ipad-landscape', name: 'ipad-landscape-1024x768', engine: 'webkit', width: 1024, height: 768, mobile: true },
+  { key: 'laptop', name: 'laptop-1366x768', engine: 'chromium', width: 1366, height: 768 },
+  { key: 'desktop-chromium', name: 'desktop-1920x1080-chromium', engine: 'chromium', width: 1920, height: 1080 },
+  { key: 'desktop-firefox', name: 'desktop-1920x1080-firefox', engine: 'firefox', width: 1920, height: 1080 },
+].filter((v) => !only || v.key === only);
 
 const settle = async (page, ms = 1200) => {
   await page.locator('#global-loader').waitFor({ state: 'detached', timeout: 25000 }).catch(() => {});
@@ -38,7 +39,7 @@ const clickText = async (page, text, opts = {}) => {
 const openSection = async (page, label) => {
   const inMenu = () => page.locator('aside, nav').getByText(label, { exact: true }).filter({ visible: true }).first();
   if (!(await inMenu().isVisible().catch(() => false))) {
-    const toggle = page.locator('button:has(svg.lucide-menu)').filter({ visible: true }).first();
+    const toggle = page.locator('button[aria-label="Open navigation menu"], button:has(svg.lucide-menu)').filter({ visible: true }).first();
     if (await toggle.isVisible().catch(() => false)) { await toggle.click(); await page.waitForTimeout(600); }
   }
   const target = (await inMenu().isVisible().catch(() => false)) ? inMenu() : page.getByRole('button', { name: label, exact: true }).filter({ visible: true }).first();
@@ -77,8 +78,8 @@ const PUBLIC = [
   ['contact', async (p) => go(p, '/contact')],
   ['policy-privacy', async (p) => go(p, '/privacy-policy')],
   ['policy-terms', async (p) => go(p, '/terms-of-service')],
-  ['policy-refund', async (p) => go(p, '/refund-policy')],
-  ['policy-shipping', async (p) => go(p, '/shipping-policy')],
+  ['policy-refund', async (p) => go(p, '/returns-refunds')],
+  ['policy-shipping', async (p) => go(p, '/shipping-customs')],
   ['404', async (p) => go(p, '/this-page-does-not-exist')],
 ];
 const CUSTOMER = [
@@ -110,11 +111,12 @@ const inspect = (mobile) => {
 
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
-  const browser = await launchBrowser();
+  const browsers = {};
   const results = [];
   for (const vp of VIEWPORTS) {
     for (const [role, account, pages] of [['guest', null, PUBLIC], ['customer', ACCOUNTS.customer, CUSTOMER], ['vendor', ACCOUNTS.biocartVendor, VENDOR], ['admin', ACCOUNTS.admin, ADMIN]]) {
-      const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, userAgent: vp.ua, hasTouch: !!vp.mobile, isMobile: !!vp.ua, deviceScaleFactor: 1 });
+      browsers[vp.engine] = browsers[vp.engine] || await launchBrowser(vp.engine);
+      const ctx = await browsers[vp.engine].newContext({ viewport: { width: vp.width, height: vp.height }, userAgent: vp.ua, hasTouch: !!vp.mobile, ...(vp.engine !== 'firefox' ? { isMobile: !!vp.ua } : {}), deviceScaleFactor: 1 });
       const page = await ctx.newPage();
       let log = watch(page);
       let loginError = null;
@@ -141,7 +143,7 @@ const inspect = (mobile) => {
       await ctx.close();
     }
   }
-  await browser.close();
+  for (const b of Object.values(browsers)) await b.close();
   const file = path.join(OUT, only ? `pages-${only}.json` : 'pages.json');
   fs.writeFileSync(file, JSON.stringify(results, null, 1));
   console.log(`\n${results.length} page checks written to ${path.relative(ROOT, file)}`);

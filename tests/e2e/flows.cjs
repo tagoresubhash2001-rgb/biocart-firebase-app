@@ -85,7 +85,7 @@ async function callFn(name, data, account) {
 const openSection = async (page, label) => {
   const inMenu = () => page.locator('aside, nav').getByText(label, { exact: true }).filter({ visible: true }).first();
   if (!(await inMenu().isVisible().catch(() => false))) {
-    const toggle = page.locator('button:has(svg.lucide-menu)').filter({ visible: true }).first();
+    const toggle = page.locator('button[aria-label="Open navigation menu"], button:has(svg.lucide-menu)').filter({ visible: true }).first();
     if (await toggle.isVisible().catch(() => false)) { await toggle.click(); await page.waitForTimeout(600); }
   }
   const target = (await inMenu().isVisible().catch(() => false)) ? inMenu() : page.getByRole('button', { name: label, exact: true }).filter({ visible: true }).first();
