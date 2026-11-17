@@ -348,7 +348,8 @@ export const Home: React.FC = () => {
               <button
                 key={dotIdx}
                 onClick={() => setCurrentSlideIndex(dotIdx)}
-                className={`transition-all rounded-full ${
+                // the visible dot stays small; the transparent ::before gives a 32px tap area
+                className={`relative before:absolute before:-inset-3 before:content-[''] transition-all rounded-full ${
                   dotIdx === (currentSlideIndex % activeBanners.length)
                     ? 'w-7 h-2 bg-emerald-400'
                     : 'w-2 h-2 bg-white/50 hover:bg-white/80'
@@ -427,6 +428,7 @@ export const Home: React.FC = () => {
                     </span>
                     {ad.ctaText && (
                       <a
+                        tabIndex={-1} /* copy of the link above, hidden from screen readers: keep it out of keyboard focus too */
                         href={ad.ctaLink || '#shop'}
                         onClick={(e) => {
                           if (ad.ctaLink === '#shop' || !ad.ctaLink) {

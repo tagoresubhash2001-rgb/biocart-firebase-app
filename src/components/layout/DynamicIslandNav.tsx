@@ -300,6 +300,7 @@ export const DynamicIslandNav: React.FC = () => {
                     onClick={handleWishlistClick}
                     className="relative p-2 text-black dark:text-slate-300 hover:text-nature-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer"
                     id="wishlist-nav-btn"
+                    aria-label="Wishlist"
                   >
                     <Heart className="w-4 h-4" />
                     {wishlist.length > 0 && (
@@ -312,6 +313,7 @@ export const DynamicIslandNav: React.FC = () => {
                     onClick={handleCartClick}
                     className="relative p-2 text-black dark:text-slate-300 hover:text-[#004643] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer"
                     id="cart-nav-btn"
+                    aria-label="Shopping bag"
                   >
                     <ShoppingBag className="w-4 h-4" />
                     {totalCartItems > 0 && (
@@ -330,6 +332,7 @@ export const DynamicIslandNav: React.FC = () => {
                         : 'text-black dark:text-slate-300 hover:text-[#004643] dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5'
                     }`}
                     id="profile-nav-btn"
+                    aria-label="My account"
                   >
                     <User className="w-4 h-4" />
                     {user && (
@@ -344,6 +347,7 @@ export const DynamicIslandNav: React.FC = () => {
                     onClick={handleToggleMobileMenu}
                     className="md:hidden p-2 text-black dark:text-slate-300 hover:text-nature-700 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer"
                     id="mobile-menu-toggle-btn"
+                    aria-label="Open menu"
                   >
                     {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                   </button>
