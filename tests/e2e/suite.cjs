@@ -1,5 +1,5 @@
 // Runs inside `firebase emulators:exec` (see run.cjs): seed → rules tests → flow tests → optional page crawl.
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const { serveDist } = require('./lib.cjs');
 const { seed } = require('./seed.cjs');
@@ -13,17 +13,18 @@ const pagesArg = args.find((a) => a.startsWith('--pages'));
   await seed();
   console.log('Emulators seeded with test data.');
   const { srv, base } = await serveDist(path.join(ROOT, 'dist-e2e'));
-  const node = (file, extra = []) => spawnSync(process.execPath, [path.join(__dirname, file), ...extra], { cwd: ROOT, stdio: 'inherit', env: process.env }).status;
+  // async on purpose: this process also serves the site, so it must stay responsive while a test runs
+  const node = (file, extra = []) => new Promise((resolve) => spawn(process.execPath, [path.join(__dirname, file), ...extra], { cwd: ROOT, stdio: 'inherit', env: process.env }).on('exit', (code) => resolve(code ?? 1)));
   const summary = [];
   console.log('\n===== Security rules =====');
-  summary.push(['Security rules', node('rules.cjs')]);
+  summary.push(['Security rules', await node('rules.cjs')]);
   console.log('\n===== Browser flows (customer → vendor → admin) =====');
-  summary.push(['Browser flows', node('flows.cjs', [base])]);
+  summary.push(['Browser flows', await node('flows.cjs', [base])]);
   if (pagesArg) {
     console.log('\n===== Page × viewport crawl =====');
     const only = pagesArg.includes('=') ? [pagesArg.split('=')[1]] : [];
-    summary.push(['Page crawl', node('pages.cjs', [base, ...only])]);
-    summary.push(['Report', node('report.cjs')]);
+    summary.push(['Page crawl', await node('pages.cjs', [base, ...only])]);
+    summary.push(['Report', await node('report.cjs')]);
   }
   srv.close();
   console.log('\n===== Summary =====');

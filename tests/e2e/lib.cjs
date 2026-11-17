@@ -21,10 +21,12 @@ function serveDist(dir, port = 0) {
 
 /** Collects console errors, page crashes and failed requests for a page. */
 function watch(page) {
-  const log = { consoleErrors: [], pageErrors: [], failedRequests: [] };
-  page.on('console', (m) => { if (m.type() === 'error') log.consoleErrors.push(m.text().slice(0, 300)); });
+  const log = { consoleErrors: [], pageErrors: [], failedRequests: [], tag: '' };
+  // The Auth emulator does not implement the reCAPTCHA config endpoint (HTTP 501); the real service does.
+  const emulatorNoise = (t) => /status of 501/.test(t);
+  page.on('console', (m) => { if (m.type() === 'error' && !emulatorNoise(m.text())) log.consoleErrors.push((log.tag ? `[during ${log.tag}] ` : '') + m.text().slice(0, 300)); });
   page.on('pageerror', (e) => log.pageErrors.push(String(e.message).slice(0, 300)));
-  page.on('response', (r) => { if (r.status() >= 400) log.failedRequests.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 160)}`); });
+  page.on('response', (r) => { if (r.status() >= 400 && !/recaptchaConfig/.test(r.url())) log.failedRequests.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 160)}`); });
   page.on('requestfailed', (r) => { const f = r.failure()?.errorText || ''; if (!/ERR_ABORTED/.test(f)) log.failedRequests.push(`FAILED ${r.method()} ${r.url().slice(0, 160)} ${f}`); });
   return log;
 }

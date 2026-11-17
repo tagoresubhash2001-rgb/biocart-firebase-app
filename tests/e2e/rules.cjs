@@ -36,6 +36,7 @@ const check = async (id, title, promise) => {
     await setDoc(doc(db, 'system_private/ekart_token'), { accessToken: 'x' });
     await setDoc(doc(db, 'ekart_api_logs/log1'), { path: '/api/v1/package/create', status: 400 });
     await setDoc(doc(db, 'financial_ledger/l1'), { vendorId: 'biocart', amountPaise: 1 });
+    await setDoc(doc(db, 'vendor_settlements/s1'), { vendorId: 'biocart', amountPaise: 1 });
     await setDoc(doc(db, 'vendors/biocart/private/settlement'), { accountNumber: '000111222333' });
     await setDoc(doc(db, 'users/test-other-customer'), { uid: 'test-other-customer', role: 'customer', status: 'active' });
     const st = ctx.storage(BUCKET);
@@ -88,6 +89,12 @@ const check = async (id, title, promise) => {
   await check('SEC-VENDOR', 'Vendor cannot delete a product (no hard deletes)', assertFails(deleteDoc(doc(vendorB.firestore(), 'products/test-neem-oil'))));
   await check('SEC-VENDOR', 'Vendor cannot change shop settings', assertFails(setDoc(doc(vendorB.firestore(), 'settings/courierRates'), { upTo2kg: 1 }, { merge: true })));
   await check('SEC-VENDOR', 'Vendor cannot read the audit log', assertFails(getDocs(collection(vendorB.firestore(), 'audit_logs'))));
+  // The Biocart vendor's id ('biocart') is not its owner's login id: ownership comes from vendors/biocart.ownerUid.
+  await check('SEC-VENDOR', 'Vendor whose id differs from the login id can read its own ledger entries', assertSucceeds(getDoc(doc(vendorB.firestore(), 'financial_ledger/l1'))));
+  await check('SEC-VENDOR', 'Vendor whose id differs from the login id can read its own settlements', assertSucceeds(getDoc(doc(vendorB.firestore(), 'vendor_settlements/s1'))));
+  await check('SEC-VENDOR', "Vendor cannot read another vendor's ledger entries", assertFails(getDoc(doc(vendorF.firestore(), 'financial_ledger/l1'))));
+  await check('SEC-VENDOR', "Vendor cannot read another vendor's settlements", assertFails(getDoc(doc(vendorF.firestore(), 'vendor_settlements/s1'))));
+  await check('SEC-CUST', 'Customer cannot read settlements', assertFails(getDoc(doc(customer.firestore(), 'vendor_settlements/s1'))));
   await check('SEC-VENDOR', "Vendor cannot list other vendors' orders", assertFails(getDocs(query(collection(vendorF.firestore(), 'orders/TEST-RULES-1/vendor_orders'), where('vendorId', '==', 'biocart')))));
 
   // --- admin sanity ---

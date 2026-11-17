@@ -23,8 +23,10 @@ const db = getFirestore();
 
 const results = [];
 let current = null;
+let currentLog = null;
 async function step(id, title, fn) {
   const t0 = Date.now();
+  if (currentLog) currentLog.tag = id;
   try {
     const evidence = await fn();
     results.push({ id, title, pass: true, evidence: evidence || '', ms: Date.now() - t0 });
@@ -121,7 +123,7 @@ const cartText = async (page, mustInclude) => {
   await cctx.route(/sdk\.cashfree\.com/, (r) => r.fulfill({ status: 200, contentType: 'text/javascript', body: 'window.Cashfree = function () { return { checkout: async function (o) { window.__cashfreeCheckoutCalledWith = o; return {}; } }; };' }));
   const cp = await cctx.newPage();
   current = cp;
-  const clog = watch(cp);
+  const clog = watch(cp); currentLog = clog;
   const fnCalls = [];
   cp.on('response', async (r) => { const m = r.url().match(/asia-southeast1\/(\w+)$/); if (m) { let body = null; try { body = await r.json(); } catch { /* ignore */ } fnCalls.push({ fn: m[1], status: r.status(), body, request: r.request().postDataJSON?.() }); } });
 
@@ -323,7 +325,7 @@ const cartText = async (page, mustInclude) => {
   const vctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
   const vp = await vctx.newPage();
   current = vp;
-  const vlog = watch(vp);
+  const vlog = watch(vp); currentLog = vlog;
   const dialogs = [];
   vp.on('dialog', async (d) => { dialogs.push(d.message()); await d.accept(/weight/i.test(d.message()) ? '1500' : /size/i.test(d.message()) ? '20x15x10' : undefined); });
 
@@ -424,7 +426,7 @@ const cartText = async (page, mustInclude) => {
   const actx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
   const ap = await actx.newPage();
   current = ap;
-  const alog = watch(ap);
+  const alog = watch(ap); currentLog = alog;
 
   await step('ADM-01', 'Admin logs in and sees the admin panel', async () => {
     await login(ap, ACCOUNTS.admin);
@@ -473,8 +475,11 @@ const cartText = async (page, mustInclude) => {
     const on = /Cash on Delivery/i.test(await gp.locator('#step-checkout').innerText());
     await gp.screenshot({ path: path.join(SHOTS, 'admin-04a-cod-on-checkout.jpg'), type: 'jpeg', quality: 55 });
     await callFn('updateFinancialPolicy', { codEnabled: false }, ACCOUNTS.admin);
-    await gp.locator('#checkout-close').click(); await gp.waitForTimeout(300); await openCart(gp); await cartText(gp, '1800');
-    await gp.getByRole('button', { name: /Proceed to Secure Checkout/i }).click(); await gp.waitForTimeout(2500);
+    // close and reopen the cart so the checkout asks the backend for a fresh quote
+    await gp.locator('#checkout-close').click(); await gp.waitForTimeout(300); await openCart(gp); await gp.waitForTimeout(2500);
+    const proceed = gp.getByRole('button', { name: /Proceed to Secure Checkout/i });
+    if (await proceed.isVisible().catch(() => false)) await proceed.click();
+    await gp.locator('#step-checkout').waitFor({ state: 'visible', timeout: 8000 }); await gp.waitForTimeout(2500);
     const off = /Cash on Delivery/i.test(await gp.locator('#step-checkout').innerText());
     await gp.screenshot({ path: path.join(SHOTS, 'admin-04b-cod-off-checkout.jpg'), type: 'jpeg', quality: 55 });
     await gctx.close();
