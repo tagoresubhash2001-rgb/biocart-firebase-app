@@ -314,6 +314,11 @@ h1, h2, h3, h4, h5, h6,
   font-weight: 700;
 }
 
+/* Panel headings use the plum text colour instead of the storefront's deep green. */
+.panel h1, .panel h2, .panel h3, .panel h4, .panel h5, .panel h6 {
+  color: var(--text);
+}
+
 .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6,
 .dark .h1, .dark .h2, .dark .h3, .dark .h4, .dark .h5, .dark .h6 {
   color: #f8fafc;
