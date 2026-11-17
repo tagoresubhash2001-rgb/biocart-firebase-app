@@ -84,7 +84,9 @@ async function callFn(name, data, account) {
 }
 const openSection = async (page, label) => {
   const inMenu = () => page.locator('aside, nav').getByText(label, { exact: true }).filter({ visible: true }).first();
-  if (!(await inMenu().isVisible().catch(() => false))) {
+  // On phones the side menu is slid off-screen (still "visible" to the browser) until the menu button is pressed.
+  const inView = await inMenu().evaluate((el) => { const r = el.getBoundingClientRect(); return r.right > 0 && r.left < innerWidth; }).catch(() => false);
+  if (!inView) {
     const toggle = page.locator('button[aria-label="Open navigation menu"], button:has(svg.lucide-menu)').filter({ visible: true }).first();
     if (await toggle.isVisible().catch(() => false)) { await toggle.click(); await page.waitForTimeout(600); }
   }
