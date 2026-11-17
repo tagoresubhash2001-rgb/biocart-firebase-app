@@ -111,23 +111,10 @@ export const ProductDetails: React.FC = () => {
     setBundleChecked([true, true, true]);
   }, [activeProductDetails]);
 
-  if (!activeProductDetails) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
-        <Package className="w-16 h-16 text-slate-300 dark:text-charcoal-700" />
-        <h2 className="text-2xl font-display font-bold text-nature-900 dark:text-nature-400">Product Not Found</h2>
-        <button onClick={() => setTab('shop')} className="px-8 py-3 bg-nature-700 hover:bg-nature-800 text-white rounded-full font-bold transition-all hover:scale-105 cursor-pointer">
-          Return to Shop
-        </button>
-      </div>
-    );
-  }
-
-  const safeProduct: Product = activeProductDetails;
-
+  // Must run on every render (before the "not found" early return): React requires the same hooks each time.
   // Related products from canonical catalog with smart fallback
   const relatedProducts = React.useMemo(() => {
-    if (!safeProduct) return [];
+    if (!product) return [];
     
     // 1. Same-category active products (excluding current product)
     const sameCategory = realtimeProducts.filter(
@@ -149,6 +136,21 @@ export const ProductDetails: React.FC = () => {
 
     return [...sameCategory, ...relatedFallback.slice(0, needed)];
   }, [realtimeProducts, product]);
+
+  if (!activeProductDetails) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
+        <Package className="w-16 h-16 text-slate-300 dark:text-charcoal-700" />
+        <h2 className="text-2xl font-display font-bold text-nature-900 dark:text-nature-400">Product Not Found</h2>
+        <button onClick={() => setTab('shop')} className="px-8 py-3 bg-nature-700 hover:bg-nature-800 text-white rounded-full font-bold transition-all hover:scale-105 cursor-pointer">
+          Return to Shop
+        </button>
+      </div>
+    );
+  }
+
+  const safeProduct: Product = activeProductDetails;
+
 
   // Frequently Bought Together bundle recommendations
   const getFrequentlyBoughtTogetherProducts = (current: Product): Product[] => {
