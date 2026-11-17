@@ -34,14 +34,15 @@ const clickText = async (page, text, opts = {}) => {
   await loc.click({ timeout: 8000 });
   await page.waitForTimeout(opts.wait || 1500);
 };
-/** Opens the panel sidebar on small screens (it collapses behind a menu button). */
+/** Opens a panel section from the side menu (on small screens the menu is behind a ☰ button). */
 const openSection = async (page, label) => {
-  const item = page.getByRole('button', { name: label, exact: true }).or(page.getByText(label, { exact: true })).filter({ visible: true }).first();
-  if (!(await item.isVisible().catch(() => false))) {
-    const menu = page.locator('button:has(svg.lucide-menu), button[aria-label*="menu" i]').filter({ visible: true }).first();
-    if (await menu.isVisible().catch(() => false)) { await menu.click(); await page.waitForTimeout(500); }
+  const inMenu = () => page.locator('aside, nav').getByText(label, { exact: true }).filter({ visible: true }).first();
+  if (!(await inMenu().isVisible().catch(() => false))) {
+    const toggle = page.locator('button:has(svg.lucide-menu)').filter({ visible: true }).first();
+    if (await toggle.isVisible().catch(() => false)) { await toggle.click(); await page.waitForTimeout(600); }
   }
-  await item.click({ timeout: 8000 });
+  const target = (await inMenu().isVisible().catch(() => false)) ? inMenu() : page.getByRole('button', { name: label, exact: true }).filter({ visible: true }).first();
+  await target.click({ timeout: 8000 });
   await page.waitForTimeout(1800);
 };
 
@@ -82,7 +83,7 @@ const PUBLIC = [
 ];
 const CUSTOMER = [
   ['checkout', async (p) => { await addToCart(p); await p.locator('#cart-nav-btn, #compact-cart-btn').filter({ visible: true }).first().click({ timeout: 8000 }).catch(async () => { await p.locator('#mobile-menu-toggle-btn').click(); await p.locator('#mobile-menu-cart').click(); }); await p.waitForTimeout(1500); await p.getByRole('button', { name: /checkout|proceed|continue/i }).filter({ visible: true }).first().click({ timeout: 8000 }).catch(() => {}); await p.waitForTimeout(2500); }],
-  ...['overview', 'profile', 'orders', 'track', 'wishlist', 'addresses', 'security'].map((t) => [`account-${t}`, async (p) => go(p, `/dashboard#tab=${t}`)]),
+  ...['overview', 'profile', 'orders', 'track', 'wishlist', 'addresses', 'security'].map((t) => [`account-${t}`, async (p) => go(p, `/dashboard?tab=${t}`)]),
 ];
 const VENDOR = [
   ['vendor-dashboard', async (p) => go(p, '/vendor')],

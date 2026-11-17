@@ -12,7 +12,8 @@
     "lint": "tsc --noEmit",
     "test": "npm --prefix functions run build && node tests/backend/money-flow.e2e.cjs",
     "verify": "tsc --noEmit && npm --prefix functions exec tsc -- --noEmit && npm test && npm run build && npm run test:ui",
-    "test:ui": "node tests/ui/checkout-smoke.cjs"
+    "test:ui": "node tests/ui/checkout-smoke.cjs",
+    "test:e2e": "node tests/e2e/run.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

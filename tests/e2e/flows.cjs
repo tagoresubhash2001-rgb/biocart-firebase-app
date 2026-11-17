@@ -43,6 +43,16 @@ const settle = async (page, ms = 1200) => { await page.locator('#global-loader')
 const go = async (page, p) => { await page.goto(base + p, { waitUntil: 'domcontentloaded', timeout: 45000 }); await settle(page); };
 const bodyText = (page) => page.evaluate(() => document.body.innerText);
 const money = (t) => t.replace(/,/g, '');
+/** Waits for the newest recorded call of a Cloud Function that satisfies `ok` (responses arrive asynchronously). */
+const waitCall = async (list, fn, ok = () => true, timeout = 20000) => {
+  const end = Date.now() + timeout;
+  for (;;) {
+    const hit = list.filter((c) => c.fn === fn && c.body?.result && ok(c.body.result)).pop();
+    if (hit) return hit;
+    if (Date.now() > end) throw new Error(`no ${fn} response matched (last: ${JSON.stringify(list.filter((c) => c.fn === fn).pop()?.body).slice(0, 160)})`);
+    await new Promise((r) => setTimeout(r, 250));
+  }
+};
 
 async function openLogin(page) {
   await go(page, '/dashboard');
@@ -71,9 +81,13 @@ async function callFn(name, data, account) {
   return j.error ? { ok: false, error: `${j.error.status}: ${j.error.message}` } : { ok: true, data: j.result };
 }
 const openSection = async (page, label) => {
-  const item = page.getByRole('button', { name: label, exact: true }).or(page.getByText(label, { exact: true })).filter({ visible: true }).first();
-  if (!(await item.isVisible().catch(() => false))) { const menu = page.locator('button:has(svg.lucide-menu)').filter({ visible: true }).first(); if (await menu.isVisible().catch(() => false)) { await menu.click(); await page.waitForTimeout(500); } }
-  await item.click({ timeout: 8000 });
+  const inMenu = () => page.locator('aside, nav').getByText(label, { exact: true }).filter({ visible: true }).first();
+  if (!(await inMenu().isVisible().catch(() => false))) {
+    const toggle = page.locator('button:has(svg.lucide-menu)').filter({ visible: true }).first();
+    if (await toggle.isVisible().catch(() => false)) { await toggle.click(); await page.waitForTimeout(600); }
+  }
+  const target = (await inMenu().isVisible().catch(() => false)) ? inMenu() : page.getByRole('button', { name: label, exact: true }).filter({ visible: true }).first();
+  await target.click({ timeout: 8000 });
   await page.waitForTimeout(2000);
 };
 const openCart = async (page) => {
@@ -159,8 +173,8 @@ const cartText = async (page, mustInclude) => {
     await openCart(cp);
     const t = await cartText(cp, '749');
     expect(/99/.test(t) && /749/.test(t), 'cart does not show ₹99 delivery and ₹749 total');
-    const q = fnCalls.filter((c) => c.fn === 'quoteOrder').pop();
-    expect(q && q.body?.result?.shippingAmount === 99 && q.body.result.totalAmount === 749, 'quoteOrder was not called or returned different numbers');
+    const q = await waitCall(fnCalls, 'quoteOrder', (r) => r.totalAmount === 749);
+    expect(q.body.result.shippingAmount === 99, `quoteOrder delivery fee is ${q.body.result.shippingAmount}`);
     await shot(cp, 'customer-04-cart-99-delivery');
     return `quoteOrder → subtotal ${q.body.result.subtotal}, delivery ${q.body.result.shippingAmount}, total ${q.body.result.totalAmount}; cart shows the same`;
   });
@@ -170,15 +184,18 @@ const cartText = async (page, mustInclude) => {
     await addProduct(cp, 'test-millet-1450');
     await openCart(cp);
     let t = await cartText(cp, '1650');
-    const q = fnCalls.filter((c) => c.fn === 'quoteOrder').pop();
-    expect(q.body.result.shippingAmount === 0 && q.body.result.totalAmount === 1650, `quote says delivery ${q.body.result.shippingAmount}, total ${q.body.result.totalAmount}`);
+    const q = await waitCall(fnCalls, 'quoteOrder', (r) => r.totalAmount === 1650);
+    expect(q.body.result.shippingAmount === 0, `quote says delivery ${q.body.result.shippingAmount}`);
     expect(/Wild Forest Honey/.test(t) && /Rule Eight Organic Millet/.test(t), 'both products should be in the cart');
     // quantity + on the first line, then − back
     const plus = cp.locator('#cart-items-container button', { hasText: '+' }).first();
     await plus.click();
-    t = await cartText(cp, '2300').catch(async () => cartText(cp, '2650'));
-    const afterPlus = fnCalls.filter((c) => c.fn === 'quoteOrder').pop().body.result.totalAmount;
+    const plusQuote = await waitCall(fnCalls, 'quoteOrder', (r) => r.totalAmount === 2300 || r.totalAmount === 2650);
+    const afterPlus = plusQuote.body.result.totalAmount;
+    await cartText(cp, String(afterPlus));
     await cp.locator('#cart-items-container button', { hasText: /^[-−]$/ }).first().click();
+    fnCalls.length = 0;
+    await waitCall(fnCalls, 'quoteOrder', (r) => r.totalAmount === 1650);
     t = await cartText(cp, '1650');
     // remove the second line, then add it back
     const before = await cp.locator('#cart-items-container').innerText();
@@ -190,6 +207,7 @@ const cartText = async (page, mustInclude) => {
     const missing = /Wild Forest Honey/.test(after) ? 'test-millet-1450' : 'test-honey';
     await addProduct(cp, missing);
     await openCart(cp);
+    await waitCall(fnCalls, 'quoteOrder', (r) => r.totalAmount === 1650);
     await cartText(cp, '1650');
     await shot(cp, 'customer-05-cart-two-vendors-free-delivery');
     return `two vendors, total ₹1650, delivery free; qty + → ₹${afterPlus}, − → ₹1650; remove and re-add work`;
@@ -256,7 +274,8 @@ const cartText = async (page, mustInclude) => {
     orderId = create.body.result.orderId;
     expect(cf?.body?.result?.paymentSessionId === `session_${orderId}`, `createCashfreeOrder did not return a payment session: ${JSON.stringify(cf?.body).slice(0, 200)}`);
     const sent = JSON.stringify(create.request || {});
-    expect(!/"(total|amount|price|subtotal|shipping)[A-Za-z]*":/.test(sent.replace(/"paymentMethod"/g, '')), `the browser sent money fields to createOrder: ${sent.slice(0, 200)}`);
+    const moneyKeys = [...sent.matchAll(/"([A-Za-z]+)":/g)].map((m) => m[1]).filter((k) => /total|amount|price|subtotal|shippingFee|shippingAmount|discount|commission|payable|payout|paise|tax|courier/i.test(k));
+    expect(moneyKeys.length === 0, `the browser sent money fields to createOrder: ${moneyKeys.join(', ')}`);
     expect(await cp.locator('#step-success').isVisible(), 'payment was simulated as paid but the success screen did not show');
     const order = (await db.doc(`orders/${orderId}`).get()).data();
     expect(order.status === 'confirmed' && order.paymentStatus === 'paid' && order.totalAmountPaise === 165000, `order is ${order.status}/${order.paymentStatus} total ${order.totalAmountPaise}`);
@@ -277,7 +296,7 @@ const cartText = async (page, mustInclude) => {
   });
 
   await step('CUS-10', 'My Orders shows the new order', async () => {
-    await go(cp, '/dashboard#tab=orders');
+    await go(cp, '/dashboard?tab=orders');
     await cp.waitForTimeout(1500);
     const t = await bodyText(cp);
     expect(t.includes(orderId), `order ${orderId} is not listed in My Orders`);
@@ -297,7 +316,7 @@ const cartText = async (page, mustInclude) => {
     return 'both panels refuse the customer account';
   });
   const customerErrors = [...new Set([...clog.pageErrors, ...clog.consoleErrors])];
-  await step('CUS-12', 'No JavaScript errors during the whole customer journey', async () => { expect(customerErrors.length === 0, customerErrors.slice(0, 4).join(' | ')); return '0 console errors, 0 crashes'; });
+  await step('CUS-12', 'No JavaScript errors during the whole customer journey', async () => { expect(customerErrors.length === 0, `${customerErrors.slice(0, 4).join(' | ')} || requests: ${[...new Set(clog.failedRequests)].slice(0, 4).join(' | ')}`); return '0 console errors, 0 crashes'; });
   await cctx.close();
 
   // =============================== VENDOR ===============================
@@ -360,7 +379,9 @@ const cartText = async (page, mustInclude) => {
     await vp.getByRole('button', { name: /Dispatch EKART/ }).first().click({ timeout: 10000 });
     await vp.waitForFunction(() => /TESTAWB\d+/.test(document.body.innerText), null, { timeout: 30000 });
     control({ ekartAllowBooking: false });
-    const so = (await db.doc(`orders/${orderId}/vendor_orders/biocart`).get()).data();
+    // the tracking id appears first; the courier charge is settled a moment later in the same backend call
+    let so;
+    for (let i = 0; i < 40; i++) { so = (await db.doc(`orders/${orderId}/vendor_orders/biocart`).get()).data(); if (so.courier?.status === 'held_actual') break; await vp.waitForTimeout(500); }
     expect(so.status === 'shipped' && /^TESTAWB/.test(so.awbNumber) && so.courier.status === 'held_actual' && so.courierChargePaise === 10620, JSON.stringify({ s: so.status, awb: so.awbNumber, c: so.courier?.status, p: so.courierChargePaise }));
     await shot(vp, 'vendor-05-dispatched');
     return `AWB ${so.awbNumber} from the EKART mock; hold now "actual" ₹106.20 (1.5 kg booked)`;
@@ -394,7 +415,8 @@ const cartText = async (page, mustInclude) => {
     expect(/length/i.test(t) && /width|breadth/i.test(t) && /height/i.test(t), 'no length / width / height fields in the product form');
     return 'weight and L × B × H fields present';
   });
-  const vendorErrors = [...new Set([...vlog.pageErrors, ...vlog.consoleErrors])];
+  // The blocked booking in VEN-04 is expected to log EKART's rejection; anything else is a real error.
+  const vendorErrors = [...new Set([...vlog.pageErrors, ...vlog.consoleErrors])].filter((e) => !/status of 503|Failed to create shipment: FirebaseError: EKART could not book/.test(e));
   await step('VEN-09', 'No JavaScript errors during the vendor journey', async () => { expect(vendorErrors.length === 0, vendorErrors.slice(0, 4).join(' | ')); return '0 console errors, 0 crashes'; });
   await vctx.close();
 
@@ -444,6 +466,7 @@ const cartText = async (page, mustInclude) => {
     // browser check with a COD-enabled product
     const gctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
     const gp = await gctx.newPage();
+    await login(gp, ACCOUNTS.customer);
     await addProduct(gp, 'test-ghee'); await openCart(gp); await cartText(gp, '1800');
     await gp.getByRole('button', { name: /Proceed to Secure Checkout/i }).click();
     await gp.locator('#step-checkout').waitFor({ state: 'visible' }); await gp.waitForTimeout(2500);
