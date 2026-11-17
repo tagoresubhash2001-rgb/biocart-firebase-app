@@ -206,6 +206,8 @@ export const createEkartShipment = onCall({ region: REGION, secrets: EKART_SECRE
     awb: booked.trackingId, waybill: booked.trackingId, trackingNumber: booked.trackingId, vendorWaybill: booked.wbn || null, courierPartner: booked.vendor || null,
     status: 'pickup_pending', trackingUrl, weightGrams: weight, lengthCm: L, widthCm: W, heightCm: H,
     earningsReleased: false, events: [], lastEventAt: 0, bookedBy: caller.uid, dispatchedAt: ts, updatedAt: ts,
+    // an earlier failed attempt is no longer relevant once EKART has accepted the parcel
+    lastError: FieldValue.delete(), lastErrorStatus: FieldValue.delete(), lastErrorResponse: FieldValue.delete(), lastErrorRequest: FieldValue.delete(),
   }, { merge: true });
   await ref.update({
     status: 'shipped', orderStatus: 'shipped', shipmentStatus: 'pickup_pending', awbNumber: booked.trackingId, trackingNumber: booked.trackingId,
