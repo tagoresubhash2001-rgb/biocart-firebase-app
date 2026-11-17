@@ -1609,6 +1609,9 @@ export class AdminService {
         });
         fallbackList.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
         callback(fallbackList);
+      }, (fallbackErr) => {
+        console.warn('Financial ledger not readable for this account:', fallbackErr?.message);
+        callback([]);
       });
     });
   }

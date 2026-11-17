@@ -484,7 +484,9 @@ service cloud.firestore {
     // 27. Marketplace Financial Double-Entry Ledger (Zero-Trust)
     match /financial_ledger/{entryId} {
       // Only administrators can read the global ledger (or vendors can query where vendorId == request.auth.uid)
-      allow read: if isAdmin() || (isSignedIn() && resource.data.vendorId == request.auth.uid);
+      // A vendor reads only its own entries. Vendor ids are not always the owner's login id (e.g. 'biocart'),
+      // so ownership is checked through the vendor document, the same way as for wallets and orders.
+      allow read: if isAdmin() || (isSignedIn() && (resource.data.vendorId == request.auth.uid || isVendorOwner(resource.data.vendorId)));
       // Ledger writes are strictly Admin SDK / Cloud Functions only
       allow write: if false;
     }
@@ -492,7 +494,7 @@ service cloud.firestore {
     // 28. Vendor Payouts & Settlement Batches
     match /vendor_settlements/{settlementId} {
       // Admins can read all settlement batches; vendors can read only their own settlement records
-      allow read: if isAdmin() || (isSignedIn() && resource.data.vendorId == request.auth.uid);
+      allow read: if isAdmin() || (isSignedIn() && (resource.data.vendorId == request.auth.uid || isVendorOwner(resource.data.vendorId)));
       // Settlements are never client-writable (written by backend callables / Admin SDK only)
       allow write: if false;
     }
