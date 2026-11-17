@@ -1,4 +1,5 @@
 import React from 'react';
+import { optimizedImage, retryOriginal } from '../../utils/optimizedImage';
 import { motion } from 'motion/react';
 import { CategoryItem } from '../../types';
 
@@ -86,10 +87,11 @@ export const CategoryCircularNav: React.FC<CategoryCircularNavProps> = ({
               }`}
             >
               <img 
-                src={cat.image} 
-                alt={cat.name}
+                src={optimizedImage(cat.image)} 
+                alt="" /* the category name is printed right below the picture */
                 loading="lazy"
                 onError={(e) => {
+                  if (retryOriginal(e.target as HTMLImageElement, cat.image)) return;
                   (e.target as HTMLImageElement).src = '/assets/products/prod_soil_mix.png';
                 }}
                 className={`w-full h-full object-cover object-center transition-all duration-500 group-hover:scale-110 ${

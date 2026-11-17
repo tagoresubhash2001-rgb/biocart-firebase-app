@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { optimizedImage } from '../../utils/optimizedImage';
 
 export interface SafeImageProps {
   src: string;
@@ -9,7 +10,8 @@ export interface SafeImageProps {
 }
 
 export const SafeImage: React.FC<SafeImageProps> = ({ src, fallbackSrc, alt, className = '', id }) => {
-  const [imgSrc, setImgSrc] = useState(src);
+  // Try the small .webp copy first, then the original, then the fallback picture.
+  const [imgSrc, setImgSrc] = useState(optimizedImage(src));
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -28,6 +30,10 @@ export const SafeImage: React.FC<SafeImageProps> = ({ src, fallbackSrc, alt, cla
         referrerPolicy="no-referrer"
         onLoad={() => setIsLoaded(true)}
         onError={() => {
+          if (imgSrc !== src && imgSrc === optimizedImage(src)) {
+            setImgSrc(src);
+            return;
+          }
           if (!hasError) {
             setImgSrc(fallbackSrc);
             setHasError(true);

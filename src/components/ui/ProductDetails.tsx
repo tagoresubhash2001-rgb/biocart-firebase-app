@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { optimizedImage, retryOriginal } from '../../utils/optimizedImage';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../../context/AppContext';
 import { 
@@ -281,7 +282,8 @@ export const ProductDetails: React.FC = () => {
               id="gallery-zoom-viewport"
             >
               <img
-                src={currentMainImage}
+                src={optimizedImage(currentMainImage)}
+                onError={(e) => { retryOriginal(e.currentTarget, currentMainImage); }}
                 alt={`${product.name} - View ${activeImageIdx + 1}`}
                 referrerPolicy="no-referrer"
                 className={`w-full h-full object-contain p-4 sm:p-6 transition-transform duration-100 ${
@@ -359,7 +361,7 @@ export const ProductDetails: React.FC = () => {
                   }`}
                   aria-label={`View product image ${idx + 1}`}
                 >
-                  <img src={img} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
+                  <img src={optimizedImage(img)} onError={(e) => { retryOriginal(e.currentTarget, img); }} loading="lazy" alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
                 </button>
               ))}
             </div>
@@ -822,7 +824,7 @@ export const ProductDetails: React.FC = () => {
                       bundleChecked[idx] ? 'border-emerald-600 scale-105' : 'border-slate-200 opacity-40'
                     }`}
                   >
-                    <img src={item.image} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
+                    <img src={optimizedImage(item.image)} onError={(e) => { retryOriginal(e.currentTarget, item.image); }} loading="lazy" alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
                     {bundleChecked[idx] && (
                       <div className="absolute top-1 right-1 bg-emerald-600 text-white rounded-full p-0.5">
                         <ShieldCheck className="w-2.5 h-2.5" />
@@ -982,7 +984,8 @@ export const ProductDetails: React.FC = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <img
-                src={currentMainImage}
+                src={optimizedImage(currentMainImage)}
+                onError={(e) => { retryOriginal(e.currentTarget, currentMainImage); }}
                 alt={product.name}
                 referrerPolicy="no-referrer"
                 className="max-h-[75vh] max-w-[85vw] object-contain transition-transform duration-200 select-none"
@@ -1027,7 +1030,7 @@ export const ProductDetails: React.FC = () => {
                       activeImageIdx === idx ? 'border-emerald-400 scale-105' : 'border-transparent opacity-50 hover:opacity-80'
                     }`}
                   >
-                    <img src={img} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
+                    <img src={optimizedImage(img)} onError={(e) => { retryOriginal(e.currentTarget, img); }} loading="lazy" alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
                   </button>
                 ))}
               </div>
